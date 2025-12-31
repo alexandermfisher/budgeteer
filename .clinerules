@@ -1,0 +1,166 @@
+# =============================================================================
+# CLINE RULES CONFIGURATION - Budgeteer Project
+# =============================================================================
+# This file defines rules for how Cline should work with this project.
+# Everything in this file (including comments) is read as instructions.
+
+# =============================================================================
+# 📚 PROJECT CONTEXT & DOCUMENTATION
+# =============================================================================
+# These files are automatically included in Cline's context window
+
+@context .docs/docs/api/monzo-api.pdf
+@context .docs/docs/project/PROJECT.md
+@context .docs/docs/project/ARCHITECTURE.md
+@context .docs/docs/project/DEVELOPMENT-PLAN.md
+@context .docs/docs/project/MONZO-AUTH-FLOW.md
+@context .docs/notes/cline-memory.md
+
+# Files to read at the start of tasks to understand project state
+@read .docs/docs/project/PROJECT.md
+@read .docs/docs/project/ARCHITECTURE.md
+@read .docs/notes/cline-memory.md
+
+# =============================================================================
+# 📁 PROJECT STRUCTURE
+# =============================================================================
+# This is a MONO-REPO with the following structure:
+# 
+# budgeteer/
+# ├── backend/              (Spring Boot API - to be moved here)
+# ├── frontend/             (React/Vue/etc - future)
+# ├── src/                  (Current Spring Boot location)
+# ├── .docs/                (Documentation - git-ignored)
+# │   ├── docs/api/         - API references (Monzo, our API)
+# │   ├── docs/project/     - Project planning & architecture
+# │   └── notes/            - Working notes, scratch files
+# └── docs/                 (Public docs - to be created later)
+
+# =============================================================================
+# 🎯 WORKING GUIDELINES
+# =============================================================================
+# When working on this project, Cline should:
+
+# PROJECT MANAGEMENT
+# 1. Always refer to PROJECT.md for overall project goals and current status
+# 2. Check ARCHITECTURE.md before making significant architectural changes
+# 3. Reference DEVELOPMENT-PLAN.md for the current phase and priorities
+# 4. Update cline-memory.md with important decisions and context for future sessions
+
+# MONZO API INTEGRATION
+# 5. Reference monzo-api.pdf when implementing Monzo API integrations
+# 6. Follow MONZO-AUTH-FLOW.md for OAuth implementation details
+# 7. Never log or expose access tokens or refresh tokens
+
+# =============================================================================
+# 💻 CODE STYLE & STANDARDS
+# =============================================================================
+
+# JAVA/SPRING BOOT
+# - Follow Google Java Style Guide
+# - Use meaningful, descriptive variable and method names
+# - Add Javadoc comments for all public classes and methods
+# - Use constructor injection over field injection for dependencies
+# - Keep controllers thin - business logic belongs in services
+# - Use DTOs for API requests/responses, not entities directly
+
+# PACKAGE STRUCTURE
+# - dev.amf.budgeteer.controller   - REST controllers
+# - dev.amf.budgeteer.service      - Business logic
+# - dev.amf.budgeteer.repository   - Data access
+# - dev.amf.budgeteer.model        - Entities and DTOs
+# - dev.amf.budgeteer.config       - Configuration classes
+# - dev.amf.budgeteer.exception    - Custom exceptions
+# - dev.amf.budgeteer.client       - External API clients (Monzo)
+
+# =============================================================================
+# 🧪 TESTING REQUIREMENTS
+# =============================================================================
+
+# When writing new code:
+# - Write unit tests for all service methods
+# - Use @WebMvcTest for controller tests
+# - Use @DataJpaTest for repository tests  
+# - Use @SpringBootTest sparingly (integration tests only)
+# - Mock external services (Monzo API) in tests
+# - Aim for meaningful test coverage, not 100% line coverage
+
+# =============================================================================
+# 🔀 GIT WORKFLOW
+# =============================================================================
+
+# BRANCHING
+# - main          - Production-ready code
+# - develop       - Integration branch (if used)
+# - feature/*     - New features (e.g., feature/monzo-oauth)
+# - fix/*         - Bug fixes
+# - refactor/*    - Code improvements
+
+# COMMITS - Use Conventional Commits
+# - feat:     New feature (feat: add transaction sync endpoint)
+# - fix:      Bug fix (fix: handle null account balance)
+# - docs:     Documentation (docs: update API documentation)
+# - refactor: Code refactoring (refactor: extract MonzoClient)
+# - test:     Test additions (test: add UserService unit tests)
+# - chore:    Maintenance (chore: update dependencies)
+
+# =============================================================================
+# 📋 COMMON TASK TEMPLATES
+# =============================================================================
+
+# When asked to "add a new REST endpoint":
+# 1. Create/update controller with the endpoint
+# 2. Add service layer method with business logic
+# 3. Create/update repository if data access needed
+# 4. Create request/response DTOs if needed
+# 5. Write unit tests for service and controller
+# 6. Update API documentation
+
+# When asked to "add a new entity":
+# 1. Create entity class with JPA annotations
+# 2. Create repository interface
+# 3. Add Flyway migration for the table
+# 4. Create DTOs for API exposure
+# 5. Add to ARCHITECTURE.md if significant
+
+# When asked to "integrate with Monzo API":
+# 1. Check monzo-api.pdf for endpoint details
+# 2. Check MONZO-AUTH-FLOW.md for auth requirements
+# 3. Add method to MonzoClient
+# 4. Create appropriate DTOs
+# 5. Handle rate limits and errors gracefully
+
+# =============================================================================
+# ⚡ AUTO-APPROVE COMMANDS
+# =============================================================================
+# These commands run without asking for approval each time.
+# Uncomment the ones you want to auto-approve.
+
+@auto-approve mvn clean install -DskipTests
+@auto-approve mvn spring-boot:run
+@auto-approve mvn test
+# @auto-approve mvn clean install
+# @auto-approve docker-compose up -d
+# @auto-approve docker-compose down
+
+# =============================================================================
+# 🧠 SESSION MEMORY
+# =============================================================================
+# At the end of significant work sessions, update .docs/notes/cline-memory.md with:
+# - Decisions made and their rationale
+# - Current state of work in progress
+# - Known issues or TODOs
+# - Any context that would help future sessions
+
+# =============================================================================
+# 📝 DOCUMENTATION LOCATIONS
+# =============================================================================
+# 
+# .docs/docs/api/monzo-api.pdf         - External Monzo API reference
+# .docs/docs/api/spring-boot/          - Our Spring Boot API docs (generated)
+# .docs/docs/project/PROJECT.md        - Project overview and status
+# .docs/docs/project/ARCHITECTURE.md   - Technical architecture details
+# .docs/docs/project/DEVELOPMENT-PLAN.md - Phased development plan
+# .docs/docs/project/MONZO-AUTH-FLOW.md - Monzo OAuth flow details
+# .docs/notes/                         - Working notes and scratch files
+# .docs/notes/cline-memory.md          - Cross-session context for Cline
