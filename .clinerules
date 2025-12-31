@@ -43,7 +43,8 @@
 # ├── .cline/               # Cline AI context (git-ignored)
 # │   ├── memory.md         # Session memory
 # │   ├── tasks.md          # Task board
-# │   └── notes/            # Working notes
+# │   └── notes/            # Cline working notes
+# ├── .notes/               # Personal scratch work (git-ignored)
 # ├── compose.yaml          # Docker services
 # ├── .env                  # Local secrets (git-ignored)
 # ├── README.md             # Project readme
@@ -188,4 +189,7 @@
 # Internal/Cline docs (git-ignored):
 # .cline/memory.md             - Session memory for Cline
 # .cline/tasks.md              - Task board
-# .cline/notes/                - Working notes, scratch files
+# .cline/notes/                - Cline working notes
+
+# Personal scratch work (git-ignored):
+# .notes/                      - Your personal notes, guides, scratch files
