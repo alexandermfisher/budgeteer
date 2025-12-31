@@ -3,54 +3,73 @@
 # =============================================================================
 # This file defines rules for how Cline should work with this project.
 # Everything in this file (including comments) is read as instructions.
-
 # =============================================================================
+
 # 📚 PROJECT CONTEXT & DOCUMENTATION
 # =============================================================================
-# These files are automatically included in Cline's context window
 
-@context .docs/docs/api/monzo-api.pdf
-@context .docs/docs/project/PROJECT.md
-@context .docs/docs/project/ARCHITECTURE.md
-@context .docs/docs/project/DEVELOPMENT-PLAN.md
-@context .docs/docs/project/MONZO-AUTH-FLOW.md
-@context .docs/notes/cline-memory.md
+# These files are automatically included in Cline's context window
+@context docs/api/monzo-api.pdf
+@context docs/ARCHITECTURE.md
+@context .cline/memory.md
+@context .cline/tasks.md
 
 # Files to read at the start of tasks to understand project state
-@read .docs/docs/project/PROJECT.md
-@read .docs/docs/project/ARCHITECTURE.md
-@read .docs/notes/cline-memory.md
+@read .cline/memory.md
+@read .cline/tasks.md
+@read docs/ARCHITECTURE.md
 
 # =============================================================================
 # 📁 PROJECT STRUCTURE
 # =============================================================================
+
 # This is a MONO-REPO with the following structure:
 # 
 # budgeteer/
-# ├── backend/              (Spring Boot API - to be moved here)
-# ├── frontend/             (React/Vue/etc - future)
-# ├── src/                  (Current Spring Boot location)
-# ├── .docs/                (Documentation - git-ignored)
-# │   ├── docs/api/         - API references (Monzo, our API)
-# │   ├── docs/project/     - Project planning & architecture
-# │   └── notes/            - Working notes, scratch files
-# └── docs/                 (Public docs - to be created later)
+# ├── backend/              # Spring Boot API
+# │   ├── src/main/java/    # Java source code
+# │   ├── src/main/resources/
+# │   │   ├── application.properties
+# │   │   └── db/migration/ # Flyway migrations
+# │   └── pom.xml
+# ├── frontend/             # React/Vue (future)
+# ├── docs/                 # Public documentation (committed)
+# │   ├── ARCHITECTURE.md
+# │   ├── SETUP.md
+# │   ├── MONZO-AUTH-FLOW.md
+# │   └── api/monzo-api.pdf
+# ├── scripts/              # Development scripts
+# │   └── dev.sh
+# ├── .cline/               # Cline AI context (git-ignored)
+# │   ├── memory.md         # Session memory
+# │   ├── tasks.md          # Task board
+# │   └── notes/            # Working notes
+# ├── compose.yaml          # Docker services
+# ├── .env                  # Local secrets (git-ignored)
+# ├── README.md             # Project readme
+# └── CONTRIBUTING.md       # Git conventions
 
 # =============================================================================
 # 🎯 WORKING GUIDELINES
 # =============================================================================
+
 # When working on this project, Cline should:
 
 # PROJECT MANAGEMENT
-# 1. Always refer to PROJECT.md for overall project goals and current status
-# 2. Check ARCHITECTURE.md before making significant architectural changes
-# 3. Reference DEVELOPMENT-PLAN.md for the current phase and priorities
-# 4. Update cline-memory.md with important decisions and context for future sessions
+# 1. Check .cline/memory.md for current status and context
+# 2. Review .cline/tasks.md for the task board and priorities
+# 3. Reference docs/ARCHITECTURE.md before making significant changes
+# 4. Update .cline/memory.md with important decisions and context
 
 # MONZO API INTEGRATION
-# 5. Reference monzo-api.pdf when implementing Monzo API integrations
-# 6. Follow MONZO-AUTH-FLOW.md for OAuth implementation details
+# 5. Reference docs/api/monzo-api.pdf when implementing Monzo API integrations
+# 6. Follow docs/MONZO-AUTH-FLOW.md for OAuth implementation details
 # 7. Never log or expose access tokens or refresh tokens
+
+# MONO-REPO AWARENESS
+# 8. Backend code lives in backend/src/
+# 9. Run Maven commands from backend/ directory
+# 10. Docker compose runs from project root
 
 # =============================================================================
 # 💻 CODE STYLE & STANDARDS
@@ -64,7 +83,7 @@
 # - Keep controllers thin - business logic belongs in services
 # - Use DTOs for API requests/responses, not entities directly
 
-# PACKAGE STRUCTURE
+# PACKAGE STRUCTURE (in backend/src/main/java/)
 # - dev.amf.budgeteer.controller   - REST controllers
 # - dev.amf.budgeteer.service      - Business logic
 # - dev.amf.budgeteer.repository   - Data access
@@ -89,12 +108,15 @@
 # 🔀 GIT WORKFLOW
 # =============================================================================
 
+# See CONTRIBUTING.md for full details
+
 # BRANCHING
 # - main          - Production-ready code
-# - develop       - Integration branch (if used)
 # - feature/*     - New features (e.g., feature/monzo-oauth)
 # - fix/*         - Bug fixes
 # - refactor/*    - Code improvements
+# - docs/*        - Documentation updates
+# - chore/*       - Maintenance tasks
 
 # COMMITS - Use Conventional Commits
 # - feat:     New feature (feat: add transaction sync endpoint)
@@ -109,7 +131,7 @@
 # =============================================================================
 
 # When asked to "add a new REST endpoint":
-# 1. Create/update controller with the endpoint
+# 1. Create/update controller in backend/src/.../controller/
 # 2. Add service layer method with business logic
 # 3. Create/update repository if data access needed
 # 4. Create request/response DTOs if needed
@@ -119,13 +141,13 @@
 # When asked to "add a new entity":
 # 1. Create entity class with JPA annotations
 # 2. Create repository interface
-# 3. Add Flyway migration for the table
+# 3. Add Flyway migration in backend/src/main/resources/db/migration/
 # 4. Create DTOs for API exposure
-# 5. Add to ARCHITECTURE.md if significant
+# 5. Add to docs/ARCHITECTURE.md if significant
 
 # When asked to "integrate with Monzo API":
-# 1. Check monzo-api.pdf for endpoint details
-# 2. Check MONZO-AUTH-FLOW.md for auth requirements
+# 1. Check docs/api/monzo-api.pdf for endpoint details
+# 2. Check docs/MONZO-AUTH-FLOW.md for auth requirements
 # 3. Add method to MonzoClient
 # 4. Create appropriate DTOs
 # 5. Handle rate limits and errors gracefully
@@ -133,20 +155,20 @@
 # =============================================================================
 # ⚡ AUTO-APPROVE COMMANDS
 # =============================================================================
-# These commands run without asking for approval each time.
-# Uncomment the ones you want to auto-approve.
 
-@auto-approve mvn clean install -DskipTests
-@auto-approve mvn spring-boot:run
-@auto-approve mvn test
-# @auto-approve mvn clean install
-# @auto-approve docker-compose up -d
-# @auto-approve docker-compose down
+# These commands run without asking for approval each time.
+@auto-approve cd backend && mvn clean install -DskipTests
+@auto-approve cd backend && mvn spring-boot:run
+@auto-approve cd backend && mvn test
+@auto-approve docker compose up -d
+@auto-approve docker compose down
+@auto-approve ./scripts/dev.sh
 
 # =============================================================================
 # 🧠 SESSION MEMORY
 # =============================================================================
-# At the end of significant work sessions, update .docs/notes/cline-memory.md with:
+
+# At the end of significant work sessions, update .cline/memory.md with:
 # - Decisions made and their rationale
 # - Current state of work in progress
 # - Known issues or TODOs
@@ -155,12 +177,15 @@
 # =============================================================================
 # 📝 DOCUMENTATION LOCATIONS
 # =============================================================================
-# 
-# .docs/docs/api/monzo-api.pdf         - External Monzo API reference
-# .docs/docs/api/spring-boot/          - Our Spring Boot API docs (generated)
-# .docs/docs/project/PROJECT.md        - Project overview and status
-# .docs/docs/project/ARCHITECTURE.md   - Technical architecture details
-# .docs/docs/project/DEVELOPMENT-PLAN.md - Phased development plan
-# .docs/docs/project/MONZO-AUTH-FLOW.md - Monzo OAuth flow details
-# .docs/notes/                         - Working notes and scratch files
-# .docs/notes/cline-memory.md          - Cross-session context for Cline
+
+# Public docs (committed to git):
+# docs/ARCHITECTURE.md         - Technical architecture
+# docs/SETUP.md                - Development setup guide
+# docs/MONZO-AUTH-FLOW.md      - OAuth flow details
+# docs/SECRETS-MANAGEMENT.md   - Credentials handling
+# docs/api/monzo-api.pdf       - Monzo API reference
+
+# Internal/Cline docs (git-ignored):
+# .cline/memory.md             - Session memory for Cline
+# .cline/tasks.md              - Task board
+# .cline/notes/                - Working notes, scratch files

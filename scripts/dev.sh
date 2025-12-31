@@ -1,8 +1,14 @@
 #!/bin/bash
 # Development run script for Budgeteer
-# Usage: ./run-dev.sh
+# Usage: ./scripts/dev.sh
 
 set -e
+
+# Get the project root (parent of scripts/)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+cd "$PROJECT_ROOT"
 
 # Load SDKMAN if available
 if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
@@ -54,6 +60,9 @@ if ! docker ps | grep -q budgeteer-postgres; then
     sleep 3
 fi
 
-echo "🚀 Starting Budgeteer..."
+echo "🚀 Starting Budgeteer backend..."
 echo ""
+
+# Run from the backend directory
+cd "$PROJECT_ROOT/backend"
 mvn spring-boot:run
