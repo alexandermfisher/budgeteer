@@ -5,17 +5,18 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.1</version>
+        <version>4.0.1</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>dev.amf</groupId>
-    <artifactId>budgeteer</artifactId>
+    <artifactId>budgeteer-backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>budgeteer</name>
+    <name>Backend</name>
     <description>Personal budgeting application with Monzo integration</description>
     
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
+        <lombok.version>1.18.40</lombok.version>
     </properties>
     
     <dependencies>
@@ -41,6 +42,25 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
+        
+        <!-- Validation -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+        
+        <!-- Email (for magic links) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        
+        <!-- JWE/JWT - Nimbus JOSE+JWT -->
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>9.37.3</version>
         </dependency>
         
         <!-- Database -->
@@ -80,7 +100,8 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <optional>true</optional>
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
         </dependency>
         
         <!-- Test dependencies -->
@@ -106,6 +127,7 @@
                         <path>
                             <groupId>org.projectlombok</groupId>
                             <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>

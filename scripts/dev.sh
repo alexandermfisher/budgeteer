@@ -15,17 +15,25 @@ if [ -f "$HOME/.sdkman/bin/sdkman-init.sh" ]; then
     source "$HOME/.sdkman/bin/sdkman-init.sh"
 fi
 
+# Check Java version
+JAVA_VERSION=$(java -version 2>&1 | head -1 | cut -d'"' -f2 | cut -d'.' -f1)
+echo "☕ Java version: $JAVA_VERSION"
+if [ "$JAVA_VERSION" -lt 21 ]; then
+    echo "❌ Java 21 or higher required. Current: $JAVA_VERSION"
+    exit 1
+fi
+
 # Load .env file if it exists
 if [ -f .env ]; then
     echo "📁 Loading environment from .env file..."
-    export $(grep -v '^#' .env | xargs)
+    export "$(grep -v '^#' .env | xargs)"
 else
     echo "⚠️  No .env file found. Copy .env.example to .env and fill in your values."
     echo "   cp .env.example .env"
     exit 1
 fi
 
-# Check required environment variables
+# Check required environment variables - Monzo OAuth
 if [ -z "$MONZO_CLIENT_ID" ] || [ "$MONZO_CLIENT_ID" = "oauth2client_xxxxx" ]; then
     echo "❌ MONZO_CLIENT_ID is not set or still has placeholder value"
     exit 1
@@ -41,9 +49,16 @@ if [ -z "$MONZO_REDIRECT_URI" ]; then
     exit 1
 fi
 
+# Check required environment variables - JWE Authentication
+if [ -z "$JWE_SECRET_KEY" ]; then
+    echo "⚠️  JWE_SECRET_KEY is not set. Auth will not work."
+    echo "   Generate one with: openssl rand -base64 32"
+fi
+
 echo "✅ Environment loaded"
 echo "   Client ID: ${MONZO_CLIENT_ID:0:30}..."
 echo "   Redirect URI: $MONZO_REDIRECT_URI"
+echo "   JWE Key: ${JWE_SECRET_KEY:+configured}"
 echo ""
 
 # Check if Docker is running and database is up

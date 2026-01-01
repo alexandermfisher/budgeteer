@@ -62,41 +62,58 @@ Desktop/Browser (Remote) → Cloudflare Tunnel → Spring Boot API → PostgreSQ
 ### Module Structure
 
 ```
-backend/src/main/java/app/
-├── web/                    # REST Controllers
-│   ├── DashboardController.java
-│   ├── TransactionController.java
-│   ├── WebhookController.java
-│   └── HealthController.java
-├── security/               # Security & Auth
-│   ├── SecurityConfig.java
-│   ├── RateLimitFilter.java
-│   └── CloudflareAccessValidator.java
-├── monzo/
-│   ├── oauth/              # OAuth Flow
-│   │   ├── MonzoOAuthClient.java
-│   │   ├── TokenService.java
-│   │   └── TokenRotationScheduler.java
-│   └── sync/               # Transaction Sync
-│       ├── TransactionSyncService.java
-│       ├── BackfillService.java
-│       └── WebhookProcessor.java
-├── data/                   # Data Layer
-│   ├── entity/
-│   │   ├── Account.java
-│   │   ├── Transaction.java
-│   │   └── WebhookDelivery.java
-│   ├── repository/
-│   │   ├── AccountRepository.java
-│   │   ├── TransactionRepository.java
-│   │   └── WebhookDeliveryRepository.java
-│   └── projection/
-│       └── MonthSummaryProjection.java
-└── analytics/              # Analytics & Aggregations
-    ├── CategoryRuleEngine.java
-    ├── MonthlyRollupService.java
-    └── TrendAnalyzer.java
+backend/src/main/java/dev/amf/budgeteer/
+├── api/                           # REST API Layer
+│   ├── common/                    # Shared API components
+│   │   ├── ApiResponse.java       # Standard success wrapper
+│   │   ├── ApiError.java          # Standard error format
+│   │   ├── ErrorCode.java         # Error code enum
+│   │   └── GlobalExceptionHandler.java
+│   ├── auth/                      # Authentication endpoints
+│   │   ├── AuthController.java    # /api/auth/*
+│   │   └── dto/
+│   │       ├── LoginRequest.java
+│   │       ├── AuthResponse.java
+│   │       └── UserResponse.java
+│   └── monzo/                     # Monzo API integration
+│       └── MonzoOAuthController.java  # /api/monzo/oauth/*
+├── domain/                        # Domain Layer (entities + repositories)
+│   ├── user/
+│   │   ├── User.java
+│   │   └── UserRepository.java
+│   └── session/
+│       ├── MagicLinkToken.java
+│       ├── MagicLinkTokenRepository.java
+│       ├── AppRefreshToken.java
+│       └── AppRefreshTokenRepository.java
+├── service/                       # Business Logic Layer
+│   ├── AuthService.java           # Authentication flows
+│   ├── SessionService.java        # Session/refresh token management
+│   ├── JweTokenService.java       # JWE token creation/validation
+│   └── EmailService.java          # Email sending
+├── security/                      # Security filters
+│   └── JweAuthenticationFilter.java
+├── config/                        # Configuration classes
+│   ├── AppProperties.java
+│   ├── JweProperties.java
+│   ├── MonzoProperties.java
+│   └── SecurityConfig.java
+└── exception/                     # Custom exceptions
+    └── ApiException.java
 ```
+
+**Package Conventions:**
+- `api/` - REST controllers organized by feature, with nested `dto/` for request/response types
+- `domain/` - JPA entities with their repositories (domain-driven grouping)
+- `service/` - Business logic services (flat structure)
+- `config/` - Spring configuration and properties classes
+- `security/` - Security filters and auth-related components
+- `exception/` - Custom exception types
+
+**API Response Standards:**
+- All endpoints return `ApiResponse<T>` wrapper: `{ success: true, data: {...}, timestamp: "..." }`
+- Errors throw `ApiException` → caught by `GlobalExceptionHandler` → returns `ApiError`
+- Standard error format: `{ success: false, error: { code: "...", message: "...", details: [...] }, timestamp: "..." }`
 
 ### Key Components
 
