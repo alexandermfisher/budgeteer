@@ -26,7 +26,16 @@ fi
 # Load .env file if it exists
 if [ -f .env ]; then
     echo "📁 Loading environment from .env file..."
-    export "$(grep -v '^#' .env | xargs)"
+    # Read each line and export (handles special characters in values)
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        # Skip empty lines and comments
+        if [[ -n "$line" && ! "$line" =~ ^[[:space:]]*# ]]; then
+            # Only export lines that look like VAR=value
+            if [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+                export "$line"
+            fi
+        fi
+    done < .env
 else
     echo "⚠️  No .env file found. Copy .env.example to .env and fill in your values."
     echo "   cp .env.example .env"
@@ -34,12 +43,12 @@ else
 fi
 
 # Check required environment variables - Monzo OAuth
-if [ -z "$MONZO_CLIENT_ID" ] || [ "$MONZO_CLIENT_ID" = "oauth2client_xxxxx" ]; then
+if [ -z "$MONZO_CLIENT_ID" ]; then
     echo "❌ MONZO_CLIENT_ID is not set or still has placeholder value"
     exit 1
 fi
 
-if [ -z "$MONZO_CLIENT_SECRET" ] || [ "$MONZO_CLIENT_SECRET" = "your-client-secret-here" ]; then
+if [ -z "$MONZO_CLIENT_SECRET" ]; then
     echo "❌ MONZO_CLIENT_SECRET is not set or still has placeholder value"
     exit 1
 fi

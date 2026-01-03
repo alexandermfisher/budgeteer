@@ -166,6 +166,38 @@
 @auto-approve ./scripts/dev.sh
 
 # =============================================================================
+# 🏁 TASK CLOSURE PROTOCOL
+# =============================================================================
+
+# When user says "close task", "close this task", or "finish task":
+# Cline should automatically perform these steps:
+#
+# 1. UPDATE .cline/tasks.md:
+#    - Move the current task from "🚀 In Progress" to "✅ Done" section
+#    - Add completion date (format: January YYYY)
+#    - Check off all completed subtasks
+#    - Remove any "Next Steps" instructions that are now complete
+#
+# 2. UPDATE .cline/memory.md:
+#    - Update "📅 Last Updated" with current date
+#    - Update "Session Focus" with what was worked on
+#    - Update "🎯 Current Project Status" checkboxes
+#    - Add new "Latest Session Notes" section with:
+#      * Summary of what was accomplished
+#      * Key decisions made
+#      * Any new files/endpoints created
+#      * What's ready for next phase
+#    - Move previous session notes down (keep history)
+#
+# 3. SUGGEST GIT ACTIONS:
+#    - Suggest appropriate commit message(s)
+#    - Remind about branch merge if on feature branch
+#
+# 4. SUMMARIZE:
+#    - Provide brief summary of completed work
+#    - Note what's next in the backlog
+
+# =============================================================================
 # 🧠 SESSION MEMORY
 # =============================================================================
 
