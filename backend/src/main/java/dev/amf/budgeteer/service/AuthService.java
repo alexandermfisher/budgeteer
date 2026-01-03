@@ -118,6 +118,12 @@ public class AuthService {
         // Invalidate any other pending magic links for this user
         magicLinkTokenRepository.invalidateAllTokensForUser(user, Instant.now());
 
+        // Revoke all existing sessions (single-session policy)
+        int revokedSessions = sessionService.revokeAllSessions(user);
+        if (revokedSessions > 0) {
+            log.info("Revoked {} existing session(s) for user {} on new login", revokedSessions, user.getId());
+        }
+
         // Create session
         SessionService.SessionTokens sessionTokens = sessionService.createSession(user, userAgent, ipAddress);
 
