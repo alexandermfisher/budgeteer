@@ -62,10 +62,21 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             
             // Security headers
+            // Current: Basic headers for clickjacking and MIME sniffing protection
+            // 
+            // TODO: Add these headers in production (see Infrastructure task in tasks.md):
+            // - Strict-Transport-Security (HSTS): Force HTTPS, prevent downgrade attacks
+            //   .httpStrictTransportSecurity(hsts -> hsts.maxAgeInSeconds(31536000).includeSubDomains(true))
+            // - Content-Security-Policy (CSP): Control resource loading, prevent XSS
+            //   Add via: .headers(headers -> headers.contentSecurityPolicy(csp -> csp.policyDirectives("...")))
+            // - Referrer-Policy: Control referrer info leakage
+            //   Add via custom header filter
+            // - Permissions-Policy: Disable browser features you don't use (camera, microphone, etc.)
+            //
             .headers(headers -> headers
-                .frameOptions(frame -> frame.deny())
-                .contentTypeOptions(content -> {})
-                .xssProtection(xss -> {})
+                .frameOptions(frame -> frame.deny())           // Prevent clickjacking
+                .contentTypeOptions(content -> {})             // Prevent MIME sniffing
+                .xssProtection(xss -> {})                      // Legacy XSS filter (browsers mostly ignore now)
             );
         
         return http.build();

@@ -3,17 +3,17 @@ package dev.amf.budgeteer.config;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 
 /**
  * Configuration properties for JWE token management.
  * Binds properties with prefix "app.jwe" from application.properties.
+ * 
+ * Registered as a bean via @ConfigurationPropertiesScan in BudgeteerApplication.
  */
 @Setter
 @Getter
-@Component
 @ConfigurationProperties(prefix = "app.jwe")
 public class JweProperties {
 

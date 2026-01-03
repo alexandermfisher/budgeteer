@@ -3,15 +3,15 @@ package dev.amf.budgeteer.config;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
 /**
  * General application configuration properties.
  * Binds properties with prefix "app" from application.properties.
+ * 
+ * Registered as a bean via @ConfigurationPropertiesScan in BudgeteerApplication.
  */
 @Setter
 @Getter
-@Component
 @ConfigurationProperties(prefix = "app")
 public class AppProperties {
 

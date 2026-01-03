@@ -5,19 +5,40 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Optional;
 
 /**
  * Service for managing authentication cookies.
  * Centralizes all cookie creation, extraction, and clearing logic.
+ * 
+ * <p>Uses {@link ResponseCookie} to support SameSite attribute for CSRF protection.</p>
+ * 
+ * <h3>Cookie Security Configuration:</h3>
+ * <ul>
+ *   <li><b>HttpOnly</b>: true - Prevents JavaScript access (XSS protection)</li>
+ *   <li><b>Secure</b>: Configurable - Should be true in production (HTTPS only)</li>
+ *   <li><b>SameSite</b>: Lax - CSRF protection while allowing OAuth redirects</li>
+ * </ul>
  */
 @Service
 public class CookieService {
 
     public static final String ACCESS_TOKEN_COOKIE = "access_token";
     public static final String REFRESH_TOKEN_COOKIE = "refresh_token";
+
+    /**
+     * SameSite=Lax provides CSRF protection while allowing:
+     * - OAuth callback redirects (Monzo OAuth flow)
+     * - Top-level navigation requests
+     * 
+     * SameSite=Strict would break OAuth callbacks.
+     */
+    private static final String SAME_SITE_POLICY = "Lax";
 
     private final JweProperties jweProperties;
     private final boolean secureCookies;
@@ -30,33 +51,43 @@ public class CookieService {
 
     /**
      * Sets the access token cookie on the response.
+     * 
+     * <p>Cookie is scoped to /api path and includes SameSite=Lax for CSRF protection.</p>
      *
      * @param response the HTTP response
      * @param token    the access token value
      */
     public void setAccessTokenCookie(HttpServletResponse response, String token) {
-        Cookie cookie = new Cookie(ACCESS_TOKEN_COOKIE, token);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(secureCookies);
-        cookie.setPath("/api");
-        cookie.setMaxAge((int) jweProperties.getAccessTokenExpiry().toSeconds());
-        // Note: SameSite attribute requires ResponseCookie or server config
-        response.addCookie(cookie);
+        ResponseCookie cookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, token)
+                .httpOnly(true)
+                .secure(secureCookies)
+                .sameSite(SAME_SITE_POLICY)
+                .path("/api")
+                .maxAge(jweProperties.getAccessTokenExpiry())
+                .build();
+        
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     /**
      * Sets the refresh token cookie on the response.
+     * 
+     * <p>Cookie is scoped to /api/auth path (more restrictive than access token)
+     * and includes SameSite=Lax for CSRF protection.</p>
      *
      * @param response the HTTP response
      * @param token    the refresh token value
      */
     public void setRefreshTokenCookie(HttpServletResponse response, String token) {
-        Cookie cookie = new Cookie(REFRESH_TOKEN_COOKIE, token);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(secureCookies);
-        cookie.setPath("/api/auth");
-        cookie.setMaxAge((int) jweProperties.getRefreshTokenExpiry().toSeconds());
-        response.addCookie(cookie);
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, token)
+                .httpOnly(true)
+                .secure(secureCookies)
+                .sameSite(SAME_SITE_POLICY)
+                .path("/api/auth")
+                .maxAge(jweProperties.getRefreshTokenExpiry())
+                .build();
+        
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     /**
@@ -73,23 +104,30 @@ public class CookieService {
 
     /**
      * Clears all authentication cookies from the response.
+     * 
+     * <p>Sets both cookies to empty values with maxAge=0 to delete them.</p>
      *
      * @param response the HTTP response
      */
     public void clearAuthCookies(HttpServletResponse response) {
-        Cookie accessCookie = new Cookie(ACCESS_TOKEN_COOKIE, "");
-        accessCookie.setHttpOnly(true);
-        accessCookie.setSecure(secureCookies);
-        accessCookie.setPath("/api");
-        accessCookie.setMaxAge(0);
-        response.addCookie(accessCookie);
-
-        Cookie refreshCookie = new Cookie(REFRESH_TOKEN_COOKIE, "");
-        refreshCookie.setHttpOnly(true);
-        refreshCookie.setSecure(secureCookies);
-        refreshCookie.setPath("/api/auth");
-        refreshCookie.setMaxAge(0);
-        response.addCookie(refreshCookie);
+        ResponseCookie accessCookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, "")
+                .httpOnly(true)
+                .secure(secureCookies)
+                .sameSite(SAME_SITE_POLICY)
+                .path("/api")
+                .maxAge(Duration.ZERO)
+                .build();
+        
+        ResponseCookie refreshCookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE, "")
+                .httpOnly(true)
+                .secure(secureCookies)
+                .sameSite(SAME_SITE_POLICY)
+                .path("/api/auth")
+                .maxAge(Duration.ZERO)
+                .build();
+        
+        response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
     }
 
     /**

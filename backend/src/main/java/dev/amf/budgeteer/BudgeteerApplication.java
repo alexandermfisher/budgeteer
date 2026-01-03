@@ -1,12 +1,11 @@
 package dev.amf.budgeteer;
 
-import dev.amf.budgeteer.config.MonzoProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 
 @SpringBootApplication
-@EnableConfigurationProperties(MonzoProperties.class)
+@ConfigurationPropertiesScan("dev.amf.budgeteer.config")
 public class BudgeteerApplication {
 
     public static void main(String[] args) {
