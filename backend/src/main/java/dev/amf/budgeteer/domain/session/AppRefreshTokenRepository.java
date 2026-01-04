@@ -68,4 +68,15 @@ public interface AppRefreshTokenRepository extends JpaRepository<AppRefreshToken
      */
     @Query("SELECT COUNT(t) FROM AppRefreshToken t WHERE t.user = :user AND t.revokedAt IS NULL AND t.expiresAt > :now")
     long countActiveSessionsByUser(User user, Instant now);
+
+    /**
+     * Revokes ALL refresh tokens in the system.
+     * ⚠️ DEV ONLY - Used for testing/development cleanup.
+     *
+     * @param now the current timestamp to set as revoked_at
+     * @return the number of tokens revoked
+     */
+    @Modifying
+    @Query("UPDATE AppRefreshToken t SET t.revokedAt = :now WHERE t.revokedAt IS NULL")
+    int revokeAllTokens(Instant now);
 }

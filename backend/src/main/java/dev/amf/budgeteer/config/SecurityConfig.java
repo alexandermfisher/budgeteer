@@ -44,6 +44,9 @@ public class SecurityConfig {
                 // Monzo OAuth endpoints (public for OAuth flow)
                 .requestMatchers("/api/monzo/oauth/**").permitAll()
                 
+                // Health check endpoints (public for monitoring/load balancers)
+                .requestMatchers("/api/health/**").permitAll()
+                
                 // Test endpoints (dev only)
                 .requestMatchers("/api/test/**").permitAll()
                 

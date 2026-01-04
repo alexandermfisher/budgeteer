@@ -1,12 +1,12 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Budgeteer - Local Dev" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
-    <module name="backend" />
-    <option name="SPRING_BOOT_MAIN_CLASS" value="dev.amf.budgeteer.BudgeteerApplication" />
     <option name="ACTIVE_PROFILES" value="dev" />
     <envs>
       <env name="SPRING_PROFILES_ACTIVE" value="dev" />
     </envs>
-    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/backend" />
+    <module name="budgeteer" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="dev.amf.budgeteer.BudgeteerApplication" />
+    <option name="WORKING_DIRECTORY" value="file://$PROJECT_DIR$/backend" />
     <extension name="net.ashald.envfile">
       <option name="IS_ENABLED" value="true" />
       <option name="IS_SUBST" value="false" />
