@@ -4,7 +4,7 @@
     <envs>
       <env name="SPRING_PROFILES_ACTIVE" value="dev" />
     </envs>
-    <module name="budgeteer" />
+    <module name="budgeteer-backend" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="dev.amf.budgeteer.BudgeteerApplication" />
     <option name="WORKING_DIRECTORY" value="file://$PROJECT_DIR$/backend" />
     <extension name="net.ashald.envfile">

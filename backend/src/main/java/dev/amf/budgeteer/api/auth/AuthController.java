@@ -2,6 +2,7 @@ package dev.amf.budgeteer.api.auth;
 
 import dev.amf.budgeteer.api.auth.dto.AuthResponse;
 import dev.amf.budgeteer.api.auth.dto.LoginRequest;
+import dev.amf.budgeteer.api.auth.dto.RefreshRequest;
 import dev.amf.budgeteer.api.auth.dto.UserResponse;
 import dev.amf.budgeteer.api.common.ApiResponse;
 import dev.amf.budgeteer.api.common.ErrorCode;
@@ -86,20 +87,30 @@ public class AuthController {
         // Redirect to login success URL
         response.setHeader("Location", appProperties.getLoginSuccessUrl());
         return ResponseEntity.status(302)
-                .body(ApiResponse.of(new AuthResponse("Login successful", null)));
+                .body(ApiResponse.of(new AuthResponse("Login successful", null, null, null)));
     }
 
     /**
-     * Refresh access token using refresh token cookie.
-     * POST /api/auth/refresh
+     * Refresh access token using refresh token.
+     * 
+     * <p>POST /api/auth/refresh
+     * 
+     * <p>The refresh token can be provided in two ways:
+     * <ol>
+     *   <li>Request body: {"refreshToken": "xxx"} - for API clients</li>
+     *   <li>Cookie: refresh_token - for browser clients</li>
+     * </ol>
+     * 
+     * <p>Request body takes precedence over cookie.
      */
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
+            @RequestBody(required = false) RefreshRequest body,
             HttpServletRequest request,
             HttpServletResponse response) {
 
-        String refreshToken = cookieService.extractRefreshToken(request)
-                .orElseThrow(() -> new ApiException(ErrorCode.MISSING_TOKEN, "Refresh token not found"));
+        // Try body first, then cookie
+        String refreshToken = extractRefreshToken(body, request);
 
         String userAgent = request.getHeader("User-Agent");
         String ipAddress = cookieService.getClientIpAddress(request);
@@ -114,10 +125,26 @@ public class AuthController {
 
         SessionService.SessionTokens tokens = tokensOpt.get();
 
-        // Set new cookies
+        // Set new cookies (for browser clients)
         cookieService.setAuthCookies(response, tokens.accessToken(), tokens.refreshToken());
 
-        return ResponseEntity.ok(ApiResponse.of(AuthResponse.tokenRefreshed()));
+        // Return tokens in body too (for API clients)
+        return ResponseEntity.ok(ApiResponse.of(AuthResponse.tokenRefreshed(tokens.accessToken(), tokens.refreshToken())));
+    }
+
+    /**
+     * Extract refresh token from request body or cookie.
+     * Body takes precedence over cookie.
+     */
+    private String extractRefreshToken(RefreshRequest body, HttpServletRequest request) {
+        // Try body first
+        if (body != null && body.refreshToken() != null && !body.refreshToken().isBlank()) {
+            return body.refreshToken();
+        }
+        // Fall back to cookie
+        return cookieService.extractRefreshToken(request)
+                .orElseThrow(() -> new ApiException(ErrorCode.MISSING_TOKEN, 
+                        "Refresh token not found. Provide in body as {\"refreshToken\": \"...\"} or via cookie."));
     }
 
     /**

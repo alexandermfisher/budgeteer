@@ -16,6 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -40,7 +41,9 @@ public class JweAuthenticationFilter extends OncePerRequestFilter {
                                     HttpServletResponse response, 
                                     FilterChain filterChain) throws ServletException, IOException {
 
-        cookieService.extractAccessToken(request)
+        // Try Bearer header first, then fall back to cookie
+        extractBearerToken(request)
+                .or(() -> cookieService.extractAccessToken(request))
                 .flatMap(jweTokenService::validateAccessToken)
                 .ifPresent(claims -> {
                     JweAuthentication authentication = new JweAuthentication(claims);
@@ -49,6 +52,21 @@ public class JweAuthenticationFilter extends OncePerRequestFilter {
                 });
 
         filterChain.doFilter(request, response);
+    }
+
+    /**
+     * Extracts the JWT token from the Authorization header if present.
+     * Expected format: "Authorization: Bearer &lt;token&gt;"
+     *
+     * @param request the HTTP request
+     * @return Optional containing the token, or empty if not present
+     */
+    private Optional<String> extractBearerToken(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header != null && header.startsWith("Bearer ")) {
+            return Optional.of(header.substring(7));
+        }
+        return Optional.empty();
     }
 
     /**

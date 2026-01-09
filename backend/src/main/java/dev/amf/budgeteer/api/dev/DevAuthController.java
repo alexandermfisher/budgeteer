@@ -1,10 +1,9 @@
 package dev.amf.budgeteer.api.dev;
 
 import dev.amf.budgeteer.api.common.ApiResponse;
-import dev.amf.budgeteer.domain.session.AppRefreshTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.domain.user.UserRepository;
 import dev.amf.budgeteer.service.CookieService;
+import dev.amf.budgeteer.service.DevAuthService;
 import dev.amf.budgeteer.service.SessionService;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -14,11 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.Instant;
-import java.util.Optional;
 
 /**
  * Development-only authentication endpoints.
@@ -34,17 +29,14 @@ public class DevAuthController {
 
     private static final Logger log = LoggerFactory.getLogger(DevAuthController.class);
 
-    private final UserRepository userRepository;
-    private final AppRefreshTokenRepository refreshTokenRepository;
+    private final DevAuthService devAuthService;
     private final SessionService sessionService;
     private final CookieService cookieService;
 
-    public DevAuthController(UserRepository userRepository,
-                             AppRefreshTokenRepository refreshTokenRepository,
+    public DevAuthController(DevAuthService devAuthService,
                              SessionService sessionService,
                              CookieService cookieService) {
-        this.userRepository = userRepository;
-        this.refreshTokenRepository = refreshTokenRepository;
+        this.devAuthService = devAuthService;
         this.sessionService = sessionService;
         this.cookieService = cookieService;
     }
@@ -76,14 +68,8 @@ public class DevAuthController {
         log.warn("║  Email: {}", String.format("%-44s║", normalizedEmail));
         log.warn("╚════════════════════════════════════════════════════════════╝");
 
-        // Find or create user
-        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
-                .orElseGet(() -> {
-                    log.info("Creating new dev user with email: {}", normalizedEmail);
-                    User newUser = new User(normalizedEmail);
-                    newUser.setEmailVerified(true); // Auto-verify in dev
-                    return userRepository.save(newUser);
-                });
+        // Find or create user via service
+        User user = devAuthService.findOrCreateDevUser(normalizedEmail);
 
         // Create session
         SessionService.SessionTokens tokens = sessionService.createSession(user, "Postman/Dev", "127.0.0.1");
@@ -97,7 +83,7 @@ public class DevAuthController {
                 user.getEmail(),
                 tokens.accessToken(),
                 tokens.refreshToken(),
-                "Copy the accessToken to use in Authorization header: Bearer <token>"
+                "Use accessToken with: Authorization: Bearer <token> OR cookies (auto-set)"
         );
 
         return ResponseEntity.ok(ApiResponse.of(devResponse));
@@ -134,18 +120,15 @@ public class DevAuthController {
      * <p>POST /api/test/auth/revoke-all
      */
     @PostMapping("/revoke-all")
-    @Transactional
     public ResponseEntity<ApiResponse<RevokeResponse>> revokeAllSessions(HttpServletResponse response) {
         log.warn("╔════════════════════════════════════════════════════════════╗");
         log.warn("║  ☢️  REVOKING ALL SESSIONS - Everyone will be logged out!  ║");
         log.warn("╚════════════════════════════════════════════════════════════╝");
 
-        int revoked = refreshTokenRepository.revokeAllTokens(Instant.now());
+        int revoked = devAuthService.revokeAllSessions();
         
         // Clear caller's cookies too
         cookieService.clearAuthCookies(response);
-
-        log.info("Revoked {} session(s) across all users", revoked);
 
         return ResponseEntity.ok(ApiResponse.of(new RevokeResponse(
                 revoked,
@@ -159,38 +142,30 @@ public class DevAuthController {
      * <p>POST /api/test/auth/revoke-user?email=test@example.com
      */
     @PostMapping("/revoke-user")
-    @Transactional
     public ResponseEntity<ApiResponse<RevokeResponse>> revokeUserSessions(
             @RequestParam String email,
             HttpServletResponse response) {
 
-        String normalizedEmail = email.toLowerCase().trim();
-
         log.warn("╔════════════════════════════════════════════════════════════╗");
         log.warn("║  🔒 REVOKING SESSIONS FOR USER                             ║");
-        log.warn("║  Email: {}", String.format("%-44s║", normalizedEmail));
+        log.warn("║  Email: {}", String.format("%-44s║", email));
         log.warn("╚════════════════════════════════════════════════════════════╝");
 
-        Optional<User> userOpt = userRepository.findByEmailIgnoreCase(normalizedEmail);
+        int revoked = devAuthService.revokeUserSessions(email);
         
-        if (userOpt.isEmpty()) {
+        if (revoked == -1) {
             return ResponseEntity.ok(ApiResponse.of(new RevokeResponse(
                     0,
-                    "User not found: " + normalizedEmail
+                    "User not found: " + email
             )));
         }
-
-        User user = userOpt.get();
-        int revoked = sessionService.revokeAllSessions(user);
         
         // Clear caller's cookies too (in case they're that user)
         cookieService.clearAuthCookies(response);
 
-        log.info("Revoked {} session(s) for user {}", revoked, normalizedEmail);
-
         return ResponseEntity.ok(ApiResponse.of(new RevokeResponse(
                 revoked,
-                "Revoked " + revoked + " session(s) for " + normalizedEmail
+                "Revoked " + revoked + " session(s) for " + email
         )));
     }
 
