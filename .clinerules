@@ -11,6 +11,7 @@
 # These files are automatically included in Cline's context window
 @context docs/api/monzo-api.pdf
 @context docs/ARCHITECTURE.md
+@context docs/TESTING.md
 @context .cline/memory.md
 @context .cline/tasks.md
 
@@ -18,6 +19,7 @@
 @read .cline/memory.md
 @read .cline/tasks.md
 @read docs/ARCHITECTURE.md
+@read docs/TESTING.md
 
 # =============================================================================
 # 📁 PROJECT STRUCTURE
