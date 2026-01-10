@@ -180,7 +180,12 @@
 #    - Check off all completed subtasks
 #    - Remove any "Next Steps" instructions that are now complete
 #
-# 2. UPDATE .cline/memory.md:
+# 2. UPDATE CHANGELOG.md:
+#    - Add a new entry under the appropriate section (Added, Changed, Fixed, etc.)
+#    - Include a brief description and the git commit hash if available
+#    - Ensure the version and date are correct
+#
+# 3. UPDATE .cline/memory.md:
 #    - Update "📅 Last Updated" with current date
 #    - Update "Session Focus" with what was worked on
 #    - Update "🎯 Current Project Status" checkboxes
@@ -191,11 +196,11 @@
 #      * What's ready for next phase
 #    - Move previous session notes down (keep history)
 #
-# 3. SUGGEST GIT ACTIONS:
+# 4. SUGGEST GIT ACTIONS:
 #    - Suggest appropriate commit message(s)
 #    - Remind about branch merge if on feature branch
 #
-# 4. SUMMARIZE:
+# 5. SUMMARIZE:
 #    - Provide brief summary of completed work
 #    - Note what's next in the backlog
 
