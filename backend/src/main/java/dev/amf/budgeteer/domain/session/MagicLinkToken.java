@@ -2,6 +2,9 @@ package dev.amf.budgeteer.domain.session;
 
 import dev.amf.budgeteer.domain.user.User;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -14,20 +17,27 @@ import java.util.UUID;
 @Table(name = "magic_link_tokens")
 public class MagicLinkToken {
 
+    @Getter
+    @Setter
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Getter
+    @Setter
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Getter
     @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;
 
+    @Getter
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
+    @Getter
     @Column(name = "used_at")
     private Instant usedAt;
 
@@ -93,46 +103,6 @@ public class MagicLinkToken {
     }
 
     // Getters and Setters
-
-    public UUID getId() {
-        return id;
-    }
-
-    public void setId(UUID id) {
-        this.id = id;
-    }
-
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
-
-    public String getTokenHash() {
-        return tokenHash;
-    }
-
-    public void setTokenHash(String tokenHash) {
-        this.tokenHash = tokenHash;
-    }
-
-    public Instant getExpiresAt() {
-        return expiresAt;
-    }
-
-    public void setExpiresAt(Instant expiresAt) {
-        this.expiresAt = expiresAt;
-    }
-
-    public Instant getUsedAt() {
-        return usedAt;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
 
     @Override
     public String toString() {

@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.jspecify.annotations.Nullable;
+
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -24,6 +26,14 @@ import java.util.Optional;
  */
 @Service
 public class SessionService {
+
+    /**
+     * Record containing session tokens (access token and refresh token).
+     */
+    public record SessionTokens(
+            String accessToken,
+            String refreshToken
+    ) {}
 
     private static final Logger log = LoggerFactory.getLogger(SessionService.class);
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -49,7 +59,7 @@ public class SessionService {
      * @return session tokens
      */
     @Transactional
-    public SessionTokens createSession(User user, String userAgent, String ipAddress) {
+    public SessionTokens createSession(User user, @Nullable String userAgent, @Nullable String ipAddress) {
         // Generate access token (JWE)
         String accessToken = jweTokenService.createAccessToken(user);
 
@@ -78,7 +88,7 @@ public class SessionService {
      * @return new session tokens, or empty if the refresh token is invalid
      */
     @Transactional
-    public Optional<SessionTokens> refreshSession(String refreshToken, String userAgent, String ipAddress) {
+    public Optional<SessionTokens> refreshSession(String refreshToken, @Nullable String userAgent, @Nullable String ipAddress) {
         String tokenHash = hashToken(refreshToken);
 
         Optional<AppRefreshToken> tokenOpt = refreshTokenRepository.findByTokenHash(tokenHash);
@@ -189,12 +199,4 @@ public class SessionService {
             throw new RuntimeException("SHA-256 not available", e);
         }
     }
-
-    /**
-     * Record containing session tokens.
-     */
-    public record SessionTokens(
-            String accessToken,
-            String refreshToken
-    ) {}
 }

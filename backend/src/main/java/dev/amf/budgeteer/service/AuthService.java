@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.jspecify.annotations.Nullable;
+
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
@@ -86,7 +88,7 @@ public class AuthService {
      * @return session tokens if verification succeeded
      */
     @Transactional
-    public Optional<SessionService.SessionTokens> verifyMagicLink(String token, String userAgent, String ipAddress) {
+    public Optional<SessionService.SessionTokens> verifyMagicLink(String token, @Nullable String userAgent, @Nullable String ipAddress) {
         String tokenHash = sessionService.hashToken(token);
 
         Optional<MagicLinkToken> magicLinkOpt = magicLinkTokenRepository.findByTokenHash(tokenHash);
