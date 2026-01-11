@@ -44,33 +44,51 @@ We follow the **Testing Pyramid** approach, with the majority of tests being fas
 ```
 backend/src/test/
 ├── java/dev/amf/budgeteer/
-│   ├── BudgeteerApplicationTests.java    # Context smoke test
+│   ├── BudgeteerApplicationTests.java        # Context smoke test
 │   │
-│   ├── service/                          # Unit tests for services
-│   │   ├── JweTokenServiceTest.java
-│   │   ├── CookieServiceTest.java
-│   │   ├── SessionServiceTest.java
-│   │   ├── AuthServiceTest.java
-│   │   └── EmailServiceTest.java
+│   ├── service/                              # Service unit tests
+│   │   ├── AuthServiceTest.java              # Magic link flow
+│   │   ├── CookieServiceTest.java            # Cookie operations
+│   │   ├── DevAuthServiceTest.java           # Dev-only auth
+│   │   ├── EmailServiceTest.java             # Email sending
+│   │   ├── JweTokenServiceTest.java          # Token creation/validation
+│   │   └── SessionServiceTest.java           # Session management
 │   │
-│   ├── api/                              # Controller tests
-│   │   └── auth/
-│   │       └── AuthControllerTest.java   # @WebMvcTest
+│   ├── api/                                  # Controller tests (@WebMvcTest)
+│   │   ├── auth/
+│   │   │   ├── AuthControllerTest.java
+│   │   │   └── dto/AuthResponseTest.java
+│   │   ├── common/
+│   │   │   ├── ApiErrorTest.java
+│   │   │   ├── ApiResponseTest.java
+│   │   │   ├── ErrorCodeTest.java
+│   │   │   └── GlobalExceptionHandlerTest.java
+│   │   ├── dev/DevAuthControllerTest.java
+│   │   ├── health/HealthControllerTest.java
+│   │   └── monzo/MonzoOAuthControllerTest.java
 │   │
-│   ├── repository/                       # Repository tests
-│   │   ├── UserRepositoryTest.java       # @DataJpaTest
-│   │   └── AppRefreshTokenRepositoryTest.java
+│   ├── domain/                               # Entity unit tests
+│   │   ├── session/
+│   │   │   ├── AppRefreshTokenTest.java
+│   │   │   └── MagicLinkTokenTest.java
+│   │   └── user/UserTest.java
 │   │
-│   ├── integration/                      # Integration tests
-│   │   ├── AbstractIntegrationTest.java  # Testcontainers base class
-│   │   └── AuthFlowIT.java
+│   ├── exception/ApiExceptionTest.java       # Exception tests
 │   │
-│   └── acceptance/                       # E2E tests
-│       ├── AbstractAcceptanceTest.java   # REST Assured base class
-│       └── AuthAcceptanceTest.java
+│   ├── security/JweAuthenticationFilterTest.java
+│   │
+│   └── integration/                          # Integration tests
+│       ├── AbstractPostgresIntegrationTest.java  # Testcontainers base
+│       ├── FlywayMigrationIT.java                # Migration verification
+│       ├── TestDataFactory.java                  # Test entity factory
+│       └── repository/                           # Repository ITs (H2)
+│           ├── AppRefreshTokenRepositoryIT.java
+│           ├── MagicLinkTokenRepositoryIT.java
+│           └── UserRepositoryIT.java
 │
 └── resources/
-    └── application-test.properties       # Test profile configuration
+    ├── application-test.properties           # H2/unit test config
+    └── application-integration-test.properties  # Testcontainers config
 ```
 
 ### Naming Conventions
@@ -653,23 +671,70 @@ mvn test jacoco:report
 
 ## 📋 Current Test Status
 
-### Completed ✅
-| Test Class | Tests | Coverage |
-|------------|-------|----------|
-| `BudgeteerApplicationTests` | 1 | Context loading |
-| `JweTokenServiceTest` | 14 | Token creation, validation |
-| `CookieServiceTest` | 20 | Cookie operations |
-| `SessionServiceTest` | 19 | Session management |
+**Total: 285 tests passing** ✅
 
-### TODO ⏳
-| Test Class | Priority | Notes |
-|------------|----------|-------|
-| `AuthServiceTest` | High | Magic link flow |
-| `EmailServiceTest` | Medium | Mock JavaMailSender |
-| `AuthControllerTest` | High | `@WebMvcTest` |
-| `UserRepositoryIT` | Medium | Testcontainers |
-| `AuthFlowIT` | High | Full flow integration |
-| `AuthAcceptanceTest` | Low | REST Assured E2E |
+### Unit Tests (252)
+
+| Category | Test Class | Tests | Notes |
+|----------|------------|-------|-------|
+| **Services** | `AuthServiceTest` | 19 | Magic link flow, verification |
+|            | `SessionServiceTest` | 19 | Session management, refresh, revocation |
+|            | `JweTokenServiceTest` | 14 | Token creation, validation, expiry |
+|            | `CookieServiceTest` | 20 | Cookie operations |
+|            | `EmailServiceTest` | 9 | Mock JavaMailSender |
+|            | `DevAuthServiceTest` | 12 | Dev-only auth service |
+| **Controllers** | `AuthControllerTest` | 19 | `@WebMvcTest` |
+|                | `HealthControllerTest` | 5 | Health endpoints |
+|                | `DevAuthControllerTest` | 9 | Dev auth endpoints |
+|                | `MonzoOAuthControllerTest` | 5 | OAuth flow |
+| **Security** | `JweAuthenticationFilterTest` | 7 | Filter chain |
+| **Exception** | `ApiExceptionTest` | 6 | Custom exceptions |
+|              | `GlobalExceptionHandlerTest` | 9 | Exception handling |
+| **Common/API** | `ApiResponseTest` | 3 | Response wrapper |
+|               | `ApiErrorTest` | 4 | Error wrapper |
+|               | `ErrorCodeTest` | 64 | All error codes |
+|               | `AuthResponseTest` | 4 | DTOs |
+| **Domain** | `UserTest` | 3 | Entity tests |
+|           | `MagicLinkTokenTest` | 10 | Token entity logic |
+|           | `AppRefreshTokenTest` | 11 | Refresh token entity |
+| **Other** | `BudgeteerApplicationTests` | 1 | Context loading |
+
+### Repository Integration Tests - H2 (27)
+
+| Test Class | Tests | Notes |
+|------------|-------|-------|
+| `UserRepositoryIT` | 9 | `@DataJpaTest` with H2 |
+| `MagicLinkTokenRepositoryIT` | 9 | Custom queries, cleanup |
+| `AppRefreshTokenRepositoryIT` | 9 | Active tokens, revocation |
+
+### Flyway Migration Integration Tests - PostgreSQL (6)
+
+| Test Class | Tests | Notes |
+|------------|-------|-------|
+| `FlywayMigrationIT` | 6 | Testcontainers + Flyway |
+
+*Verifies: table creation, columns, foreign keys, unique constraints*
+
+---
+
+## 🔜 Remaining Work
+
+### Integration Tests (Next Phase)
+
+| Test | Priority | Description |
+|------|----------|-------------|
+| `AuthFlowIT` | High | Full auth flow with Testcontainers |
+| `SessionManagementIT` | High | Token rotation, revocation, multi-device |
+| Config tests | Medium | SecurityConfig, Properties classes |
+
+### Acceptance Tests (Future Phase)
+
+| Test | Approach | Description |
+|------|----------|-------------|
+| `AuthAcceptanceTest` | REST Assured + Dev DB | Full E2E auth flow |
+| `MonzoOAuthFlowIT` | REST Assured + Monzo Simulator | OAuth integration |
+
+**Plan:** Use REST Assured against a deployed dev database, with a Monzo simulator service for testing OAuth flows
 
 ---
 

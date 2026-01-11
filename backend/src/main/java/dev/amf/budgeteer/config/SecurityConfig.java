@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/login").permitAll()
                 .requestMatchers("/api/auth/verify").permitAll()
                 .requestMatchers("/api/auth/refresh").permitAll()
+                .requestMatchers("/api/auth/logout").permitAll()  // Logout is idempotent, always clear cookies
                 
                 // Monzo OAuth endpoints (public for OAuth flow)
                 .requestMatchers("/api/monzo/oauth/**").permitAll()
