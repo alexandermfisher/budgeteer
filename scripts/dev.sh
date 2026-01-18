@@ -1,4 +1,4 @@
-#!/bin/bash
+mvn #!/bin/bash
 # Development run script for Budgeteer
 # Usage: ./scripts/dev.sh
 

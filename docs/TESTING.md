@@ -671,7 +671,7 @@ mvn test jacoco:report
 
 ## 📋 Current Test Status
 
-**Total: 285 tests passing** ✅
+**Total: 321 tests passing** ✅
 
 ### Unit Tests (252)
 
@@ -715,16 +715,23 @@ mvn test jacoco:report
 
 *Verifies: table creation, columns, foreign keys, unique constraints*
 
+### Full Integration Tests - PostgreSQL Testcontainers (35)
+
+| Test Class | Tests | Notes |
+|------------|-------|-------|
+| `AuthFlowIT` | 19 | Complete magic link flow, token validation, refresh, logout |
+| `SessionManagementIT` | 16 | Single-session policy, token rotation, revocation, edge cases |
+
+*Uses singleton Testcontainers PostgreSQL container shared across all test classes*
+
 ---
 
 ## 🔜 Remaining Work
 
-### Integration Tests (Next Phase)
+### Integration Tests (Future)
 
 | Test | Priority | Description |
 |------|----------|-------------|
-| `AuthFlowIT` | High | Full auth flow with Testcontainers |
-| `SessionManagementIT` | High | Token rotation, revocation, multi-device |
 | Config tests | Medium | SecurityConfig, Properties classes |
 
 ### Acceptance Tests (Future Phase)
