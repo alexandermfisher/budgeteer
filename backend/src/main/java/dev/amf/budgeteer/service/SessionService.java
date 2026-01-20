@@ -73,7 +73,8 @@ public class SessionService {
         AppRefreshToken tokenEntity = new AppRefreshToken(user, refreshTokenHash, expiresAt, userAgent, ipAddress);
         refreshTokenRepository.save(tokenEntity);
 
-        log.debug("Created session for user {}", user.getId());
+        log.info("Session created [userId={}, expiresAt={}, ipAddress={}]", 
+                user.getId(), expiresAt, ipAddress);
 
         return new SessionTokens(accessToken, refreshToken);
     }
@@ -94,14 +95,15 @@ public class SessionService {
         Optional<AppRefreshToken> tokenOpt = refreshTokenRepository.findByTokenHash(tokenHash);
 
         if (tokenOpt.isEmpty()) {
-            log.debug("Refresh token not found");
+            log.warn("Session refresh failed: token not found");
             return Optional.empty();
         }
 
         AppRefreshToken token = tokenOpt.get();
 
         if (!token.isValid()) {
-            log.debug("Refresh token is invalid (expired or revoked)");
+            log.warn("Session refresh failed: token invalid or expired [userId={}]", 
+                    token.getUser().getId());
             return Optional.empty();
         }
 
@@ -114,7 +116,7 @@ public class SessionService {
         // Create new session
         SessionTokens newTokens = createSession(user, userAgent, ipAddress);
 
-        log.debug("Refreshed session for user {}", user.getId());
+        log.info("Session refreshed successfully [userId={}, ipAddress={}]", user.getId(), ipAddress);
 
         return Optional.of(newTokens);
     }
@@ -132,7 +134,7 @@ public class SessionService {
         Optional<AppRefreshToken> tokenOpt = refreshTokenRepository.findByTokenHash(tokenHash);
 
         if (tokenOpt.isEmpty()) {
-            log.debug("Refresh token not found for revocation");
+            log.debug("Session revocation: token not found");
             return false;
         }
 
@@ -140,7 +142,7 @@ public class SessionService {
         token.revoke();
         refreshTokenRepository.save(token);
 
-        log.debug("Revoked session for user {}", token.getUser().getId());
+        log.info("Session revoked [userId={}]", token.getUser().getId());
 
         return true;
     }
@@ -154,7 +156,9 @@ public class SessionService {
     @Transactional
     public int revokeAllSessions(User user) {
         int revoked = refreshTokenRepository.revokeAllTokensForUser(user, Instant.now());
-        log.info("Revoked {} sessions for user {}", revoked, user.getId());
+        if (revoked > 0) {
+            log.info("All sessions revoked [userId={}, count={}]", user.getId(), revoked);
+        }
         return revoked;
     }
 

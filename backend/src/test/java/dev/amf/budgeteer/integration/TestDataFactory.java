@@ -22,7 +22,8 @@ import java.util.UUID;
  * Factory for creating test data in integration tests.
  * 
  * <p>Provides convenient methods to create entities with sensible defaults,
- * while allowing customisation where needed. All data is created in the
+ * while allowing
+ * customisation where needed. All data is created in the
  * database and ready for use in tests.</p>
  * 
  * <h3>Usage:</h3>

@@ -14,7 +14,15 @@ import java.time.Instant;
 /**
  * Health check endpoints for monitoring and load balancers.
  * These endpoints are public and do not require authentication.
+ * 
+ * @deprecated Use Spring Boot Actuator endpoints instead:
+ *             - /actuator/health for health checks
+ *             - /actuator/info for application information
+ *             
+ *             These legacy endpoints are maintained for backward compatibility
+ *             but will be removed in a future version.
  */
+@Deprecated(since = "0.0.1", forRemoval = true)
 @RestController
 @RequestMapping("/api/health")
 public class HealthController {
@@ -35,7 +43,10 @@ public class HealthController {
      * <p>GET /api/health
      * 
      * <p>Use this for basic load balancer health checks.
+     * 
+     * @deprecated Use /actuator/health instead
      */
+    @Deprecated(since = "0.0.1", forRemoval = true)
     @GetMapping
     public ResponseEntity<ApiResponse<HealthResponse>> health() {
         return ResponseEntity.ok(ApiResponse.of(new HealthResponse(
@@ -51,7 +62,10 @@ public class HealthController {
      * <p>GET /api/health/ready
      * 
      * <p>Use this for readiness probes (Kubernetes) or detailed monitoring.
+     * 
+     * @deprecated Use /actuator/health with show-details=always instead
      */
+    @Deprecated(since = "0.0.1", forRemoval = true)
     @GetMapping("/ready")
     public ResponseEntity<ApiResponse<ReadinessResponse>> readiness() {
         boolean dbHealthy = checkDatabase();
@@ -77,7 +91,10 @@ public class HealthController {
      * <p>GET /api/health/live
      * 
      * <p>Use this for Kubernetes liveness probes.
+     * 
+     * @deprecated Use /actuator/health/liveness instead
      */
+    @Deprecated(since = "0.0.1", forRemoval = true)
     @GetMapping("/live")
     public ResponseEntity<String> liveness() {
         return ResponseEntity.ok("OK");

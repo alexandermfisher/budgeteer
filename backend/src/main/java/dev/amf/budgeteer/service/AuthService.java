@@ -7,6 +7,7 @@ import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.domain.user.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,9 +59,12 @@ public class AuthService {
         // Find or create user
         User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
                 .orElseGet(() -> {
-                    log.info("Creating new user with email: {}", normalizedEmail);
+                    log.info("Creating new user account [email={}]", maskEmail(normalizedEmail));
                     User newUser = new User(normalizedEmail);
-                    return userRepository.save(newUser);
+                    User savedUser = userRepository.save(newUser);
+                    log.info("User account created successfully [userId={}, email={}]", 
+                            savedUser.getId(), maskEmail(normalizedEmail));
+                    return savedUser;
                 });
 
         // Generate magic link token
@@ -76,7 +80,8 @@ public class AuthService {
         // Send email with magic link
         emailService.sendMagicLinkEmail(normalizedEmail, plainToken);
 
-        log.info("Magic link requested for email: {}", normalizedEmail);
+        log.info("Magic link generated and sent [userId={}, email={}, expiresAt={}]", 
+                user.getId(), maskEmail(normalizedEmail), expiresAt);
     }
 
     /**
@@ -94,7 +99,7 @@ public class AuthService {
         Optional<MagicLinkToken> magicLinkOpt = magicLinkTokenRepository.findByTokenHash(tokenHash);
 
         if (magicLinkOpt.isEmpty()) {
-            log.debug("Magic link token not found");
+            log.warn("Magic link verification failed: token not found");
             return Optional.empty();
         }
 
@@ -102,7 +107,8 @@ public class AuthService {
 
         // Check if token is valid
         if (!magicLink.isValid()) {
-            log.debug("Magic link token is invalid (expired or used)");
+            log.warn("Magic link verification failed: token invalid or expired [userId={}]", 
+                    magicLink.getUser().getId());
             return Optional.empty();
         }
 
@@ -112,9 +118,15 @@ public class AuthService {
 
         // Get user and mark email as verified
         User user = magicLink.getUser();
+        
+        // Add user ID to MDC for all subsequent logs in this request
+        MDC.put("userId", user.getId().toString());
+        
         if (!user.isEmailVerified()) {
             user.setEmailVerified(true);
             userRepository.save(user);
+            log.info("Email verified for user [userId={}, email={}]", 
+                    user.getId(), maskEmail(user.getEmail()));
         }
 
         // Invalidate any other pending magic links for this user
@@ -123,13 +135,15 @@ public class AuthService {
         // Revoke all existing sessions (single-session policy)
         int revokedSessions = sessionService.revokeAllSessions(user);
         if (revokedSessions > 0) {
-            log.info("Revoked {} existing session(s) for user {} on new login", revokedSessions, user.getId());
+            log.info("Revoked {} existing session(s) for user on new login [userId={}, policy=single-session]", 
+                    revokedSessions, user.getId());
         }
 
         // Create session
         SessionService.SessionTokens sessionTokens = sessionService.createSession(user, userAgent, ipAddress);
 
-        log.info("User {} logged in via magic link", user.getId());
+        log.info("User authenticated successfully via magic link [userId={}, ipAddress={}, userAgent={}]", 
+                user.getId(), ipAddress, maskUserAgent(userAgent));
 
         return Optional.of(sessionTokens);
     }
@@ -165,5 +179,30 @@ public class AuthService {
         byte[] bytes = new byte[32]; // 256 bits
         SECURE_RANDOM.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+    
+    /**
+     * Masks email address for logging to protect PII.
+     * Example: john.doe@example.com -> j***@example.com
+     */
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) {
+            return "***";
+        }
+        String[] parts = email.split("@");
+        if (parts[0].length() <= 1) {
+            return "*@" + parts[1];
+        }
+        return parts[0].charAt(0) + "***@" + parts[1];
+    }
+    
+    /**
+     * Masks user agent for logging to reduce verbosity.
+     */
+    private String maskUserAgent(String userAgent) {
+        if (userAgent == null || userAgent.length() < 20) {
+            return userAgent;
+        }
+        return userAgent.substring(0, Math.min(50, userAgent.length())) + "...";
     }
 }

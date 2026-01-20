@@ -48,6 +48,13 @@ public class SecurityConfig {
                 // Health check endpoints (public for monitoring/load balancers)
                 .requestMatchers("/api/health/**").permitAll()
                 
+                // Actuator endpoints - public health and info, protected metrics
+                .requestMatchers("/actuator/health/**").permitAll()
+                .requestMatchers("/actuator/info").permitAll()
+                .requestMatchers("/actuator/metrics/**").authenticated()
+                .requestMatchers("/actuator/prometheus").authenticated()
+                .requestMatchers("/actuator/**").authenticated()
+                
                 // Test endpoints (dev only)
                 .requestMatchers("/api/test/**").permitAll()
                 

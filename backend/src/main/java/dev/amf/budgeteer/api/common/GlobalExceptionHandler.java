@@ -31,7 +31,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> handleApiException(ApiException ex, HttpServletRequest request) {
-        log.warn("API exception: {} - {}", ex.getErrorCode(), ex.getMessage());
+        log.warn("API exception [code={}, uri={}, message={}]", 
+                ex.getErrorCode(), request.getRequestURI(), ex.getMessage());
 
         ApiError error = ex.hasDetails()
                 ? ApiError.of(ex.getErrorCode(), ex.getMessage(), request.getRequestURI(), ex.getDetails())
@@ -173,7 +174,8 @@ public class GlobalExceptionHandler {
             Exception ex,
             HttpServletRequest request) {
 
-        log.error("Unexpected error on {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        log.error("Unexpected error [uri={}, exceptionType={}, message={}]", 
+                request.getRequestURI(), ex.getClass().getSimpleName(), ex.getMessage(), ex);
 
         ApiError error = ApiError.of(
                 ErrorCode.INTERNAL_ERROR,
