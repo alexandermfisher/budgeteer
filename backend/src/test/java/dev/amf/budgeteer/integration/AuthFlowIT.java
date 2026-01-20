@@ -102,8 +102,8 @@ class AuthFlowIT extends AbstractPostgresIntegrationTest {
             // Then - magic link token should be created
             List<MagicLinkToken> tokens = magicLinkTokenRepository.findAll();
             assertThat(tokens).hasSize(1);
-            assertThat(tokens.get(0).getUser().getId()).isEqualTo(user.get().getId());
-            assertThat(tokens.get(0).isValid()).isTrue();
+            assertThat(tokens.getFirst().getUser().getId()).isEqualTo(user.get().getId());
+            assertThat(tokens.getFirst().isValid()).isTrue();
         }
 
         @Test
@@ -119,7 +119,7 @@ class AuthFlowIT extends AbstractPostgresIntegrationTest {
             // Then - no duplicate user created
             List<User> users = userRepository.findAll();
             assertThat(users).hasSize(1);
-            assertThat(users.get(0).getId()).isEqualTo(existingUser.getId());
+            assertThat(users.getFirst().getId()).isEqualTo(existingUser.getId());
 
             // Then - magic link token should be created
             List<MagicLinkToken> tokens = magicLinkTokenRepository.findAll();
@@ -139,6 +139,7 @@ class AuthFlowIT extends AbstractPostgresIntegrationTest {
             assertThat(user.get().getEmail()).isEqualTo("uppercase@example.com");
         }
 
+        // TODO - should only the latest request be valid and older ones unused be invalidated on new request
         @Test
         @DisplayName("should allow multiple magic link requests for same user")
         @Transactional
@@ -173,6 +174,7 @@ class AuthFlowIT extends AbstractPostgresIntegrationTest {
             User user = testData.createUser("verify@example.com");
             TestDataFactory.MagicLinkTokenResult tokenResult = testData.createValidMagicLinkFor(user);
 
+            // TODO - method name doesn't indicate session creation ...
             // When
             Optional<SessionService.SessionTokens> result = authService.verifyMagicLink(
                     tokenResult.rawToken(), "Test-Agent", "127.0.0.1");
@@ -193,7 +195,7 @@ class AuthFlowIT extends AbstractPostgresIntegrationTest {
             // Then - refresh token stored in database
             List<AppRefreshToken> refreshTokens = refreshTokenRepository.findAll();
             assertThat(refreshTokens).hasSize(1);
-            assertThat(refreshTokens.get(0).isValid()).isTrue();
+            assertThat(refreshTokens.getFirst().isValid()).isTrue();
         }
 
         @Test
@@ -216,6 +218,7 @@ class AuthFlowIT extends AbstractPostgresIntegrationTest {
             User user = testData.createUser("expired@example.com");
             testData.createExpiredMagicLinkFor(user);
 
+            // TODO - the create expired method should return token and this should be tested with or else its just testing the same as above
             // When - try any token (won't match the expired one's hash)
             Optional<SessionService.SessionTokens> result = authService.verifyMagicLink(
                     "some-random-token", "Test-Agent", "127.0.0.1");
@@ -281,8 +284,8 @@ class AuthFlowIT extends AbstractPostgresIntegrationTest {
             // Then
             List<AppRefreshToken> tokens = refreshTokenRepository.findAll();
             assertThat(tokens).hasSize(1);
-            assertThat(tokens.get(0).getUserAgent()).isEqualTo("Mozilla/5.0 Chrome");
-            assertThat(tokens.get(0).getIpAddress()).isEqualTo("192.168.1.1");
+            assertThat(tokens.getFirst().getUserAgent()).isEqualTo("Mozilla/5.0 Chrome");
+            assertThat(tokens.getFirst().getIpAddress()).isEqualTo("192.168.1.1");
         }
     }
 
@@ -476,10 +479,11 @@ class AuthFlowIT extends AbstractPostgresIntegrationTest {
         void shouldCompleteFullFlow() {
             String email = "fullflow@example.com";
 
+            // TODO no assert on magic link - why?
             // 1. Request magic link
             authService.requestMagicLink(email);
             User user = userRepository.findByEmailIgnoreCase(email).orElseThrow();
-            MagicLinkToken magicLink = magicLinkTokenRepository.findAll().get(0);
+            MagicLinkToken magicLink = magicLinkTokenRepository.findAll().getFirst();
 
             // Get the raw token (in real app this is sent via email)
             // For testing, we create a fresh one since we can't reverse the hash
