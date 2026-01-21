@@ -82,7 +82,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             log.info("Incoming request: {} {} {} [requestId={}, userAgent={}]",
                     method,
                     uri,
-                    queryString != null ? "?" + queryString : "",
+                    queryString != null ? "?" + maskSensitiveQueryParams(queryString) : "",
                     requestId,
                     maskUserAgent(userAgent));
         }
@@ -142,5 +142,31 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         }
         // Just return first 50 chars to keep logs clean
         return userAgent.substring(0, Math.min(50, userAgent.length())) + "...";
+    }
+    
+    /**
+     * Masks sensitive query parameters to prevent logging tokens and secrets.
+     * Replaces values of known sensitive parameters with "***".
+     * 
+     * <p>Sensitive parameters masked:</p>
+     * <ul>
+     *   <li>token - Magic link tokens</li>
+     *   <li>code - OAuth authorization codes</li>
+     *   <li>state - OAuth state parameters</li>
+     *   <li>access_token - Access tokens (should never be in URL, but just in case)</li>
+     *   <li>refresh_token - Refresh tokens (should never be in URL, but just in case)</li>
+     * </ul>
+     */
+    private String maskSensitiveQueryParams(String queryString) {
+        if (queryString == null || queryString.isBlank()) {
+            return queryString;
+        }
+        // Mask known sensitive parameter values
+        return queryString
+                .replaceAll("(?i)(token)=([^&]*)", "$1=***")
+                .replaceAll("(?i)(code)=([^&]*)", "$1=***")
+                .replaceAll("(?i)(state)=([^&]*)", "$1=***")
+                .replaceAll("(?i)(access_token)=([^&]*)", "$1=***")
+                .replaceAll("(?i)(refresh_token)=([^&]*)", "$1=***");
     }
 }

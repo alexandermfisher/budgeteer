@@ -65,15 +65,22 @@ public class JweTokenService {
         Instant now = Instant.now();
         Instant expiry = now.plus(jweProperties.getAccessTokenExpiry());
 
+        String tokenId = UUID.randomUUID().toString();
+        
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject(user.getId().toString())
                 .claim("email", user.getEmail())
                 .issueTime(Date.from(now))
                 .expirationTime(Date.from(expiry))
-                .jwtID(UUID.randomUUID().toString())
+                .jwtID(tokenId)
                 .build();
 
-        return encryptClaims(claimsSet);
+        String token = encryptClaims(claimsSet);
+        
+        log.debug("Access token created [userId={}, tokenId={}, expiresAt={}]", 
+                user.getId(), tokenId, expiry);
+
+        return token;
     }
 
     /**

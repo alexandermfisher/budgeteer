@@ -4,6 +4,8 @@ import dev.amf.budgeteer.config.JweProperties;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -28,6 +30,8 @@ import java.util.Optional;
 @Service
 public class CookieService {
 
+    private static final Logger log = LoggerFactory.getLogger(CookieService.class);
+    
     public static final String ACCESS_TOKEN_COOKIE = "access_token";
     public static final String REFRESH_TOKEN_COOKIE = "refresh_token";
 
@@ -100,6 +104,7 @@ public class CookieService {
     public void setAuthCookies(HttpServletResponse response, String accessToken, String refreshToken) {
         setAccessTokenCookie(response, accessToken);
         setRefreshTokenCookie(response, refreshToken);
+        log.debug("Auth cookies set [secure={}, sameSite={}]", secureCookies, SAME_SITE_POLICY);
     }
 
     /**
@@ -128,6 +133,8 @@ public class CookieService {
         
         response.addHeader(HttpHeaders.SET_COOKIE, accessCookie.toString());
         response.addHeader(HttpHeaders.SET_COOKIE, refreshCookie.toString());
+        
+        log.debug("Auth cookies cleared");
     }
 
     /**
