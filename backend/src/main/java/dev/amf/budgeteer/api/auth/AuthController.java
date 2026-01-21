@@ -16,6 +16,7 @@ import dev.amf.budgeteer.service.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -135,8 +136,13 @@ public class AuthController {
     /**
      * Extract refresh token from request body or cookie.
      * Body takes precedence over cookie.
+     *
+     * @param body    the optional request body (may be null)
+     * @param request the HTTP request
+     * @return the refresh token
+     * @throws ApiException if no refresh token is found
      */
-    private String extractRefreshToken(RefreshRequest body, HttpServletRequest request) {
+    private String extractRefreshToken(@Nullable RefreshRequest body, HttpServletRequest request) {
         // Try body first
         if (body != null && body.refreshToken() != null && !body.refreshToken().isBlank()) {
             return body.refreshToken();
@@ -173,11 +179,11 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserResponse>> me() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-        if (auth == null || !(auth instanceof JweAuthentication)) {
+        // instanceof handles null safely (returns false for null)
+        if (!(auth instanceof JweAuthentication jweAuth)) {
             throw new ApiException(ErrorCode.NOT_AUTHENTICATED);
         }
 
-        JweAuthentication jweAuth = (JweAuthentication) auth;
         Optional<User> userOpt = authService.getUserById(jweAuth.getUserId());
 
         if (userOpt.isEmpty()) {
