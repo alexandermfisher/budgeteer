@@ -38,6 +38,12 @@
         <property name="message" value="Line has trailing whitespace."/>
     </module>
 
+    <!-- Max line length: 120 characters (must be at Checker level in Checkstyle 10.x) -->
+    <module name="LineLength">
+        <property name="max" value="120"/>
+        <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+    </module>
+
     <module name="TreeWalker">
         <!-- Support for @SuppressWarnings -->
         <module name="SuppressWarningsHolder"/>
@@ -138,12 +144,6 @@
         <!-- ===================================================================
              Formatting (Relaxed)
              =================================================================== -->
-        
-        <!-- Max line length: 120 characters -->
-        <module name="LineLength">
-            <property name="max" value="120"/>
-            <property name="ignorePattern" value="^package.*|^import.*|a]"/>
-        </module>
 
         <!-- Method length: max 50 lines -->
         <module name="MethodLength">
