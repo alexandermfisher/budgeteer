@@ -29,7 +29,6 @@ import java.util.UUID;
 public class JweTokenService {
 
     private static final Logger log = LoggerFactory.getLogger(JweTokenService.class);
-    private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
 
     private final JweProperties jweProperties;
     private SecretKey secretKey;
@@ -42,18 +41,22 @@ public class JweTokenService {
     public void init() {
         String keyString = jweProperties.getSecretKey();
         if (keyString == null || keyString.isBlank()) {
-            log.warn("JWE_SECRET_KEY not configured - using generated key for development only!");
-            // Generate a random key for development - DO NOT USE IN PRODUCTION
-            byte[] keyBytes = new byte[32];
-            SECURE_RANDOM.nextBytes(keyBytes);
-            this.secretKey = new SecretKeySpec(keyBytes, "AES");
-        } else {
-            byte[] keyBytes = Base64.getDecoder().decode(keyString);
-            if (keyBytes.length != 32) {
-                throw new IllegalArgumentException("JWE_SECRET_KEY must be 32 bytes (256 bits) when base64 decoded");
-            }
-            this.secretKey = new SecretKeySpec(keyBytes, "AES");
+            throw new IllegalStateException(
+                    "JWE_SECRET_KEY is not configured! " +
+                    "Please set the JWE_SECRET_KEY environment variable. " +
+                    "Generate with: openssl rand -base64 32"
+            );
         }
+        
+        byte[] keyBytes = Base64.getDecoder().decode(keyString);
+        if (keyBytes.length != 32) {
+            throw new IllegalArgumentException(
+                    "JWE_SECRET_KEY must be 32 bytes (256 bits) when base64 decoded. " +
+                    "Current length: " + keyBytes.length + " bytes"
+            );
+        }
+        this.secretKey = new SecretKeySpec(keyBytes, "AES");
+        log.info("JWE token service initialized successfully");
     }
 
     /**
