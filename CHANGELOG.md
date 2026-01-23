@@ -8,30 +8,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Logging & Observability Infrastructure** ✅ COMPLETE (January 2026)
+- (Nothing yet - see backlog for next priorities)
+
+## [0.2.0] - 2026-01-23
+
+### Added
+- **Logging & Observability Infrastructure** ✅ COMPLETE
   - RequestLoggingFilter with X-Request-ID correlation headers
   - Sensitive data masking (tokens, OAuth codes, state params)
   - Structured logging in all services and controllers (AuthController, AuthService, etc.)
   - Profile-specific Logback configuration (dev=console, prod=JSON file)
-  - Spring Boot Actuator endpoints (/actuator/health, /actuator/info)
+  - Spring Boot Actuator endpoints (/actuator/health, /actuator/info, /actuator/prometheus)
   - JSpecify @NullMarked null-safety annotations (12 packages)
   - RequestLoggingFilterTest unit tests (8 tests with LogCaptor)
   - docs/features/LOGGING.md documentation
-- **New task board sections** for future work
-  - Security Headers & Hardening task (P2)
-  - Request Correlation & Tracing task (P3)
-  - Email Service Implementation task (P2)
 - Integration tests for authentication flow with Testcontainers PostgreSQL (35 tests total)
   - `AuthFlowIT` (19 tests) - Complete magic link authentication flow
   - `SessionManagementIT` (16 tests) - Session management edge cases, token rotation, multi-device handling
   - `TestDataFactory` - Test data builder for integration tests
   - Testcontainers singleton pattern for shared PostgreSQL container
   - HikariCP connection pooling configuration for tests
-  - Global testcontainers configuration (`~/.testcontainers.properties`)
 
 ### Changed
 - **Null-safety refactor**: Use Java 16+ pattern matching for `instanceof` in `AuthController.me()`
 - Removed redundant null checks (instanceof already handles null safely)
+
+### Merged
+- `feature/logging` branch merged to `main`
 
 ## [0.1.0] - 2026-01-10
 
