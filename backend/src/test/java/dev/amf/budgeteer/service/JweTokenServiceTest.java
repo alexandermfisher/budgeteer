@@ -227,8 +227,8 @@ class JweTokenServiceTest {
         }
 
         @Test
-        @DisplayName("should handle missing key in development mode (warning)")
-        void shouldHandleMissingKeyInDevMode() {
+        @DisplayName("should throw exception when key is missing")
+        void shouldThrowWhenKeyMissing() {
             // Given
             JweProperties noKeyProps = new JweProperties();
             noKeyProps.setSecretKey(null);
@@ -236,18 +236,15 @@ class JweTokenServiceTest {
             
             JweTokenService noKeyService = new JweTokenService(noKeyProps);
 
-            // When
-            noKeyService.init();
-
-            // Then - Should not throw, but generate a random key
-            User user = createTestUser();
-            String token = noKeyService.createAccessToken(user);
-            assertThat(token).isNotNull();
+            // When/Then - Should throw because key is required
+            assertThatThrownBy(noKeyService::init)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("JWE_SECRET_KEY is not configured");
         }
 
         @Test
-        @DisplayName("should handle blank key in development mode (warning)")
-        void shouldHandleBlankKeyInDevMode() {
+        @DisplayName("should throw exception when key is blank")
+        void shouldThrowWhenKeyBlank() {
             // Given
             JweProperties blankKeyProps = new JweProperties();
             blankKeyProps.setSecretKey("   ");
@@ -255,13 +252,10 @@ class JweTokenServiceTest {
             
             JweTokenService blankKeyService = new JweTokenService(blankKeyProps);
 
-            // When
-            blankKeyService.init();
-
-            // Then - Should not throw, but generate a random key
-            User user = createTestUser();
-            String token = blankKeyService.createAccessToken(user);
-            assertThat(token).isNotNull();
+            // When/Then - Should throw because key is required
+            assertThatThrownBy(blankKeyService::init)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("JWE_SECRET_KEY is not configured");
         }
     }
 
