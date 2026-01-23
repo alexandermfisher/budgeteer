@@ -2,6 +2,7 @@ package dev.amf.budgeteer.config;
 
 import lombok.Getter;
 import lombok.Setter;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
@@ -20,7 +21,9 @@ public class JweProperties {
     /**
      * Secret key for JWE encryption (Base64 encoded 32 bytes).
      * Generate with: openssl rand -base64 32
+     * Required - app will fail to start if not configured.
      */
+    @Nullable
     private String secretKey;
 
     /**

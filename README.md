@@ -8,7 +8,7 @@ This is a **mono-repo** containing:
 
 ```
 budgeteer/
-├── backend/          # Spring Boot API (Java 21)
+├── backend/          # Spring Boot API (Java 25)
 ├── frontend/         # Web UI (coming soon)
 ├── docs/             # Documentation
 ├── scripts/          # Development scripts
@@ -19,7 +19,7 @@ budgeteer/
 
 ### Prerequisites
 
-- Java 21+ ([SDKMAN](https://sdkman.io/) recommended)
+- Java 25+ ([SDKMAN](https://sdkman.io/) recommended)
 - Maven 3.9+
 - Docker & Docker Compose
 - [Monzo Developer Account](https://developers.monzo.com/)
@@ -28,25 +28,32 @@ budgeteer/
 
 1. **Clone and configure:**
    ```bash
-   git clone https://github.com/yourusername/budgeteer.git
+   git clone https://github.com/alexandermfisher/budgeteer.git
    cd budgeteer
    cp .env.example .env
-   # Edit .env with your Monzo credentials
+   # Edit .env with your credentials
    ```
 
-2. **Start the database:**
+2. **Generate JWE secret key:**
+   ```bash
+   openssl rand -base64 32
+   # Add to .env as JWE_SECRET_KEY=<generated-key>
+   ```
+
+3. **Start the database:**
    ```bash
    docker compose up -d
    ```
 
-3. **Run the backend:**
+4. **Run the backend:**
    ```bash
    ./scripts/dev.sh
    ```
 
-4. **Access the app:**
+5. **Access the app:**
    - API: http://localhost:8080
-   - OAuth: http://localhost:8080/auth/connect
+   - Health: http://localhost:8080/actuator/health
+   - Monzo OAuth: http://localhost:8080/auth/connect
 
 See [docs/SETUP.md](docs/SETUP.md) for detailed setup instructions.
 
@@ -54,19 +61,57 @@ See [docs/SETUP.md](docs/SETUP.md) for detailed setup instructions.
 
 | Component | Technology |
 |-----------|------------|
-| **Backend** | Spring Boot 3.4, Java 21 |
+| **Backend** | Spring Boot 3.4, Java 25 |
 | **Database** | PostgreSQL 16 |
 | **Migrations** | Flyway |
+| **Authentication** | Magic Links + JWE Tokens |
 | **External API** | Monzo Banking API |
+| **CI/CD** | GitHub Actions |
+| **Security Scanning** | CodeQL |
 | **Frontend** | TBD (React/Vue) |
-| **Infrastructure** | Docker, Cloudflare Tunnel |
+
+## 🔐 Authentication
+
+Budgeteer uses a **passwordless authentication** system:
+
+1. User enters email → receives magic link
+2. Magic link validates → JWE access token + refresh token issued
+3. Tokens stored in HttpOnly cookies
+4. Single-session policy (new login revokes existing sessions)
+
+See [docs/features/USER-AUTHENTICATION.md](docs/features/USER-AUTHENTICATION.md) for details.
 
 ## 📚 Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) - Technical design decisions
-- [Monzo Auth Flow](docs/MONZO-AUTH-FLOW.md) - OAuth implementation details
-- [Setup Guide](docs/SETUP.md) - Development environment setup
+- [CI/CD Setup](docs/CI-CD.md) - GitHub Actions pipeline
+- [Monzo Auth Flow](docs/MONZO-AUTH-FLOW.md) - OAuth implementation
+- [Security Architecture](docs/SECURITY-ARCHITECTURE.md) - Security model
+- [Setup Guide](docs/SETUP.md) - Development environment
+- [Testing Guide](docs/TESTING.md) - Test strategy and conventions
 - [Secrets Management](docs/SECRETS-MANAGEMENT.md) - Handling credentials
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+cd backend && mvn test
+
+# Run only unit tests
+mvn test -DexcludedGroups=integration
+
+# Run integration tests (requires Docker)
+mvn test -Dgroups=integration
+```
+
+## 🔄 CI/CD
+
+The project uses GitHub Actions for:
+
+- ✅ **Build & Test** - Runs on every push/PR
+- ✅ **Code Style** - Checkstyle enforcement
+- ✅ **Security Scanning** - CodeQL analysis
+- ✅ **Branch Protection** - Requires passing checks + code review
 
 ## 🤝 Contributing
 
@@ -74,11 +119,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for git workflow, branch naming, and comm
 
 ## 📋 Current Status
 
-**Phase:** Foundation & Monzo Integration
+**Phase:** User Authentication & API Foundation
 
 - [x] Project setup & configuration
-- [x] Monzo OAuth flow (tested & working)
-- [ ] Token persistence (in progress)
+- [x] CI/CD pipeline (GitHub Actions)
+- [x] Monzo OAuth flow
+- [x] User authentication (magic links)
+- [x] Session management (JWE tokens)
+- [x] Request logging & security
+- [ ] Monzo token persistence
 - [ ] Transaction sync
 - [ ] Budgeting features
 - [ ] Frontend UI
