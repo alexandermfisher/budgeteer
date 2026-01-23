@@ -199,6 +199,14 @@
             <version>6.0.0</version>
             <scope>test</scope>
         </dependency>
+        
+        <!-- LogCaptor - For testing log output -->
+        <dependency>
+            <groupId>io.github.hakky54</groupId>
+            <artifactId>logcaptor</artifactId>
+            <version>2.9.3</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

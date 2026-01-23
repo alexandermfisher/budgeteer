@@ -57,7 +57,9 @@ public class AuthController {
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
+        log.info("Magic link requested [email={}]", maskEmail(request.email()));
         authService.requestMagicLink(request.email());
+        log.debug("Magic link sent successfully [email={}]", maskEmail(request.email()));
         return ResponseEntity.ok(ApiResponse.of(AuthResponse.magicLinkSent(request.email())));
     }
 
@@ -71,12 +73,15 @@ public class AuthController {
             HttpServletRequest request,
             HttpServletResponse response) {
 
+        log.debug("Magic link verification attempted [ipAddress={}]", cookieService.getClientIpAddress(request));
+
         String userAgent = request.getHeader("User-Agent");
         String ipAddress = cookieService.getClientIpAddress(request);
 
         Optional<SessionService.SessionTokens> tokensOpt = authService.verifyMagicLink(token, userAgent, ipAddress);
 
         if (tokensOpt.isEmpty()) {
+            log.warn("Magic link verification failed - invalid or expired token [ipAddress={}]", ipAddress);
             throw new ApiException(ErrorCode.INVALID_TOKEN, "Invalid or expired magic link token");
         }
 
@@ -84,6 +89,8 @@ public class AuthController {
 
         // Set cookies
         cookieService.setAuthCookies(response, tokens.accessToken(), tokens.refreshToken());
+
+        log.info("User authenticated via magic link [ipAddress={}]", ipAddress);
 
         // Redirect to login success URL
         response.setHeader("Location", appProperties.getLoginSuccessUrl());
@@ -110,17 +117,20 @@ public class AuthController {
             HttpServletRequest request,
             HttpServletResponse response) {
 
+        String ipAddress = cookieService.getClientIpAddress(request);
+        log.debug("Token refresh requested [ipAddress={}]", ipAddress);
+
         // Try body first, then cookie
         String refreshToken = extractRefreshToken(body, request);
 
         String userAgent = request.getHeader("User-Agent");
-        String ipAddress = cookieService.getClientIpAddress(request);
 
         Optional<SessionService.SessionTokens> tokensOpt = sessionService.refreshSession(refreshToken, userAgent, ipAddress);
 
         if (tokensOpt.isEmpty()) {
             // Clear invalid cookies
             cookieService.clearAuthCookies(response);
+            log.warn("Token refresh failed - invalid or expired refresh token [ipAddress={}]", ipAddress);
             throw new ApiException(ErrorCode.INVALID_TOKEN, "Invalid or expired refresh token");
         }
 
@@ -128,6 +138,8 @@ public class AuthController {
 
         // Set new cookies (for browser clients)
         cookieService.setAuthCookies(response, tokens.accessToken(), tokens.refreshToken());
+
+        log.debug("Token refresh successful [ipAddress={}]", ipAddress);
 
         // Return tokens in body too (for API clients)
         return ResponseEntity.ok(ApiResponse.of(AuthResponse.tokenRefreshed(tokens.accessToken(), tokens.refreshToken())));
@@ -162,8 +174,13 @@ public class AuthController {
             HttpServletRequest request,
             HttpServletResponse response) {
 
+        log.debug("Logout requested [ipAddress={}]", cookieService.getClientIpAddress(request));
+
         cookieService.extractRefreshToken(request)
-                .ifPresent(sessionService::revokeSession);
+                .ifPresent(token -> {
+                    sessionService.revokeSession(token);
+                    log.info("User logged out - session revoked [ipAddress={}]", cookieService.getClientIpAddress(request));
+                });
 
         // Clear cookies
         cookieService.clearAuthCookies(response);
@@ -181,15 +198,40 @@ public class AuthController {
 
         // instanceof handles null safely (returns false for null)
         if (!(auth instanceof JweAuthentication jweAuth)) {
+            log.debug("User info requested but not authenticated");
             throw new ApiException(ErrorCode.NOT_AUTHENTICATED);
         }
 
         Optional<User> userOpt = authService.getUserById(jweAuth.getUserId());
 
         if (userOpt.isEmpty()) {
+            log.warn("Authenticated user not found in database [userId={}]", jweAuth.getUserId());
             throw new ApiException(ErrorCode.USER_NOT_FOUND);
         }
 
+        log.debug("User info retrieved [userId={}]", jweAuth.getUserId());
         return ResponseEntity.ok(ApiResponse.of(UserResponse.fromUser(userOpt.get())));
+    }
+
+    // =========================================================================
+    // HELPER METHODS
+    // =========================================================================
+
+    /**
+     * Masks an email address for safe logging.
+     * Example: "john.doe@example.com" becomes "j***@example.com"
+     *
+     * @param email the email to mask
+     * @return the masked email
+     */
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) {
+            return "***";
+        }
+        int atIndex = email.indexOf('@');
+        if (atIndex <= 1) {
+            return "***" + email.substring(atIndex);
+        }
+        return email.charAt(0) + "***" + email.substring(atIndex);
     }
 }
