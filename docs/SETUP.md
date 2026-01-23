@@ -179,6 +179,44 @@ docker compose logs -f postgres
 4. Mark `backend/src/main/java` as Sources Root
 5. Enable annotation processing (for Lombok, if used)
 
+#### Run Configuration (Recommended)
+
+A pre-configured run configuration is included in the project:
+
+**"Budgeteer - Local Dev"** - Available in the Run dropdown after opening the project.
+
+This configuration:
+- Uses the `dev` Spring profile
+- Sets the working directory to `backend/`
+- Loads environment variables from your `.env` file (requires EnvFile plugin)
+
+##### EnvFile Plugin Setup
+
+The run configuration uses the [EnvFile plugin](https://plugins.jetbrains.com/plugin/7861-envfile) to securely load your `.env` file:
+
+1. Install the **EnvFile** plugin:
+   - Go to **Settings → Plugins → Marketplace**
+   - Search for "EnvFile" and install it
+   - Restart IntelliJ
+
+2. Ensure your `.env` file exists at the project root with required variables
+
+3. Run with **"Budgeteer - Local Dev"** from the Run dropdown
+
+##### Without EnvFile Plugin
+
+If you prefer not to use the EnvFile plugin:
+
+1. Edit the run configuration (**Run → Edit Configurations**)
+2. Go to **Environment variables**
+3. Manually add required variables:
+   - `JWE_SECRET_KEY=your-secret`
+   - `MONZO_CLIENT_ID=your-client-id`
+   - `MONZO_CLIENT_SECRET=your-client-secret`
+   - `MONZO_REDIRECT_URI=http://localhost:8080/auth/callback`
+
+> ⚠️ **Note:** Don't commit manually-entered environment variables - they're stored in your local IDE settings.
+
 ### VS Code
 
 1. Install Java Extension Pack

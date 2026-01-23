@@ -1,0 +1,1037 @@
+{
+	"info": {
+		"_postman_id": "budgeteer-auth-collection",
+		"name": "Budgeteer Auth",
+		"description": "Authentication endpoints for Budgeteer app.\n\n## Quick Start (Dev)\n1. Use **Dev Tools > Quick Login** - no magic link needed!\n2. Tokens are auto-saved to environment\n3. Use authenticated endpoints (cookies OR Bearer token)\n\n## Auth Methods\n- **Cookies**: Browser-style auth (automatic)\n- **Bearer Token**: `Authorization: Bearer {{access_token}}`\n\n## Production Flow\n1. Request Magic Link (Login)\n2. Copy token from server console\n3. Verify Magic Link\n4. Use authenticated endpoints\n\n## Notes\n- Magic links expire in 30 minutes (dev) / 15 minutes (prod)\n- Access tokens expire in 1 hour (dev) / 15 minutes (prod)\n- Refresh tokens expire in 30 days (dev) / 7 days (prod)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health",
+			"item": [
+				{
+					"name": "Health Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Status is UP\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data.status).to.equal(\"UP\");",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"console.log(\"✅ App is healthy!\");",
+									"console.log(\"Profile: \" + jsonData.data.profile);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"health"
+							]
+						},
+						"description": "Basic health check - confirms app is running.\n\nUse this for load balancer health checks."
+					},
+					"response": []
+				},
+				{
+					"name": "Readiness Check (with DB)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"All components healthy\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data.status).to.equal(\"UP\");",
+									"    pm.expect(jsonData.data.database.status).to.equal(\"UP\");",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"console.log(\"✅ App ready!\");",
+									"console.log(\"Database: \" + jsonData.data.database.status);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/health/ready",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"health",
+								"ready"
+							]
+						},
+						"description": "Detailed health check - verifies database connectivity.\n\nUse this for Kubernetes readiness probes."
+					},
+					"response": []
+				},
+				{
+					"name": "Liveness Check",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Returns OK\", function () {",
+									"    pm.expect(pm.response.text()).to.equal(\"OK\");",
+									"});",
+									"",
+									"console.log(\"✅ App is alive!\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/health/live",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"health",
+								"live"
+							]
+						},
+						"description": "Minimal liveness check - just confirms process is alive.\n\nUse this for Kubernetes liveness probes."
+					},
+					"response": []
+				}
+			],
+			"description": "Health check endpoints for monitoring and orchestration."
+		},
+		{
+			"name": "Dev Tools",
+			"item": [
+				{
+					"name": "⚡ Quick Login (Dev Only)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Returns tokens\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data).to.have.property(\"accessToken\");",
+									"    pm.expect(jsonData.data).to.have.property(\"refreshToken\");",
+									"});",
+									"",
+									"// Auto-save tokens to environment",
+									"var jsonData = pm.response.json();",
+									"pm.environment.set(\"access_token\", jsonData.data.accessToken);",
+									"pm.environment.set(\"refresh_token\", jsonData.data.refreshToken);",
+									"pm.environment.set(\"user_id\", jsonData.data.userId);",
+									"pm.environment.set(\"user_email\", jsonData.data.email);",
+									"",
+									"console.log(\"✅ Logged in as: \" + jsonData.data.email);",
+									"console.log(\"🔑 Access token saved to environment\");",
+									"console.log(\"🆔 User ID: \" + jsonData.data.userId);",
+									"console.log(\"\");",
+									"console.log(\"Auth methods available:\");",
+									"console.log(\"  - Cookie-based (automatic in browser)\");",
+									"console.log(\"  - Bearer token: Authorization: Bearer {{access_token}}\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{user_email}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/test/auth/quick-login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"test",
+								"auth",
+								"quick-login"
+							]
+						},
+						"description": "⚡ **DEV ONLY** - Quick login without magic link flow!\n\nThis endpoint:\n- Creates user if doesn't exist\n- Auto-verifies email\n- Returns tokens in response body\n- Sets HttpOnly cookies\n\n**Tokens are auto-saved to environment variables!**\n\n⚠️ This endpoint only exists in dev profile."
+					},
+					"response": []
+				},
+				{
+					"name": "☢️ Revoke ALL Sessions (Dev Only)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Sessions revoked\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data).to.have.property(\"sessionsRevoked\");",
+									"});",
+									"",
+									"// Clear local tokens",
+									"pm.environment.unset(\"access_token\");",
+									"pm.environment.unset(\"refresh_token\");",
+									"",
+									"var jsonData = pm.response.json();",
+									"console.log(\"☢️ Nuclear option executed!\");",
+									"console.log(\"Sessions revoked: \" + jsonData.data.sessionsRevoked);",
+									"console.log(jsonData.data.message);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/test/auth/revoke-all",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"test",
+								"auth",
+								"revoke-all"
+							]
+						},
+						"description": "☢️ **DEV ONLY** - Nuclear option! Revokes ALL sessions for ALL users.\n\nUse this when you want to:\n- Clear all cached/stale cookies\n- Force everyone to re-login\n- Reset test state\n\n⚠️ This endpoint only exists in dev profile."
+					},
+					"response": []
+				},
+				{
+					"name": "🔒 Revoke User Sessions (Dev Only)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Sessions revoked\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data).to.have.property(\"sessionsRevoked\");",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"console.log(\"🔒 User sessions revoked!\");",
+									"console.log(\"Sessions revoked: \" + jsonData.data.sessionsRevoked);",
+									"console.log(jsonData.data.message);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/test/auth/revoke-user?email={{user_email}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"test",
+								"auth",
+								"revoke-user"
+							],
+							"query": [
+								{
+									"key": "email",
+									"value": "{{user_email}}"
+								}
+							]
+						},
+						"description": "🔒 **DEV ONLY** - Revoke all sessions for a specific user.\n\nUseful when testing:\n- Logout from all devices\n- Session invalidation\n- Token rotation\n\n⚠️ This endpoint only exists in dev profile."
+					},
+					"response": []
+				}
+			],
+			"description": "Development-only endpoints for easier testing.\n\n⚠️ These only work when the server is running with `dev` profile!"
+		},
+		{
+			"name": "Auth Flow (Cookies)",
+			"item": [
+				{
+					"name": "1. Login (Request Magic Link)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response indicates success\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data.message).to.include(\"Check your email\");",
+									"});",
+									"",
+									"// Save email to environment",
+									"var requestBody = JSON.parse(pm.request.body.raw);",
+									"pm.environment.set(\"user_email\", requestBody.email);",
+									"",
+									"console.log(\"📧 Magic link sent! Check server console for the token.\");",
+									"console.log(\"Copy the token and set it in the 'magic_link_token' environment variable.\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{user_email}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Request a magic link to be sent to the user's email.\n\nIn dev mode, the link is printed to the server console."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Verify Magic Link",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200 or 302\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([200, 302]);",
+									"});",
+									"",
+									"pm.test(\"Login successful\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data.message).to.equal(\"Login successful\");",
+									"});",
+									"",
+									"// Cookies are automatically handled by Postman",
+									"console.log(\"✅ Logged in! Cookies have been set.\");",
+									"console.log(\"You can now use authenticated endpoints.\");"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.environment.get(\"magic_link_token\")) {",
+									"    console.warn(\"⚠️ magic_link_token is not set!\");",
+									"    console.log(\"Copy the token from server console and set it in environment variables.\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/verify?token={{magic_link_token}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"verify"
+							],
+							"query": [
+								{
+									"key": "token",
+									"value": "{{magic_link_token}}"
+								}
+							]
+						},
+						"description": "Verify the magic link token and log in.\n\nThis sets HttpOnly cookies:\n- `access_token` (15 min expiry)\n- `refresh_token` (7 day expiry)"
+					},
+					"response": []
+				},
+				{
+					"name": "3. Get Current User (Cookie)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Returns user data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data).to.have.property(\"id\");",
+									"    pm.expect(jsonData.data).to.have.property(\"email\");",
+									"    pm.expect(jsonData.data).to.have.property(\"emailVerified\");",
+									"});",
+									"",
+									"// Save user ID for later use",
+									"var jsonData = pm.response.json();",
+									"pm.environment.set(\"user_id\", jsonData.data.id);",
+									"",
+									"console.log(\"👤 User: \" + jsonData.data.email);",
+									"console.log(\"🆔 ID: \" + jsonData.data.id);",
+									"console.log(\"🍪 Auth method: Cookies\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Get the currently authenticated user's details.\n\n**Uses cookie-based auth** - cookies are automatically sent by Postman."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Refresh Token (Cookie)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Token refreshed\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data.message).to.equal(\"Token refreshed\");",
+									"});",
+									"",
+									"// Tokens are returned in body, save them",
+									"var jsonData = pm.response.json();",
+									"if (jsonData.data.accessToken) {",
+									"    pm.environment.set(\"access_token\", jsonData.data.accessToken);",
+									"    pm.environment.set(\"refresh_token\", jsonData.data.refreshToken);",
+									"    console.log(\"🔑 New tokens saved to environment\");",
+									"}",
+									"",
+									"console.log(\"🔄 Tokens refreshed!\");",
+									"console.log(\"🍪 New cookies have been set\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "Refresh the access token using the refresh token cookie.\n\n**Uses cookie-based auth** - refresh token cookie is automatically sent.\n\nThis rotates both tokens:\n- Old refresh token is revoked\n- New access and refresh tokens are set in cookies\n- Tokens also returned in response body"
+					},
+					"response": []
+				},
+				{
+					"name": "5. Logout",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Logged out\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data.message).to.equal(\"Logged out\");",
+									"});",
+									"",
+									"// Clear environment variables",
+									"pm.environment.unset(\"magic_link_token\");",
+									"pm.environment.unset(\"access_token\");",
+									"pm.environment.unset(\"refresh_token\");",
+									"",
+									"console.log(\"🚪 Logged out! Refresh token has been revoked.\");",
+									"console.log(\"Note: Access token may still work briefly until it expires.\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"logout"
+							]
+						},
+						"description": "Log out the current user.\n\nThis:\n- Revokes the refresh token in the database\n- Clears the cookies"
+					},
+					"response": []
+				}
+			],
+			"description": "Complete authentication flow using cookies (browser-style).\n\nCookies are automatically managed by Postman."
+		},
+		{
+			"name": "Auth Flow (Bearer Token)",
+			"item": [
+				{
+					"name": "Get Current User (Bearer)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Returns user data\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data).to.have.property(\"id\");",
+									"    pm.expect(jsonData.data).to.have.property(\"email\");",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"console.log(\"👤 User: \" + jsonData.data.email);",
+									"console.log(\"🆔 ID: \" + jsonData.data.id);",
+									"console.log(\"🎫 Auth method: Bearer token\");"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.environment.get(\"access_token\")) {",
+									"    console.warn(\"⚠️ access_token is not set!\");",
+									"    console.log(\"Run 'Quick Login' first to get a token.\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Get the currently authenticated user's details.\n\n**Uses Bearer token auth** - token is sent in Authorization header.\n\nFormat: `Authorization: Bearer <access_token>`"
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token (Body)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Token refreshed\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.true;",
+									"    pm.expect(jsonData.data.message).to.equal(\"Token refreshed\");",
+									"    pm.expect(jsonData.data).to.have.property(\"accessToken\");",
+									"    pm.expect(jsonData.data).to.have.property(\"refreshToken\");",
+									"});",
+									"",
+									"// Save new tokens to environment",
+									"var jsonData = pm.response.json();",
+									"pm.environment.set(\"access_token\", jsonData.data.accessToken);",
+									"pm.environment.set(\"refresh_token\", jsonData.data.refreshToken);",
+									"",
+									"console.log(\"🔄 Tokens refreshed!\");",
+									"console.log(\"🔑 New access_token saved to environment\");",
+									"console.log(\"🔑 New refresh_token saved to environment\");"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.environment.get(\"refresh_token\")) {",
+									"    console.warn(\"⚠️ refresh_token is not set!\");",
+									"    console.log(\"Run 'Quick Login' first to get tokens.\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "Refresh the access token using refresh token in request body.\n\n**For API clients** (mobile apps, etc.) that don't use cookies.\n\nRequest body:\n```json\n{\n    \"refreshToken\": \"...\"\n}\n```\n\nResponse includes new tokens in body AND sets cookies."
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication using Bearer tokens (API-style).\n\nUse this for:\n- Mobile apps\n- API testing without cookies\n- Third-party integrations\n\n**First run Quick Login to get tokens!**"
+		},
+		{
+			"name": "Error Cases",
+			"item": [
+				{
+					"name": "Invalid Magic Link Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 400 or 401\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([400, 401]);",
+									"});",
+									"",
+									"pm.test(\"Returns error\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/verify?token=invalid-token-here",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"verify"
+							],
+							"query": [
+								{
+									"key": "token",
+									"value": "invalid-token-here"
+								}
+							]
+						},
+						"description": "Test that invalid magic link tokens are rejected."
+					},
+					"response": []
+				},
+				{
+					"name": "Unauthorized Access to /me",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401 or 403\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "",
+								"description": "Explicitly clear cookies",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Test that unauthenticated requests to protected endpoints are rejected.\n\nNote: This request explicitly disables auth."
+					},
+					"response": []
+				},
+				{
+					"name": "Invalid Email Format",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 400\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"Returns validation error\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"not-an-email\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/login",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"login"
+							]
+						},
+						"description": "Test that invalid email formats are rejected."
+					},
+					"response": []
+				},
+				{
+					"name": "Invalid Bearer Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 401 or 403\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([401, 403]);",
+									"});",
+									"",
+									"console.log(\"✅ Invalid Bearer token correctly rejected\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "invalid-token-here",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"me"
+							]
+						},
+						"description": "Test that invalid Bearer tokens are rejected."
+					},
+					"response": []
+				},
+				{
+					"name": "Invalid Refresh Token (Body)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 400 or 401\", function () {",
+									"    pm.expect(pm.response.code).to.be.oneOf([400, 401]);",
+									"});",
+									"",
+									"pm.test(\"Returns error\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"});",
+									"",
+									"console.log(\"✅ Invalid refresh token correctly rejected\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"invalid-refresh-token-here\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "Test that invalid refresh tokens in request body are rejected."
+					},
+					"response": []
+				},
+				{
+					"name": "Missing Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 400\", function () {",
+									"    pm.response.to.have.status(400);",
+									"});",
+									"",
+									"pm.test(\"Returns missing token error\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.success).to.be.false;",
+									"    pm.expect(jsonData.error.code).to.equal(\"MISSING_TOKEN\");",
+									"});",
+									"",
+									"console.log(\"✅ Missing refresh token correctly rejected\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/refresh",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"auth",
+								"refresh"
+							]
+						},
+						"description": "Test error when refresh token is not provided in body or cookie."
+					},
+					"response": []
+				}
+			],
+			"description": "Test error handling and edge cases."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global pre-request script",
+					"// Runs before every request in the collection"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Global test script",
+					"// Runs after every request in the collection",
+					"",
+					"// Log response time",
+					"console.log(\"⏱️ Response time: \" + pm.response.responseTime + \"ms\");"
+				]
+			}
+		}
+	]
+}

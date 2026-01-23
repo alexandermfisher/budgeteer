@@ -62,41 +62,58 @@ Desktop/Browser (Remote) → Cloudflare Tunnel → Spring Boot API → PostgreSQ
 ### Module Structure
 
 ```
-backend/src/main/java/app/
-├── web/                    # REST Controllers
-│   ├── DashboardController.java
-│   ├── TransactionController.java
-│   ├── WebhookController.java
-│   └── HealthController.java
-├── security/               # Security & Auth
-│   ├── SecurityConfig.java
-│   ├── RateLimitFilter.java
-│   └── CloudflareAccessValidator.java
-├── monzo/
-│   ├── oauth/              # OAuth Flow
-│   │   ├── MonzoOAuthClient.java
-│   │   ├── TokenService.java
-│   │   └── TokenRotationScheduler.java
-│   └── sync/               # Transaction Sync
-│       ├── TransactionSyncService.java
-│       ├── BackfillService.java
-│       └── WebhookProcessor.java
-├── data/                   # Data Layer
-│   ├── entity/
-│   │   ├── Account.java
-│   │   ├── Transaction.java
-│   │   └── WebhookDelivery.java
-│   ├── repository/
-│   │   ├── AccountRepository.java
-│   │   ├── TransactionRepository.java
-│   │   └── WebhookDeliveryRepository.java
-│   └── projection/
-│       └── MonthSummaryProjection.java
-└── analytics/              # Analytics & Aggregations
-    ├── CategoryRuleEngine.java
-    ├── MonthlyRollupService.java
-    └── TrendAnalyzer.java
+backend/src/main/java/dev/amf/budgeteer/
+├── api/                           # REST API Layer
+│   ├── common/                    # Shared API components
+│   │   ├── ApiResponse.java       # Standard success wrapper
+│   │   ├── ApiError.java          # Standard error format
+│   │   ├── ErrorCode.java         # Error code enum
+│   │   └── GlobalExceptionHandler.java
+│   ├── auth/                      # Authentication endpoints
+│   │   ├── AuthController.java    # /api/auth/*
+│   │   └── dto/
+│   │       ├── LoginRequest.java
+│   │       ├── AuthResponse.java
+│   │       └── UserResponse.java
+│   └── monzo/                     # Monzo API integration
+│       └── MonzoOAuthController.java  # /api/monzo/oauth/*
+├── domain/                        # Domain Layer (entities + repositories)
+│   ├── user/
+│   │   ├── User.java
+│   │   └── UserRepository.java
+│   └── session/
+│       ├── MagicLinkToken.java
+│       ├── MagicLinkTokenRepository.java
+│       ├── AppRefreshToken.java
+│       └── AppRefreshTokenRepository.java
+├── service/                       # Business Logic Layer
+│   ├── AuthService.java           # Authentication flows
+│   ├── SessionService.java        # Session/refresh token management
+│   ├── JweTokenService.java       # JWE token creation/validation
+│   └── EmailService.java          # Email sending
+├── security/                      # Security filters
+│   └── JweAuthenticationFilter.java
+├── config/                        # Configuration classes
+│   ├── AppProperties.java
+│   ├── JweProperties.java
+│   ├── MonzoProperties.java
+│   └── SecurityConfig.java
+└── exception/                     # Custom exceptions
+    └── ApiException.java
 ```
+
+**Package Conventions:**
+- `api/` - REST controllers organized by feature, with nested `dto/` for request/response types
+- `domain/` - JPA entities with their repositories (domain-driven grouping)
+- `service/` - Business logic services (flat structure)
+- `config/` - Spring configuration and properties classes
+- `security/` - Security filters and auth-related components
+- `exception/` - Custom exception types
+
+**API Response Standards:**
+- All endpoints return `ApiResponse<T>` wrapper: `{ success: true, data: {...}, timestamp: "..." }`
+- Errors throw `ApiException` → caught by `GlobalExceptionHandler` → returns `ApiError`
+- Standard error format: `{ success: false, error: { code: "...", message: "...", details: [...] }, timestamp: "..." }`
 
 ### Key Components
 
@@ -618,6 +635,180 @@ docker-compose logs -f spring
 - [Cloudflare Tunnel Docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
 - [PostgreSQL Best Practices](https://www.postgresql.org/docs/current/performance-tips.html)
 
+## Production Deployment Architecture
+
+### Overview
+
+The production architecture uses a **reverse proxy** for local routing and **Cloudflare Tunnel** for internet access. This achieves:
+
+1. **Same Origin** - Frontend and backend share `budgeteer.dev` domain
+2. **No CORS** - Same origin means no CORS configuration needed
+3. **Secure Cookies** - `SameSite=Lax` cookies work without issues
+4. **Internet Access** - Cloudflare Tunnel exposes local network for webhooks
+
+### Architecture Diagram
+
+```
+                        INTERNET
+                            │
+                ┌───────────▼───────────┐
+                │   Cloudflare Tunnel    │
+                │   (budgeteer.dev)      │
+                └───────────┬───────────┘
+                            │
+                            │ (Tunnel to local network)
+                            │
+    ════════════════════════╪════════════════════════════
+                    LOCAL NETWORK (NUC)
+    ════════════════════════╪════════════════════════════
+                            │
+                ┌───────────▼───────────┐
+                │    Reverse Proxy       │
+                │    (nginx/Caddy)       │
+                │                        │
+                │  /       → Frontend    │
+                │  /api/*  → Backend     │
+                └───────────┬───────────┘
+                            │
+         ┌──────────────────┼──────────────────┐
+         │                  │                  │
+         ▼                  ▼                  ▼
+    ┌─────────┐       ┌──────────┐       ┌──────────┐
+    │Frontend │       │ Backend  │       │PostgreSQL│
+    │ :3000   │       │  :8080   │       │  :5432   │
+    └─────────┘       └──────────┘       └──────────┘
+```
+
+### URL Structure
+
+| URL | Routed To | Notes |
+|-----|-----------|-------|
+| `https://budgeteer.dev/` | Frontend (nginx → :3000) | React SPA |
+| `https://budgeteer.dev/api/*` | Backend (nginx → :8080) | Spring Boot API |
+| `https://budgeteer.dev/api/auth/*` | Backend | App authentication |
+| `https://budgeteer.dev/api/monzo/*` | Backend | Monzo OAuth & webhooks |
+
+### Why Both Components?
+
+| Component | Purpose | Required For |
+|-----------|---------|--------------|
+| **Reverse Proxy (nginx)** | Route traffic locally based on path | Same-origin deployment |
+| **Cloudflare Tunnel** | Expose local network to internet | Monzo webhooks, OAuth callbacks, remote access |
+
+**Without the tunnel:** Monzo cannot send webhooks or OAuth callbacks to your local network.
+
+**Without the proxy:** Frontend and backend would need different ports/domains (CORS issues).
+
+### Cookie Security with Same Origin
+
+Since frontend and backend share the same origin (`budgeteer.dev`):
+
+```java
+// CookieService.java - Secure cookie configuration
+ResponseCookie cookie = ResponseCookie.from("access_token", token)
+    .httpOnly(true)           // JS can't read it
+    .secure(true)             // HTTPS only
+    .sameSite("Lax")          // CSRF protection
+    .path("/api")             // Only sent to /api endpoints
+    .maxAge(duration)
+    .build();
+```
+
+- ✅ `SameSite=Lax` provides CSRF protection
+- ✅ `HttpOnly` prevents XSS token theft
+- ✅ `Secure` ensures HTTPS-only
+- ✅ No CORS needed (same origin)
+
+### Production Docker Compose
+
+```yaml
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    restart: unless-stopped
+    
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    
+  backend:
+    build: ./backend
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/budgeteer
+      # ... other env vars
+    depends_on:
+      - db
+    restart: unless-stopped
+    
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=budgeteer
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+```
+
+### nginx Configuration
+
+```nginx
+# /etc/nginx/nginx.conf
+events {}
+
+http {
+    server {
+        listen 80;
+        server_name localhost;
+
+        # Frontend (default)
+        location / {
+            proxy_pass http://frontend:3000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        # Backend API
+        location /api/ {
+            proxy_pass http://backend:8080;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+}
+```
+
+### Cloudflare Tunnel Configuration
+
+Configure in Cloudflare Zero Trust dashboard:
+
+| Hostname | Service |
+|----------|---------|
+| `budgeteer.dev` | `http://nginx:80` |
+
+The tunnel connects to your nginx container, which then routes to frontend or backend.
+
+---
+
 ## Decision Log
 
 | Decision | Rationale | Date |
@@ -627,9 +818,11 @@ docker-compose logs -f spring
 | PostgreSQL over MongoDB | ACID guarantees, better for financial data | 2025-01 |
 | React over Vue/Angular | Larger ecosystem, better job market fit | 2025-01 |
 | Flyway over Liquibase | Simpler, SQL-first approach | 2025-01 |
+| Reverse proxy + tunnel | Same origin deployment, secure cookies | 2026-01 |
+| `@ConfigurationPropertiesScan` | Consistent config class registration | 2026-01 |
 
 ---
 
-**Last Updated**: 2025-01-21  
+**Last Updated**: 2026-01-03  
 **Author**: Alex Fisher  
-**Status**: Planning Phase
+**Status**: Development Phase

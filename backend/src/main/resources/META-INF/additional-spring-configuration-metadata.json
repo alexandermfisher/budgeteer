@@ -1,0 +1,19 @@
+{
+  "properties": [
+    {
+      "name": "info.app.name",
+      "type": "java.lang.String",
+      "description": "Application name for info endpoint"
+    },
+    {
+      "name": "info.app.description",
+      "type": "java.lang.String",
+      "description": "Application description for info endpoint"
+    },
+    {
+      "name": "info.app.version",
+      "type": "java.lang.String",
+      "description": "Application version for info endpoint"
+    }
+  ]
+}

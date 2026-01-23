@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Property for log file location -->
+    <property name="LOG_FILE" value="${LOG_FILE:-${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}}/budgeteer.log}"/>
+    <property name="LOG_FILE_JSON" value="${LOG_FILE:-${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}}/budgeteer-json.log}"/>
+    
+    <!-- Include Spring Boot defaults -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    
+    <!-- ============================================= -->
+    <!-- DEVELOPMENT PROFILE - Console Logging        -->
+    <!-- ============================================= -->
+    <springProfile name="dev">
+        <!-- Console appender with colored output -->
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+        
+        <!-- Application loggers -->
+        <logger name="dev.amf.budgeteer" level="DEBUG"/>
+        <logger name="org.springframework.web" level="DEBUG"/>
+        <logger name="org.springframework.security" level="DEBUG"/>
+        <logger name="org.hibernate.SQL" level="DEBUG"/>
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+        
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+    
+    <!-- ============================================= -->
+    <!-- PRODUCTION PROFILE - JSON Logging            -->
+    <!-- ============================================= -->
+    <springProfile name="prod">
+        <!-- Console appender for container logs (plain text for kubectl logs) -->
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %5p --- [%15.15t] %-40.40logger{39} : %m%n%wEx</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+        
+        <!-- JSON file appender for structured logging -->
+        <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>${LOG_FILE_JSON}</file>
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <!-- Add custom fields -->
+                <customFields>{"application":"budgeteer","environment":"production"}</customFields>
+                
+                <!-- Include MDC (Mapped Diagnostic Context) fields -->
+                <includeMdcKeyName>requestId</includeMdcKeyName>
+                <includeMdcKeyName>userId</includeMdcKeyName>
+                <includeMdcKeyName>sessionId</includeMdcKeyName>
+                <includeMdcKeyName>ipAddress</includeMdcKeyName>
+                
+                <!-- Include caller data (class, method, line number) -->
+                <includeCallerData>true</includeCallerData>
+                
+                <!-- Include context name -->
+                <includeContext>true</includeContext>
+                
+                <!-- Timestamp format -->
+                <timestampPattern>yyyy-MM-dd'T'HH:mm:ss.SSSX</timestampPattern>
+            </encoder>
+            
+            <!-- Rolling policy - daily rotation, keep 30 days -->
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>${LOG_FILE_JSON}.%d{yyyy-MM-dd}.gz</fileNamePattern>
+                <maxHistory>30</maxHistory>
+                <totalSizeCap>1GB</totalSizeCap>
+            </rollingPolicy>
+        </appender>
+        
+        <!-- Application loggers - less verbose in production -->
+        <logger name="dev.amf.budgeteer" level="INFO"/>
+        <logger name="org.springframework.web" level="WARN"/>
+        <logger name="org.springframework.security" level="WARN"/>
+        <logger name="org.hibernate" level="WARN"/>
+        
+        <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="JSON_FILE"/>
+        </root>
+    </springProfile>
+    
+    <!-- ============================================= -->
+    <!-- TEST PROFILE - Minimal Logging               -->
+    <!-- ============================================= -->
+    <springProfile name="test,integration-test">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} %5p [%15.15t] %-40.40logger{39} : %m%n</pattern>
+            </encoder>
+        </appender>
+        
+        <logger name="dev.amf.budgeteer" level="DEBUG"/>
+        <logger name="org.springframework" level="WARN"/>
+        <logger name="org.hibernate" level="WARN"/>
+        <logger name="org.testcontainers" level="INFO"/>
+        
+        <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+    
+    <!-- ============================================= -->
+    <!-- ASYNC APPENDERS (Optional Performance Boost) -->
+    <!-- ============================================= -->
+    <!-- Uncomment if you need async logging for high-throughput scenarios
+    <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="JSON_FILE"/>
+    </appender>
+    -->
+    
+</configuration>
