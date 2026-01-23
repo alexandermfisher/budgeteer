@@ -1,0 +1,16 @@
+# CodeQL Configuration for Budgeteer
+# Registers custom sanitizers and configures analysis
+
+name: "Budgeteer CodeQL Config"
+
+# Use the default queries plus security-and-quality
+queries:
+  - uses: security-and-quality
+
+# Register custom model extensions
+packs:
+  - codeql/java-queries
+
+# Path to custom model extensions
+model-paths:
+  - ./extensions
