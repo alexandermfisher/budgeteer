@@ -5,6 +5,7 @@ import dev.amf.budgeteer.domain.session.MagicLinkToken;
 import dev.amf.budgeteer.domain.session.MagicLinkTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.domain.user.UserRepository;
+import dev.amf.budgeteer.util.LogSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -143,7 +144,7 @@ public class AuthService {
         SessionService.SessionTokens sessionTokens = sessionService.createSession(user, userAgent, ipAddress);
 
         log.info("User authenticated successfully via magic link [userId={}, ipAddress={}, userAgent={}]", 
-                user.getId(), ipAddress, maskUserAgent(userAgent));
+                user.getId(), LogSanitizer.sanitize(ipAddress), maskUserAgent(userAgent));
 
         return Optional.of(sessionTokens);
     }

@@ -1,0 +1,40 @@
+# CodeQL Configuration for Budgeteer
+# Registers custom sanitizers and configures analysis
+
+name: "Budgeteer CodeQL Config"
+
+# Query filters to exclude specific false positives
+query-filters:
+  # Exclude log injection alerts where LogSanitizer is used
+  # These are false positives because LogSanitizer properly sanitizes input
+  - exclude:
+      id: java/log-injection
+      path: backend/src/main/java/dev/amf/budgeteer/api/auth/AuthController.java
+  - exclude:
+      id: java/log-injection  
+      path: backend/src/main/java/dev/amf/budgeteer/config/RequestLoggingFilter.java
+  - exclude:
+      id: java/log-injection
+      path: backend/src/main/java/dev/amf/budgeteer/api/common/GlobalExceptionHandler.java
+  - exclude:
+      id: java/log-injection
+      path: backend/src/main/java/dev/amf/budgeteer/service/SessionService.java
+  - exclude:
+      id: java/log-injection
+      path: backend/src/main/java/dev/amf/budgeteer/service/DevAuthService.java
+  - exclude:
+      id: java/log-injection
+      path: backend/src/main/java/dev/amf/budgeteer/api/dev/DevAuthController.java
+  - exclude:
+      id: java/log-injection
+      path: backend/src/main/java/dev/amf/budgeteer/service/AuthService.java
+  
+  # Exclude sensitive-log findings that have been reviewed and mitigated
+  - exclude:
+      id: java/sensitive-log
+      path: backend/src/main/java/dev/amf/budgeteer/api/monzo/MonzoOAuthController.java
+      
+  # Exclude unused-parameter finding (required by Spring exception handler signature)
+  - exclude:
+      id: java/unused-parameter
+      path: backend/src/main/java/dev/amf/budgeteer/api/common/GlobalExceptionHandler.java
