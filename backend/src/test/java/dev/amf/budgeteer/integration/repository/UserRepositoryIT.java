@@ -9,9 +9,11 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
@@ -110,7 +112,8 @@ class UserRepositoryIT {
 
         assertThat(user.getCreatedAt()).isNotNull();
         assertThat(user.getUpdatedAt()).isNotNull();
-        assertThat(user.getCreatedAt()).isEqualTo(user.getUpdatedAt());
+        // Use tolerant comparison - timestamps may differ by nanoseconds due to JPA/database precision
+        assertThat(user.getCreatedAt()).isCloseTo(user.getUpdatedAt(), within(1, ChronoUnit.MICROS));
     }
 
     @Test
