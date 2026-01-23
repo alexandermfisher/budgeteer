@@ -9,6 +9,7 @@ Welcome to the Budgeteer documentation. This folder contains all public document
 | [SETUP.md](SETUP.md) | Development environment setup guide |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Technical architecture and design decisions |
 | [TESTING.md](TESTING.md) | Testing strategy, patterns, and guidelines |
+| [CI-CD.md](CI-CD.md) | CI/CD pipeline, GitHub Actions, and branch protection |
 | [SECURITY-ARCHITECTURE.md](SECURITY-ARCHITECTURE.md) | Security design and authentication architecture |
 | [MONZO-AUTH-FLOW.md](MONZO-AUTH-FLOW.md) | Monzo OAuth implementation details |
 | [SECRETS-MANAGEMENT.md](SECRETS-MANAGEMENT.md) | How to handle credentials securely |
@@ -31,6 +32,7 @@ Welcome to the Budgeteer documentation. This folder contains all public document
 | SETUP.md | 2024-12-31 | ✅ Current |
 | ARCHITECTURE.md | 2024-12-31 | ✅ Current |
 | TESTING.md | 2026-01-10 | ✅ Current |
+| CI-CD.md | 2026-01-23 | ✅ Current |
 | SECURITY-ARCHITECTURE.md | 2024-12-31 | ✅ Current |
 | MONZO-AUTH-FLOW.md | 2024-12-31 | ✅ Current |
 | SECRETS-MANAGEMENT.md | 2024-12-31 | ✅ Current |

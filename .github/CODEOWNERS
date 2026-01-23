@@ -1,0 +1,23 @@
+# =============================================================================
+# CODEOWNERS - Budgeteer
+# =============================================================================
+# This file defines who is responsible for code review.
+# Learn more: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+# =============================================================================
+
+# Default: All files require approval from @alexandermfisher
+* @alexandermfisher
+
+# Backend code
+/backend/ @alexandermfisher
+
+# Frontend code (future)
+/frontend/ @alexandermfisher
+
+# Infrastructure & DevOps
+/.github/ @alexandermfisher
+/compose.yaml @alexandermfisher
+/scripts/ @alexandermfisher
+
+# Documentation
+/docs/ @alexandermfisher

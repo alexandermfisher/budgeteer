@@ -8,7 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- (Nothing yet - see backlog for next priorities)
+- **CI/CD Pipeline Infrastructure** (`chore/ci-cd-setup`)
+  - GitHub Actions CI workflow (`.github/workflows/ci.yml`)
+    - Automatic build and test on every push
+    - Unit tests and integration tests (Testcontainers)
+    - Maven dependency caching
+    - Test artifact upload on failure
+  - CodeQL security scanning (`.github/workflows/codeql.yml`)
+    - Weekly scheduled scans
+    - Extended security queries
+  - Dependabot configuration (`.github/dependabot.yml`)
+    - Weekly dependency updates for Maven, GitHub Actions, Docker
+    - Grouped updates for Spring and testing dependencies
+  - CODEOWNERS file (`.github/CODEOWNERS`)
+    - Require code owner approval for all changes
+  - Checkstyle integration (`backend/config/checkstyle/checkstyle.xml`)
+    - Google Java Style Guide (relaxed)
+    - Maven plugin configuration
+  - CI/CD documentation (`docs/CI-CD.md`)
 
 ## [0.2.0] - 2026-01-23
 
