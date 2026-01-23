@@ -111,13 +111,17 @@ public class TestDataFactory {
 
     /**
      * Creates an expired magic link token for the user.
+     * Returns both the raw token (for testing verification) and the persisted entity.
      */
-    public MagicLinkToken createExpiredMagicLinkFor(User user) {
-        String tokenHash = hashToken(generateRandomToken());
+    public MagicLinkTokenResult createExpiredMagicLinkFor(User user) {
+        String rawToken = generateRandomToken();
+        String tokenHash = hashToken(rawToken);
         Instant expiresAt = Instant.now().minus(1, ChronoUnit.HOURS);
 
         MagicLinkToken token = new MagicLinkToken(user, tokenHash, expiresAt);
-        return magicLinkTokenRepository.save(token);
+        MagicLinkToken saved = magicLinkTokenRepository.save(token);
+
+        return new MagicLinkTokenResult(rawToken, saved);
     }
 
     /**

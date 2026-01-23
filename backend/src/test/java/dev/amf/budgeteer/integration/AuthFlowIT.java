@@ -216,12 +216,11 @@ class AuthFlowIT extends AbstractPostgresIntegrationTest {
         void shouldReturnEmptyForExpiredToken() {
             // Given
             User user = testData.createUser("expired@example.com");
-            testData.createExpiredMagicLinkFor(user);
+            TestDataFactory.MagicLinkTokenResult expiredToken = testData.createExpiredMagicLinkFor(user);
 
-            // todo - the create expired method should return token and this should be tested with or else its just testing the same as above
-            // When - try any token (won't match the expired one's hash)
+            // When - use actual expired token (should be found but rejected as expired)
             Optional<SessionService.SessionTokens> result = authService.verifyMagicLink(
-                    "some-random-token", "Test-Agent", "127.0.0.1");
+                    expiredToken.rawToken(), "Test-Agent", "127.0.0.1");
 
             // Then
             assertThat(result).isEmpty();
@@ -477,19 +476,15 @@ class AuthFlowIT extends AbstractPostgresIntegrationTest {
         @DisplayName("should complete full login -> refresh -> logout flow")
         @Transactional
         void shouldCompleteFullFlow() {
-            String email = "fullflow@example.com";
-
-            // todo no assert on magic link - why?
-            // 1. Request magic link
-            authService.requestMagicLink(email);
-            User user = userRepository.findByEmailIgnoreCase(email).orElseThrow();
-            MagicLinkToken magicLink = magicLinkTokenRepository.findAll().getFirst();
-
-            // Get the raw token (in real app this is sent via email)
-            // For testing, we create a fresh one since we can't reverse the hash
+            // Note: In production, requestMagicLink() sends the token via email which we can't
+            // intercept in tests. We use TestDataFactory to create a token directly, which tests
+            // the same verification path. The requestMagicLink flow is tested separately above.
+            
+            // 1. Create user and magic link token directly
+            User user = testData.createUser("fullflow@example.com");
             TestDataFactory.MagicLinkTokenResult tokenResult = testData.createValidMagicLinkFor(user);
 
-            // 2. Verify magic link
+            // 2. Verify magic link (authenticates user and creates session)
             SessionService.SessionTokens tokens = authService.verifyMagicLink(
                     tokenResult.rawToken(), "Test-Agent", "127.0.0.1").orElseThrow();
 
