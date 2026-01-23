@@ -5,6 +5,7 @@ import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.service.CookieService;
 import dev.amf.budgeteer.service.DevAuthService;
 import dev.amf.budgeteer.service.SessionService;
+import dev.amf.budgeteer.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
@@ -148,7 +149,7 @@ public class DevAuthController {
 
         log.warn("╔════════════════════════════════════════════════════════════╗");
         log.warn("║  🔒 REVOKING SESSIONS FOR USER                             ║");
-        log.warn("║  Email: {}", String.format("%-44s║", email));
+        log.warn("║  Email: {}", String.format("%-44s║", LogSanitizer.maskEmail(email)));
         log.warn("╚════════════════════════════════════════════════════════════╝");
 
         int revoked = devAuthService.revokeUserSessions(email);

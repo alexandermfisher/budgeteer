@@ -4,6 +4,7 @@ import dev.amf.budgeteer.config.JweProperties;
 import dev.amf.budgeteer.domain.session.AppRefreshToken;
 import dev.amf.budgeteer.domain.session.AppRefreshTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
+import dev.amf.budgeteer.util.LogSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -74,7 +75,7 @@ public class SessionService {
         refreshTokenRepository.save(tokenEntity);
 
         log.info("Session created [userId={}, expiresAt={}, ipAddress={}]", 
-                user.getId(), expiresAt, ipAddress);
+                user.getId(), expiresAt, LogSanitizer.sanitize(ipAddress));
 
         return new SessionTokens(accessToken, refreshToken);
     }
@@ -116,7 +117,7 @@ public class SessionService {
         // Create new session
         SessionTokens newTokens = createSession(user, userAgent, ipAddress);
 
-        log.info("Session refreshed successfully [userId={}, ipAddress={}]", user.getId(), ipAddress);
+        log.info("Session refreshed successfully [userId={}, ipAddress={}]", user.getId(), LogSanitizer.sanitize(ipAddress));
 
         return Optional.of(newTokens);
     }

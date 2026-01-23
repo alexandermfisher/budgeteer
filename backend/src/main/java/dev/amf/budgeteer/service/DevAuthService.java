@@ -3,6 +3,7 @@ package dev.amf.budgeteer.service;
 import dev.amf.budgeteer.domain.session.AppRefreshTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.domain.user.UserRepository;
+import dev.amf.budgeteer.util.LogSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
@@ -84,19 +85,19 @@ public class DevAuthService {
     public int revokeUserSessions(String email) {
         String normalizedEmail = email.toLowerCase().trim();
         
-        log.warn("🔒 REVOKING SESSIONS FOR USER: {}", normalizedEmail);
+        log.warn("Revoking sessions for user: {}", LogSanitizer.maskEmail(normalizedEmail));
         
         Optional<User> userOpt = userRepository.findByEmailIgnoreCase(normalizedEmail);
         
         if (userOpt.isEmpty()) {
-            log.info("User not found: {}", normalizedEmail);
+            log.info("User not found: {}", LogSanitizer.maskEmail(normalizedEmail));
             return -1;
         }
         
         User user = userOpt.get();
         int revoked = sessionService.revokeAllSessions(user);
         
-        log.info("Revoked {} session(s) for user {}", revoked, normalizedEmail);
+        log.info("Revoked {} session(s) for user {}", revoked, LogSanitizer.maskEmail(normalizedEmail));
         
         return revoked;
     }

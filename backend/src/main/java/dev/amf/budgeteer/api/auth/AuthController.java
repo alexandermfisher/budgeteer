@@ -13,6 +13,7 @@ import dev.amf.budgeteer.security.JweAuthenticationFilter.JweAuthentication;
 import dev.amf.budgeteer.service.CookieService;
 import dev.amf.budgeteer.service.AuthService;
 import dev.amf.budgeteer.service.SessionService;
+import dev.amf.budgeteer.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -73,7 +74,7 @@ public class AuthController {
             HttpServletRequest request,
             HttpServletResponse response) {
 
-        log.debug("Magic link verification attempted [ipAddress={}]", cookieService.getClientIpAddress(request));
+        log.debug("Magic link verification attempted [ipAddress={}]", LogSanitizer.sanitize(cookieService.getClientIpAddress(request)));
 
         String userAgent = request.getHeader("User-Agent");
         String ipAddress = cookieService.getClientIpAddress(request);
@@ -81,7 +82,7 @@ public class AuthController {
         Optional<SessionService.SessionTokens> tokensOpt = authService.verifyMagicLink(token, userAgent, ipAddress);
 
         if (tokensOpt.isEmpty()) {
-            log.warn("Magic link verification failed - invalid or expired token [ipAddress={}]", ipAddress);
+            log.warn("Magic link verification failed - invalid or expired token [ipAddress={}]", LogSanitizer.sanitize(ipAddress));
             throw new ApiException(ErrorCode.INVALID_TOKEN, "Invalid or expired magic link token");
         }
 
@@ -90,7 +91,7 @@ public class AuthController {
         // Set cookies
         cookieService.setAuthCookies(response, tokens.accessToken(), tokens.refreshToken());
 
-        log.info("User authenticated via magic link [ipAddress={}]", ipAddress);
+        log.info("User authenticated via magic link [ipAddress={}]", LogSanitizer.sanitize(ipAddress));
 
         // Redirect to login success URL
         response.setHeader("Location", appProperties.getLoginSuccessUrl());
@@ -118,7 +119,7 @@ public class AuthController {
             HttpServletResponse response) {
 
         String ipAddress = cookieService.getClientIpAddress(request);
-        log.debug("Token refresh requested [ipAddress={}]", ipAddress);
+        log.debug("Token refresh requested [ipAddress={}]", LogSanitizer.sanitize(ipAddress));
 
         // Try body first, then cookie
         String refreshToken = extractRefreshToken(body, request);
@@ -130,7 +131,7 @@ public class AuthController {
         if (tokensOpt.isEmpty()) {
             // Clear invalid cookies
             cookieService.clearAuthCookies(response);
-            log.warn("Token refresh failed - invalid or expired refresh token [ipAddress={}]", ipAddress);
+            log.warn("Token refresh failed - invalid or expired refresh token [ipAddress={}]", LogSanitizer.sanitize(ipAddress));
             throw new ApiException(ErrorCode.INVALID_TOKEN, "Invalid or expired refresh token");
         }
 
@@ -139,7 +140,7 @@ public class AuthController {
         // Set new cookies (for browser clients)
         cookieService.setAuthCookies(response, tokens.accessToken(), tokens.refreshToken());
 
-        log.debug("Token refresh successful [ipAddress={}]", ipAddress);
+        log.debug("Token refresh successful [ipAddress={}]", LogSanitizer.sanitize(ipAddress));
 
         // Return tokens in body too (for API clients)
         return ResponseEntity.ok(ApiResponse.of(AuthResponse.tokenRefreshed(tokens.accessToken(), tokens.refreshToken())));
@@ -174,12 +175,12 @@ public class AuthController {
             HttpServletRequest request,
             HttpServletResponse response) {
 
-        log.debug("Logout requested [ipAddress={}]", cookieService.getClientIpAddress(request));
+        log.debug("Logout requested [ipAddress={}]", LogSanitizer.sanitize(cookieService.getClientIpAddress(request)));
 
         cookieService.extractRefreshToken(request)
                 .ifPresent(token -> {
                     sessionService.revokeSession(token);
-                    log.info("User logged out - session revoked [ipAddress={}]", cookieService.getClientIpAddress(request));
+                    log.info("User logged out - session revoked [ipAddress={}]", LogSanitizer.sanitize(cookieService.getClientIpAddress(request)));
                 });
 
         // Clear cookies

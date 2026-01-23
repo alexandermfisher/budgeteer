@@ -29,6 +29,7 @@ import java.util.UUID;
 public class JweTokenService {
 
     private static final Logger log = LoggerFactory.getLogger(JweTokenService.class);
+    private static final java.security.SecureRandom SECURE_RANDOM = new java.security.SecureRandom();
 
     private final JweProperties jweProperties;
     private SecretKey secretKey;
@@ -44,7 +45,7 @@ public class JweTokenService {
             log.warn("JWE_SECRET_KEY not configured - using generated key for development only!");
             // Generate a random key for development - DO NOT USE IN PRODUCTION
             byte[] keyBytes = new byte[32];
-            new java.security.SecureRandom().nextBytes(keyBytes);
+            SECURE_RANDOM.nextBytes(keyBytes);
             this.secretKey = new SecretKeySpec(keyBytes, "AES");
         } else {
             byte[] keyBytes = Base64.getDecoder().decode(keyString);
@@ -77,8 +78,8 @@ public class JweTokenService {
 
         String token = encryptClaims(claimsSet);
         
-        log.debug("Access token created [userId={}, tokenId={}, expiresAt={}]", 
-                user.getId(), tokenId, expiry);
+        log.debug("Access token created [userId={}, expiresAt={}]", 
+                user.getId(), expiry);
 
         return token;
     }

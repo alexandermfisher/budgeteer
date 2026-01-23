@@ -1,6 +1,7 @@
 package dev.amf.budgeteer.service;
 
 import dev.amf.budgeteer.config.AppProperties;
+import dev.amf.budgeteer.util.LogSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.SimpleMailMessage;

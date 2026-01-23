@@ -1,6 +1,7 @@
 package dev.amf.budgeteer.api.common;
 
 import dev.amf.budgeteer.exception.ApiException;
+import dev.amf.budgeteer.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -139,7 +140,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         String message = String.format("Method '%s' not supported for this endpoint", ex.getMethod());
-        log.warn("Method not supported: {} for {}", ex.getMethod(), request.getRequestURI());
+        log.warn("Method not supported: {} for {}", LogSanitizer.sanitize(ex.getMethod()), LogSanitizer.sanitize(request.getRequestURI()));
 
         ApiError error = ApiError.of(ErrorCode.INVALID_REQUEST, message, request.getRequestURI());
 
@@ -153,10 +154,10 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(NoHandlerFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(
-            NoHandlerFoundException ex,
+            @SuppressWarnings("unused") NoHandlerFoundException ex,
             HttpServletRequest request) {
 
-        log.warn("Endpoint not found: {}", request.getRequestURI());
+        log.warn("Endpoint not found: {}", LogSanitizer.sanitize(request.getRequestURI()));
 
         ApiError error = ApiError.of(ErrorCode.RESOURCE_NOT_FOUND, request.getRequestURI());
 
@@ -175,7 +176,7 @@ public class GlobalExceptionHandler {
             HttpServletRequest request) {
 
         log.error("Unexpected error [uri={}, exceptionType={}, message={}]", 
-                request.getRequestURI(), ex.getClass().getSimpleName(), ex.getMessage(), ex);
+                LogSanitizer.sanitize(request.getRequestURI()), ex.getClass().getSimpleName(), LogSanitizer.sanitize(ex.getMessage()), ex);
 
         ApiError error = ApiError.of(
                 ErrorCode.INTERNAL_ERROR,

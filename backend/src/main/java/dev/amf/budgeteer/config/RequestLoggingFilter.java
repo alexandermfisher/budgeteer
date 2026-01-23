@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import dev.amf.budgeteer.util.LogSanitizer;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -80,11 +81,11 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         
         if (shouldLogRequest(uri)) {
             log.info("Incoming request: {} {} {} [requestId={}, userAgent={}]",
-                    method,
-                    uri,
-                    queryString != null ? "?" + maskSensitiveQueryParams(queryString) : "",
+                    LogSanitizer.sanitize(method),
+                    LogSanitizer.sanitize(uri),
+                    queryString != null ? "?" + LogSanitizer.sanitize(maskSensitiveQueryParams(queryString)) : "",
                     requestId,
-                    maskUserAgent(userAgent));
+                    LogSanitizer.sanitize(maskUserAgent(userAgent)));
         }
     }
     
@@ -100,10 +101,10 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         if (shouldLogRequest(uri)) {
             if (status >= 400) {
                 log.warn("Request completed: {} {} -> {} in {}ms [requestId={}]",
-                        method, uri, status, duration, requestId);
+                        LogSanitizer.sanitize(method), LogSanitizer.sanitize(uri), status, duration, requestId);
             } else {
                 log.info("Request completed: {} {} -> {} in {}ms [requestId={}]",
-                        method, uri, status, duration, requestId);
+                        LogSanitizer.sanitize(method), LogSanitizer.sanitize(uri), status, duration, requestId);
             }
         }
     }

@@ -4,6 +4,7 @@ import dev.amf.budgeteer.api.common.ApiResponse;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.config.MonzoProperties;
 import dev.amf.budgeteer.exception.ApiException;
+import dev.amf.budgeteer.util.LogSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
@@ -35,6 +36,7 @@ public class MonzoOAuthController {
 
     private final MonzoProperties monzoProperties;
     private final RestClient restClient;
+    private final SecureRandom secureRandom;
 
     // TODO: In production, store state in session/database per user
     private String storedState;
@@ -45,6 +47,7 @@ public class MonzoOAuthController {
     public MonzoOAuthController(MonzoProperties monzoProperties) {
         this.monzoProperties = monzoProperties;
         this.restClient = RestClient.create();
+        this.secureRandom = new SecureRandom();
     }
 
     /**
@@ -55,7 +58,7 @@ public class MonzoOAuthController {
     public RedirectView initiateOAuth() {
         // Generate random state for CSRF protection
         byte[] randomBytes = new byte[32];
-        new SecureRandom().nextBytes(randomBytes);
+        secureRandom.nextBytes(randomBytes);
         storedState = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
 
         String authorizationUrl = UriComponentsBuilder
@@ -80,12 +83,11 @@ public class MonzoOAuthController {
             @RequestParam("code") String code,
             @RequestParam("state") String state) {
 
-        log.info("Received callback with code: {}... and state: {}",
-                code.substring(0, Math.min(10, code.length())), state);
+        log.info("Received OAuth callback");
 
         // Verify state to prevent CSRF
         if (!state.equals(storedState)) {
-            log.error("State mismatch! Expected: {}, Got: {}", storedState, state);
+            log.error("State mismatch detected - possible CSRF attack");
             throw new ApiException(ErrorCode.STATE_MISMATCH, "State parameter doesn't match. Possible CSRF attack.");
         }
 
@@ -97,8 +99,7 @@ public class MonzoOAuthController {
             this.accessToken = (String) tokens.get("access_token");
             this.refreshToken = (String) tokens.get("refresh_token");
 
-            log.info("✅ Successfully obtained Monzo tokens!");
-            log.info("Access token expires in: {} seconds", tokens.get("expires_in"));
+            log.info("Successfully obtained Monzo tokens [expiresIn={}s]", tokens.get("expires_in"));
 
             OAuthSuccessResponse response = new OAuthSuccessResponse(
                     "OAuth flow completed successfully",
