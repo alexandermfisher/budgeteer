@@ -86,6 +86,41 @@
 # - Keep controllers thin - business logic belongs in services
 # - Use DTOs for API requests/responses, not entities directly
 
+# NULLABILITY (JSpecify)
+# - Use @NullMarked on package-info.java files
+# - Everything is assumed NON-NULL unless annotated with @Nullable
+# - Use @Nullable from org.jspecify.annotations for nullable fields/parameters/returns
+# - DO NOT use @NonNull - it's redundant under @NullMarked
+# - Example:
+#   @Nullable                    // Can be null
+#   private Instant disconnectedAt;
+#   
+#   private String email;        // Cannot be null (default under @NullMarked)
+#   
+#   public String decrypt(@Nullable String data) {  // Param can be null
+#       if (data == null) throw new IllegalArgumentException();
+#   }
+
+# LOGGING CONVENTIONS
+# - Use SLF4J with Logback (already configured)
+# - Declare logger as: private static final Logger log = LoggerFactory.getLogger(ClassName.class);
+# - Log levels:
+#   * ERROR - Unrecoverable errors, exceptions that need investigation
+#   * WARN  - Recoverable issues, potential problems (e.g., deprecated API usage)
+#   * INFO  - Key business events (service init, OAuth complete, token refresh)
+#   * DEBUG - Detailed flow info for troubleshooting (enabled in dev)
+#   * TRACE - Very detailed, rarely used
+# - Logging format: log.level("Message with {} placeholders", arg1, arg2);
+# - SECURITY: Never log sensitive data:
+#   * Access tokens, refresh tokens, encryption keys
+#   * User passwords, magic link tokens
+#   * Full credit card numbers, bank account details
+# - Use LogSanitizer utility for potentially sensitive data
+# - Example:
+#   log.info("OAuth flow completed for user {}", user.getId());
+#   log.debug("Processing {} transactions for account {}", count, accountId);
+#   log.error("Failed to refresh token for connection {}", connectionId, exception);
+
 # PACKAGE STRUCTURE (in backend/src/main/java/)
 # - dev.amf.budgeteer.controller   - REST controllers
 # - dev.amf.budgeteer.service      - Business logic
