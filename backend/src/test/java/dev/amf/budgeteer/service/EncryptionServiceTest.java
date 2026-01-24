@@ -1,7 +1,7 @@
 package dev.amf.budgeteer.service;
 
 import dev.amf.budgeteer.config.EncryptionProperties;
-import dev.amf.budgeteer.service.EncryptionService.EncryptionException;
+import dev.amf.budgeteer.exception.EncryptionException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

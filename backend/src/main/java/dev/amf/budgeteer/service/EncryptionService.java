@@ -1,7 +1,9 @@
 package dev.amf.budgeteer.service;
 
 import dev.amf.budgeteer.config.EncryptionProperties;
+import dev.amf.budgeteer.exception.EncryptionException;
 import jakarta.annotation.PostConstruct;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -68,6 +70,9 @@ public class EncryptionService {
 
     private final EncryptionProperties encryptionProperties;
     private final SecureRandom secureRandom;
+
+    /** The AES secret key, initialized in {@link #init()}. */
+    @Nullable
     private SecretKey secretKey;
 
     /**
@@ -212,31 +217,6 @@ public class EncryptionService {
                     "Failed to decrypt data. The data may be corrupted or tampered with.",
                     e
             );
-        }
-    }
-
-    /**
-     * Exception thrown when encryption or decryption fails.
-     */
-    public static class EncryptionException extends RuntimeException {
-
-        /**
-         * Constructs a new EncryptionException with the specified message.
-         *
-         * @param message the detail message
-         */
-        public EncryptionException(String message) {
-            super(message);
-        }
-
-        /**
-         * Constructs a new EncryptionException with the specified message and cause.
-         *
-         * @param message the detail message
-         * @param cause the cause of this exception
-         */
-        public EncryptionException(String message, Throwable cause) {
-            super(message, cause);
         }
     }
 }
