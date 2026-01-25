@@ -21,7 +21,7 @@ import java.util.UUID;
  * Entity representing a user's connection to their Monzo bank account.
  *
  * <p>Stores encrypted OAuth tokens for accessing the Monzo API on behalf of the user.
- * A user can have multiple Monzo connections (e.g., personal and joint accounts).
+ * A user can have multiple Monzo connections (e.g. personal and joint accounts).
  *
  * <h2>Security</h2>
  * <ul>

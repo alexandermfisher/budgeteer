@@ -24,11 +24,10 @@ class EncryptionServiceTest {
     private static final String DIFFERENT_TEST_KEY = "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=";
 
     private EncryptionService encryptionService;
-    private EncryptionProperties encryptionProperties;
 
     @BeforeEach
     void setUp() {
-        encryptionProperties = new EncryptionProperties();
+        EncryptionProperties encryptionProperties = new EncryptionProperties();
         encryptionProperties.setSecretKey(VALID_TEST_KEY);
         encryptionService = new EncryptionService(encryptionProperties);
         encryptionService.init();
