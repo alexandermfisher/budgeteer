@@ -46,7 +46,7 @@ public interface OAuthStateRepository extends JpaRepository<OAuthState, UUID> {
      * @param now the current time
      * @return the number of deleted states
      */
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("DELETE FROM OAuthState o WHERE o.expiresAt < :now")
     int deleteExpiredStates(@Param("now") Instant now);
 

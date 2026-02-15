@@ -3,9 +3,13 @@ package dev.amf.budgeteer.api.monzo;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.api.common.GlobalExceptionHandler;
 import dev.amf.budgeteer.config.SecurityConfig;
+import dev.amf.budgeteer.config.WebMvcConfig;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
+import dev.amf.budgeteer.security.CurrentUserArgumentResolver;
+import dev.amf.budgeteer.security.JweAuthenticationFilter.JweAuthentication;
+import dev.amf.budgeteer.service.AuthService;
 import dev.amf.budgeteer.service.CookieService;
 import dev.amf.budgeteer.service.JweTokenService;
 import dev.amf.budgeteer.service.MonzoConnectionService;
@@ -25,11 +29,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-
-import java.util.Collections;
 
 import static org.hamcrest.Matchers.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -45,7 +45,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>Tests the Monzo OAuth flow and connection management endpoints.
  */
 @WebMvcTest(MonzoController.class)
-@Import({SecurityConfig.class, GlobalExceptionHandler.class})
+@Import({SecurityConfig.class, GlobalExceptionHandler.class, WebMvcConfig.class, CurrentUserArgumentResolver.class})
 @DisplayName("MonzoController")
 class MonzoControllerTest {
 
@@ -65,6 +65,9 @@ class MonzoControllerTest {
     @MockitoBean
     private CookieService cookieService;
 
+    @MockitoBean
+    private AuthService authService;
+
     private User testUser;
     private UUID userId;
 
@@ -80,6 +83,9 @@ class MonzoControllerTest {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+
+        // Configure AuthService to return the test user
+        when(authService.getUserById(userId)).thenReturn(java.util.Optional.of(testUser));
     }
 
     // ============ OAuth Connect Tests ============
@@ -448,10 +454,19 @@ class MonzoControllerTest {
 
     /**
      * Creates a RequestPostProcessor for authenticated requests.
+     * Uses JweAuthentication to match the real authentication flow.
      */
     private RequestPostProcessor user(User user) {
-        Authentication auth = new UsernamePasswordAuthenticationToken(
-                user, null, Collections.emptyList());
+        // Create token claims for the JweAuthentication
+        Instant now = Instant.now();
+        JweTokenService.TokenClaims claims = new JweTokenService.TokenClaims(
+                userId,
+                user.getEmail(),
+                now,                           // issuedAt
+                now.plusSeconds(3600),         // expiresAt
+                UUID.randomUUID().toString()   // tokenId
+        );
+        JweAuthentication auth = new JweAuthentication(claims);
         return authentication(auth);
     }
 

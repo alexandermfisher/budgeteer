@@ -5,12 +5,12 @@ import dev.amf.budgeteer.api.monzo.dto.MonzoConnectInitResponse;
 import dev.amf.budgeteer.api.monzo.dto.MonzoConnectionResponse;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
+import dev.amf.budgeteer.security.CurrentUser;
 import dev.amf.budgeteer.service.MonzoConnectionService;
 import dev.amf.budgeteer.service.MonzoOAuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
@@ -62,11 +62,11 @@ public class MonzoController {
      *
      * <p>GET /api/monzo/connect
      *
-     * @param user the authenticated user (injected by Spring Security)
+     * @param user the authenticated user (injected via {@link CurrentUser})
      * @return redirect to Monzo authorization page
      */
     @GetMapping("/connect")
-    public RedirectView initiateOAuth(@AuthenticationPrincipal User user) {
+    public RedirectView initiateOAuth(@CurrentUser User user) {
         log.info("User {} initiating Monzo OAuth flow", user.getId());
 
         String authorizationUrl = oauthService.initiateOAuthFlow(user);
@@ -82,12 +82,12 @@ public class MonzoController {
      *
      * <p>POST /api/monzo/connect
      *
-     * @param user the authenticated user
+     * @param user the authenticated user (injected via {@link CurrentUser})
      * @return the authorization URL in a JSON response
      */
     @PostMapping("/connect")
     public ResponseEntity<ApiResponse<MonzoConnectInitResponse>> initiateOAuthJson(
-            @AuthenticationPrincipal User user
+            @CurrentUser User user
     ) {
         log.info("User {} initiating Monzo OAuth flow (JSON response)", user.getId());
 
@@ -155,12 +155,12 @@ public class MonzoController {
      *
      * <p>GET /api/monzo/connections
      *
-     * @param user the authenticated user
+     * @param user the authenticated user (injected via {@link CurrentUser})
      * @return list of connections (without tokens)
      */
     @GetMapping("/connections")
     public ResponseEntity<ApiResponse<List<MonzoConnectionResponse>>> listConnections(
-            @AuthenticationPrincipal User user
+            @CurrentUser User user
     ) {
         log.debug("Listing Monzo connections for user {}", user.getId());
 
@@ -178,13 +178,13 @@ public class MonzoController {
      *
      * <p>GET /api/monzo/connections/{id}
      *
-     * @param user the authenticated user
+     * @param user the authenticated user (injected via {@link CurrentUser})
      * @param id   the connection ID
      * @return the connection details (without tokens)
      */
     @GetMapping("/connections/{id}")
     public ResponseEntity<ApiResponse<MonzoConnectionResponse>> getConnection(
-            @AuthenticationPrincipal User user,
+            @CurrentUser User user,
             @PathVariable UUID id
     ) {
         log.debug("Getting Monzo connection {} for user {}", id, user.getId());
@@ -202,13 +202,13 @@ public class MonzoController {
      *
      * <p>DELETE /api/monzo/connections/{id}
      *
-     * @param user the authenticated user
+     * @param user the authenticated user (injected via {@link CurrentUser})
      * @param id   the connection ID
      * @return 204 No Content on success
      */
     @DeleteMapping("/connections/{id}")
     public ResponseEntity<Void> disconnectConnection(
-            @AuthenticationPrincipal User user,
+            @CurrentUser User user,
             @PathVariable UUID id
     ) {
         log.info("User {} disconnecting Monzo connection {}", user.getId(), id);
@@ -225,13 +225,11 @@ public class MonzoController {
      *
      * <p>GET /api/monzo/status
      *
-     * @param user the authenticated user
+     * @param user the authenticated user (injected via {@link CurrentUser})
      * @return connection status
      */
     @GetMapping("/status")
-    public ResponseEntity<ApiResponse<ConnectionStatus>> getStatus(
-            @AuthenticationPrincipal User user
-    ) {
+    public ResponseEntity<ApiResponse<ConnectionStatus>> getStatus(@CurrentUser User user) {
         boolean hasConnection = connectionService.hasActiveConnection(user.getId());
         long connectionCount = connectionService.countActiveConnections(user.getId());
 
