@@ -1,0 +1,25 @@
+{
+  "name": "Monzo OAuth Token Refresh - Success",
+  "request": {
+    "method": "POST",
+    "urlPath": "/oauth2/token",
+    "bodyPatterns": [
+      { "contains": "grant_type=refresh_token" }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "access_token": "refreshed-access-token-newtoken12345",
+      "refresh_token": "refreshed-refresh-token-newrefresh6789",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "user_id": "user_00009abcdefgh12345",
+      "client_id": "oauth_client_test123"
+    }
+  },
+  "priority": 5
+}

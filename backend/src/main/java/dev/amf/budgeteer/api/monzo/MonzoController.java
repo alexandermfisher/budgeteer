@@ -1,13 +1,16 @@
 package dev.amf.budgeteer.api.monzo;
 
 import dev.amf.budgeteer.api.common.ApiResponse;
+import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.api.monzo.dto.MonzoConnectInitResponse;
 import dev.amf.budgeteer.api.monzo.dto.MonzoConnectionResponse;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
+import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.security.CurrentUser;
 import dev.amf.budgeteer.service.MonzoConnectionService;
 import dev.amf.budgeteer.service.MonzoOAuthService;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -108,22 +111,46 @@ public class MonzoController {
      * However, security is maintained through the state parameter which links
      * the callback to a specific authenticated user.
      *
-     * <p>GET /api/monzo/callback?code=...&state=...
+     * <p>Success case: GET /api/monzo/callback?code=...&state=...
+     * <p>Error case: GET /api/monzo/callback?error=...&error_description=...&state=...
      *
-     * @param code  the authorization code from Monzo
-     * @param state the state parameter for CSRF verification
+     * @param code             the authorization code from Monzo (null if user denied)
+     * @param state            the state parameter for CSRF verification
+     * @param error            OAuth error code if user denied access
+     * @param errorDescription human-readable error description
      * @return redirect to success page or JSON response
      */
     @GetMapping("/callback")
     public ResponseEntity<ApiResponse<MonzoConnectionResponse>> handleCallback(
-            @RequestParam("code") String code,
-            @RequestParam("state") String state
+            @RequestParam(value = "code", required = false) @Nullable String code,
+            @RequestParam("state") String state,
+            @RequestParam(value = "error", required = false) @Nullable String error,
+            @RequestParam(value = "error_description", required = false) @Nullable String errorDescription
     ) {
         log.info("Received Monzo OAuth callback");
 
-        // Verify state and get associated user
+        // First verify state to get the user (even for error cases)
         User user = oauthService.verifyStateAndGetUser(state);
         log.debug("OAuth callback for user {}", user.getId());
+
+        // Check if user denied access
+        if (error != null) {
+            log.warn("Monzo OAuth denied by user {} [error={}, description={}]",
+                    user.getId(), error, errorDescription);
+            throw new ApiException(
+                    ErrorCode.OAUTH_ACCESS_DENIED,
+                    errorDescription != null ? errorDescription : "User denied access to Monzo account"
+            );
+        }
+
+        // Ensure code is present
+        if (code == null || code.isBlank()) {
+            log.error("Monzo OAuth callback missing authorization code for user {}", user.getId());
+            throw new ApiException(
+                    ErrorCode.OAUTH_CODE_MISSING,
+                    "Authorization code is required"
+            );
+        }
 
         // Exchange code for tokens
         MonzoOAuthService.TokenResponse tokens = oauthService.exchangeCodeForTokens(code);

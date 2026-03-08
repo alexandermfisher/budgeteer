@@ -53,13 +53,13 @@ SELECT * FROM users WHERE email = 'test@example.com';
 SELECT 
     m.id,
     u.email,
-    m.token_hash,
-    m.used,
+    SUBSTRING(m.token_hash, 1, 16) || '...' AS token_hash,
+    m.used_at,
     m.expires_at,
     m.created_at,
     CASE 
         WHEN m.expires_at < NOW() THEN 'EXPIRED'
-        WHEN m.used THEN 'USED'
+        WHEN m.used_at IS NOT NULL THEN 'USED'
         ELSE 'VALID'
     END AS status
 FROM magic_link_tokens m
@@ -70,7 +70,7 @@ ORDER BY m.created_at DESC;
 SELECT m.*, u.email
 FROM magic_link_tokens m
 JOIN users u ON m.user_id = u.id
-WHERE m.used = FALSE
+WHERE m.used_at IS NULL
   AND m.expires_at > NOW()
 ORDER BY m.created_at DESC;
 
@@ -83,13 +83,13 @@ ORDER BY m.created_at DESC;
 SELECT 
     r.id,
     u.email,
-    r.token_hash,
-    r.revoked,
+    SUBSTRING(r.token_hash, 1, 16) || '...' AS token_hash,
+    r.revoked_at,
     r.expires_at,
     r.created_at,
     CASE 
         WHEN r.expires_at < NOW() THEN 'EXPIRED'
-        WHEN r.revoked THEN 'REVOKED'
+        WHEN r.revoked_at IS NOT NULL THEN 'REVOKED'
         ELSE 'ACTIVE'
     END AS status
 FROM app_refresh_tokens r
@@ -100,7 +100,7 @@ ORDER BY r.created_at DESC;
 SELECT u.email, COUNT(*) AS active_sessions
 FROM app_refresh_tokens r
 JOIN users u ON r.user_id = u.id
-WHERE r.revoked = FALSE
+WHERE r.revoked_at IS NULL
   AND r.expires_at > NOW()
 GROUP BY u.email
 ORDER BY active_sessions DESC;
@@ -108,7 +108,7 @@ ORDER BY active_sessions DESC;
 -- Find a user's active sessions
 -- SELECT * FROM app_refresh_tokens 
 -- WHERE user_id = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
---   AND revoked = FALSE
+--   AND revoked_at IS NULL
 --   AND expires_at > NOW();
 
 
@@ -209,21 +209,71 @@ WHERE disconnected_at IS NULL;
 -- =============================================================================
 
 -- Delete expired magic link tokens
--- DELETE FROM magic_link_tokens WHERE expires_at < NOW();
+DELETE FROM magic_link_tokens WHERE expires_at < NOW();
 
 -- Delete expired OAuth states
--- DELETE FROM oauth_states WHERE expires_at < NOW();
+DELETE FROM oauth_states WHERE expires_at < NOW();
 
 -- Revoke all refresh tokens (force re-login for everyone)
--- UPDATE app_refresh_tokens SET revoked = TRUE WHERE revoked = FALSE;
+UPDATE app_refresh_tokens SET revoked_at = NOW() WHERE revoked_at IS NULL;
 
 -- Hard delete a specific user's data (DANGER!)
 -- This order respects foreign key constraints:
--- DELETE FROM oauth_states WHERE user_id = 'xxx';
--- DELETE FROM monzo_connections WHERE user_id = 'xxx';
--- DELETE FROM app_refresh_tokens WHERE user_id = 'xxx';
--- DELETE FROM magic_link_tokens WHERE user_id = 'xxx';
--- DELETE FROM users WHERE id = 'xxx';
+DELETE FROM oauth_states WHERE user_id = 'xxx';
+DELETE FROM monzo_connections WHERE user_id = 'xxx';
+DELETE FROM app_refresh_tokens WHERE user_id = 'xxx';
+DELETE FROM magic_link_tokens WHERE user_id = 'xxx';
+DELETE FROM users WHERE id = 'xxx';
+
+-- Delete all Monzo connections
+DELETE FROM monzo_connections;
+
+-- Also clean up oauth states
+DELETE FROM oauth_states;
+
+
+-- =============================================================================
+-- 🧪 QUICK CHECKS (After Manual Testing)
+-- =============================================================================
+
+-- After login with dev/quick-login, check user was created
+SELECT id, email, email_verified, created_at 
+FROM users 
+ORDER BY created_at DESC 
+LIMIT 5;
+
+-- After initiating OAuth, check state was created
+SELECT id, SUBSTRING(state, 1, 30) || '...' AS state, used, expires_at
+FROM oauth_states
+ORDER BY created_at DESC
+LIMIT 5;
+
+-- After completing OAuth, check connection was created
+SELECT 
+    c.id,
+    u.email,
+    c.monzo_user_id,
+    CASE WHEN c.disconnected_at IS NULL THEN '✅ Active' ELSE '❌ Disconnected' END AS status,
+    c.token_expires_at,
+    c.connected_at
+FROM monzo_connections c
+JOIN users u ON c.user_id = u.id
+ORDER BY c.connected_at DESC
+LIMIT 5;
+
+-- Full check: User with all their Monzo-related data
+-- Replace with your test email
+SELECT 
+    u.id AS user_id,
+    u.email,
+    u.email_verified,
+    (SELECT COUNT(*) FROM oauth_states WHERE user_id = u.id) AS oauth_states,
+    (SELECT COUNT(*) FROM oauth_states WHERE user_id = u.id AND used = FALSE AND expires_at > NOW()) AS pending_oauth,
+    (SELECT COUNT(*) FROM monzo_connections WHERE user_id = u.id AND disconnected_at IS NULL) AS active_connections,
+    (SELECT COUNT(*) FROM app_refresh_tokens WHERE user_id = u.id AND revoked_at IS NULL AND expires_at > NOW()) AS active_sessions
+FROM users u
+WHERE u.email LIKE '%test%' OR u.email LIKE '%example%'
+ORDER BY u.created_at DESC;
 
 
 -- =============================================================================
@@ -243,7 +293,7 @@ UNION ALL
 SELECT 
     'Magic Link',
     m.id::text,
-    CASE WHEN m.used THEN 'USED' WHEN m.expires_at < NOW() THEN 'EXPIRED' ELSE 'VALID' END,
+    CASE WHEN m.used_at IS NOT NULL THEN 'USED' WHEN m.expires_at < NOW() THEN 'EXPIRED' ELSE 'VALID' END,
     m.expires_at::text,
     m.created_at::text
 FROM magic_link_tokens m 
@@ -253,7 +303,7 @@ UNION ALL
 SELECT 
     'Session',
     r.id::text,
-    CASE WHEN r.revoked THEN 'REVOKED' WHEN r.expires_at < NOW() THEN 'EXPIRED' ELSE 'ACTIVE' END,
+    CASE WHEN r.revoked_at IS NOT NULL THEN 'REVOKED' WHEN r.expires_at < NOW() THEN 'EXPIRED' ELSE 'ACTIVE' END,
     r.expires_at::text,
     r.created_at::text
 FROM app_refresh_tokens r 

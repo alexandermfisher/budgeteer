@@ -833,85 +833,7 @@
 					"response": []
 				},
 				{
-					"name": "3. Process OAuth Callback",
-					"event": [
-						{
-							"listen": "prerequest",
-							"script": {
-								"exec": [
-									"if (!pm.environment.get(\"monzo_auth_code\")) {",
-									"    console.warn(\"⚠️ monzo_auth_code is not set!\");",
-									"    console.log(\"Complete OAuth in browser first, then set the code.\");",
-									"}",
-									"if (!pm.environment.get(\"monzo_oauth_state\")) {",
-									"    console.warn(\"⚠️ monzo_oauth_state is not set!\");",
-									"    console.log(\"Run 'Initiate OAuth' first to get a state.\");",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						},
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test(\"Status code is 200\", function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"",
-									"pm.test(\"Returns connection details\", function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.expect(jsonData.data).to.have.property(\"id\");",
-									"    pm.expect(jsonData.data).to.have.property(\"monzoUserId\");",
-									"    pm.expect(jsonData.data).to.have.property(\"status\");",
-									"});",
-									"",
-									"var jsonData = pm.response.json();",
-									"pm.environment.set(\"monzo_connection_id\", jsonData.data.id);",
-									"",
-									"// Clear temp values",
-									"pm.environment.unset(\"monzo_auth_code\");",
-									"pm.environment.unset(\"monzo_oauth_state\");",
-									"",
-									"console.log(\"✅ Monzo connected successfully!\");",
-									"console.log(\"🆔 Connection ID: \" + jsonData.data.id);",
-									"console.log(\"👤 Monzo User: \" + jsonData.data.monzoUserId);",
-									"console.log(\"📊 Status: \" + jsonData.data.status);"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/api/monzo/callback?code={{monzo_auth_code}}&state={{monzo_oauth_state}}",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"api",
-								"monzo",
-								"callback"
-							],
-							"query": [
-								{
-									"key": "code",
-									"value": "{{monzo_auth_code}}"
-								},
-								{
-									"key": "state",
-									"value": "{{monzo_oauth_state}}"
-								}
-							]
-						},
-						"description": "Process the OAuth callback to complete connection.\n\n**Before running:**\n1. Set `monzo_auth_code` from the callback URL\n2. `monzo_oauth_state` should already be set from Step 2\n\n**This endpoint:**\n- Verifies state (CSRF protection)\n- Exchanges code for tokens with Monzo\n- Gets Monzo user ID\n- Stores encrypted tokens in database\n\n⚠️ This is normally called by browser redirect, but you can call manually."
-					},
-					"response": []
-				},
-				{
-					"name": "4. List Connections",
+					"name": "3. List Connections",
 					"event": [
 						{
 							"listen": "test",
@@ -969,7 +891,7 @@
 					"response": []
 				},
 				{
-					"name": "5. Get Connection Details",
+					"name": "4. Get Connection Details",
 					"event": [
 						{
 							"listen": "prerequest",
@@ -1033,7 +955,7 @@
 					"response": []
 				},
 				{
-					"name": "6. Disconnect Monzo",
+					"name": "5. Disconnect Monzo",
 					"event": [
 						{
 							"listen": "prerequest",
@@ -1093,7 +1015,7 @@
 					"response": []
 				}
 			],
-			"description": "Monzo bank account integration endpoints.\n\n## OAuth Flow\n1. **Quick Login** first (Dev Tools)\n2. **Check Status** - see if already connected\n3. **Initiate OAuth** - get authorization URL\n4. Open URL in browser, approve in Monzo app\n5. Copy the `code` from callback URL\n6. Set `monzo_auth_code` in environment\n7. **Process Callback** - complete connection\n\n## After Connection\n- **List Connections** - see all connections\n- **Get Details** - view specific connection\n- **Disconnect** - remove connection"
+			"description": "Monzo bank account integration endpoints.\n\n## OAuth Flow (Browser-Based)\n1. **Quick Login** first (Dev Tools)\n2. **Check Status** - see if already connected\n3. **Initiate OAuth** - get authorization URL\n4. Open URL in browser → approve in Monzo app\n5. Browser redirects to /callback → Server handles it automatically\n6. ✅ Connection created!\n\n## Frontend Endpoints (Postman Testable)\n- **Check Status** - GET /api/monzo/status\n- **Initiate OAuth** - POST /api/monzo/connect\n- **List Connections** - GET /api/monzo/connections\n- **Get Details** - GET /api/monzo/connections/{id}\n- **Disconnect** - DELETE /api/monzo/connections/{id}\n\n## Server-Handled (NOT for Postman)\n- GET /api/monzo/callback - Called by browser redirect from Monzo\n  - Error cases tested via integration tests (MonzoOAuthFlowIT)"
 		},
 		{
 			"name": "Error Cases",

@@ -231,10 +231,18 @@ class MonzoControllerTest {
         @Test
         @DisplayName("should return 400 for missing code parameter")
         void shouldReturn400ForMissingCode() throws Exception {
+            // Given - state verification must succeed first
+            when(oauthService.verifyStateAndGetUser("some-state")).thenReturn(testUser);
+            
+            // When/Then - code is missing, so controller throws OAUTH_CODE_MISSING
             mockMvc.perform(get("/api/monzo/callback")
                             .param("state", "some-state"))
                     .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+                    .andExpect(jsonPath("$.error.code").value("OAUTH_CODE_MISSING"));
+            
+            verify(oauthService).verifyStateAndGetUser("some-state");
+            // Token exchange should NOT be called since code is missing
+            verify(oauthService, never()).exchangeCodeForTokens(any());
         }
 
         @Test

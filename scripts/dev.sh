@@ -9,6 +9,10 @@
 #   restart - Stop and start the application
 #   logs    - Show recent logs (if running in background)
 #   db      - Start only the database
+#   test    - Run unit tests
+#   it      - Run integration tests (requires Docker)
+#   test-all - Run all tests (unit + integration)
+#   tunnel  - Start ngrok tunnel for Monzo OAuth
 #   help    - Show this help
 
 set -e
@@ -234,6 +238,84 @@ cmd_db() {
     print_success "Database started"
 }
 
+cmd_test() {
+    print_status "Running unit tests..."
+    cd "$PROJECT_ROOT/backend"
+    mvn test -DskipITs
+    print_success "Unit tests completed"
+}
+
+cmd_it() {
+    local test_pattern=${1:-"*IT"}
+    
+    if ! docker info > /dev/null 2>&1; then
+        print_error "Docker doesn't seem to be running. Start Docker Desktop first."
+        print_warning "Integration tests require Docker for Testcontainers (PostgreSQL)"
+        exit 1
+    fi
+
+    print_status "Running integration tests: $test_pattern"
+    echo "   ℹ️  This requires Docker - Testcontainers will spin up PostgreSQL"
+    echo ""
+    
+    cd "$PROJECT_ROOT/backend"
+    mvn test -Dtest="$test_pattern"
+    print_success "Integration tests completed"
+}
+
+cmd_test_all() {
+    if ! docker info > /dev/null 2>&1; then
+        print_error "Docker doesn't seem to be running. Start Docker Desktop first."
+        exit 1
+    fi
+
+    print_status "Running all tests (unit + integration)..."
+    cd "$PROJECT_ROOT/backend"
+    mvn verify
+    print_success "All tests completed"
+}
+
+cmd_tunnel() {
+    # Check if ngrok is installed
+    if ! command -v ngrok &> /dev/null; then
+        print_error "ngrok is not installed!"
+        echo ""
+        echo "Install ngrok:"
+        echo "  brew install ngrok       # macOS"
+        echo "  snap install ngrok       # Linux"
+        echo ""
+        echo "Then authenticate:"
+        echo "  ngrok config add-authtoken <your-token>"
+        echo ""
+        echo "Get your token at: https://dashboard.ngrok.com/get-started/your-authtoken"
+        exit 1
+    fi
+
+    print_status "Starting ngrok tunnel to port $APP_PORT..."
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════════╗"
+    echo "║  🚇 NGROK TUNNEL FOR MONZO OAUTH                                ║"
+    echo "╠══════════════════════════════════════════════════════════════════╣"
+    echo "║                                                                  ║"
+    echo "║  After ngrok starts, copy the HTTPS URL and:                     ║"
+    echo "║                                                                  ║"
+    echo "║  1. Go to: https://developers.monzo.com/                         ║"
+    echo "║  2. Update your OAuth redirect URI to:                           ║"
+    echo "║     https://YOUR-NGROK-URL.ngrok-free.app/api/monzo/callback     ║"
+    echo "║                                                                  ║"
+    echo "║  3. Update your .env file:                                       ║"
+    echo "║     MONZO_REDIRECT_URI=https://YOUR-NGROK-URL.ngrok-free.app/api/monzo/callback"
+    echo "║                                                                  ║"
+    echo "║  4. Restart the app: ./scripts/dev.sh restart                    ║"
+    echo "║                                                                  ║"
+    echo "║  Press Ctrl+C to stop the tunnel                                 ║"
+    echo "╚══════════════════════════════════════════════════════════════════╝"
+    echo ""
+    
+    # Start ngrok
+    ngrok http $APP_PORT
+}
+
 cmd_help() {
     echo ""
     echo "Budgeteer Development Script"
@@ -241,18 +323,32 @@ cmd_help() {
     echo "Usage: ./scripts/dev.sh [command]"
     echo ""
     echo "Commands:"
-    echo "  start     Start the application (default)"
-    echo "  stop      Stop the application"
-    echo "  status    Check application and database status"
-    echo "  restart   Stop and start the application"
-    echo "  db        Start only the database"
-    echo "  help      Show this help"
+    echo "  start       Start the application (default)"
+    echo "  stop        Stop the application"
+    echo "  status      Check application and database status"
+    echo "  restart     Stop and start the application"
+    echo "  db          Start only the database"
+    echo "  tunnel      Start ngrok tunnel (for Monzo OAuth)"
+    echo "  test        Run unit tests (no Docker required)"
+    echo "  it [name]   Run integration tests (requires Docker)"
+    echo "  test-all    Run all tests (unit + integration)"
+    echo "  help        Show this help"
     echo ""
     echo "Examples:"
-    echo "  ./scripts/dev.sh          # Start the app"
-    echo "  ./scripts/dev.sh start    # Start the app"
-    echo "  ./scripts/dev.sh stop     # Stop the app"
-    echo "  ./scripts/dev.sh status   # Check status"
+    echo "  ./scripts/dev.sh              # Start the app"
+    echo "  ./scripts/dev.sh start        # Start the app"
+    echo "  ./scripts/dev.sh stop         # Stop the app"
+    echo "  ./scripts/dev.sh status       # Check status"
+    echo "  ./scripts/dev.sh tunnel       # Start ngrok for Monzo OAuth"
+    echo "  ./scripts/dev.sh test         # Run unit tests"
+    echo "  ./scripts/dev.sh it           # Run all integration tests"
+    echo "  ./scripts/dev.sh it MonzoOAuthFlowIT  # Run specific IT"
+    echo ""
+    echo "Monzo OAuth Setup:"
+    echo "  1. ./scripts/dev.sh tunnel    # Get public URL"
+    echo "  2. Update Monzo Developer Portal with ngrok URL"
+    echo "  3. Update .env MONZO_REDIRECT_URI"
+    echo "  4. ./scripts/dev.sh start     # Start the app"
     echo ""
 }
 
@@ -274,6 +370,18 @@ case "$COMMAND" in
         ;;
     db)
         cmd_db
+        ;;
+    test)
+        cmd_test
+        ;;
+    it|integration)
+        cmd_it "$2"
+        ;;
+    test-all)
+        cmd_test_all
+        ;;
+    tunnel|ngrok)
+        cmd_tunnel
         ;;
     help|--help|-h)
         cmd_help
