@@ -1,7 +1,6 @@
 package dev.amf.budgeteer.service;
 
 import dev.amf.budgeteer.config.AppProperties;
-import dev.amf.budgeteer.util.LogSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.SimpleMailMessage;
@@ -96,10 +95,10 @@ public class EmailService {
             message.setTo(to);
             message.setSubject(subject);
             message.setText(body);
-            message.setFrom("noreply@budgeteer.dev");
+            message.setFrom(appProperties.getMail().getFrom());
             
             mailSender.send(message);
-            log.info("Email sent to {}", to);
+            log.info("Email sent to {} from {}", to, appProperties.getMail().getFrom());
         } catch (Exception e) {
             log.error("Failed to send email to {}: {}", to, e.getMessage());
             throw new RuntimeException("Failed to send email", e);
