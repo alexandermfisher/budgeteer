@@ -41,6 +41,7 @@ public enum ErrorCode {
 
     // ============ External Service Errors (502) ============
     MONZO_API_ERROR(HttpStatus.BAD_GATEWAY, "Monzo API error"),
+    MONZO_CONNECTION_REVOKED(HttpStatus.UNAUTHORIZED, "Monzo connection was revoked - please reconnect"),
     EMAIL_SERVICE_ERROR(HttpStatus.BAD_GATEWAY, "Email service error"),
 
     // ============ Server Errors (500) ============

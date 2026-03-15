@@ -19,7 +19,8 @@ Before connecting to Monzo, the user must be **authenticated with Budgeteer** (c
 | Component | Type | Responsibility |
 |-----------|------|----------------|
 | `MonzoController` | REST Controller | HTTP endpoints for Monzo integration |
-| `MonzoOAuthService` | Service | OAuth orchestration, API calls |
+| `MonzoOAuthService` | Service | OAuth flow orchestration, state management |
+| `MonzoClient` | Service | Monzo API communication, 401 handling |
 | `MonzoConnectionService` | Service | Connection CRUD, token encryption |
 | `EncryptionService` | Service | AES-256-GCM encryption for tokens |
 | `OAuthStateRepository` | Repository | OAuth state persistence |

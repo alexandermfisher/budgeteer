@@ -373,8 +373,8 @@
 							"listen": "test",
 							"script": {
 								"exec": [
-									"pm.test(\"Status code is 200 or 302\", function () {",
-									"    pm.expect(pm.response.code).to.be.oneOf([200, 302]);",
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
 									"});",
 									"",
 									"pm.test(\"Login successful\", function () {",
@@ -383,8 +383,17 @@
 									"    pm.expect(jsonData.data.message).to.equal(\"Login successful\");",
 									"});",
 									"",
-									"// Cookies are automatically handled by Postman",
-									"console.log(\"✅ Logged in! Cookies have been set.\");",
+									"// Save tokens to environment",
+									"var jsonData = pm.response.json();",
+									"if (jsonData.data.accessToken) {",
+									"    pm.environment.set(\"access_token\", jsonData.data.accessToken);",
+									"    pm.environment.set(\"refresh_token\", jsonData.data.refreshToken);",
+									"    console.log(\"🔑 Tokens saved to environment\");",
+									"}",
+									"",
+									"// Cookies are also set by server",
+									"console.log(\"✅ Logged in!\");",
+									"console.log(\"🍪 Cookies have been set\");",
 									"console.log(\"You can now use authenticated endpoints.\");"
 								],
 								"type": "text/javascript"
@@ -405,7 +414,13 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json",
+								"description": "Request JSON response (vs redirect for browsers)"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/api/auth/verify?token={{magic_link_token}}",
 							"host": [
@@ -423,7 +438,7 @@
 								}
 							]
 						},
-						"description": "Verify the magic link token and log in.\n\nThis sets HttpOnly cookies:\n- `access_token` (15 min expiry)\n- `refresh_token` (7 day expiry)"
+						"description": "Verify the magic link token and log in.\n\n**Content Negotiation:**\n- `Accept: application/json` → Returns JSON with tokens (this request)\n- `Accept: text/html` (browser) → 302 redirect to frontend\n\nThis sets HttpOnly cookies:\n- `access_token` (15 min expiry)\n- `refresh_token` (7 day expiry)\n\nTokens are also returned in the response body for API clients."
 					},
 					"response": []
 				},

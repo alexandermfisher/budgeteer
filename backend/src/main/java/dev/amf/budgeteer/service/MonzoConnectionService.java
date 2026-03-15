@@ -43,15 +43,19 @@ public class MonzoConnectionService {
     /**
      * Creates a new Monzo connection for a user.
      *
-     * <p>If the user already has an active connection for the same Monzo account,
-     * the existing connection's tokens are updated instead of creating a duplicate.
+     * <p>Connection handling:
+     * <ul>
+     *   <li>If user has an active connection for the same Monzo account → update tokens</li>
+     *   <li>If user has a soft-deleted connection for the same account → reactivate and update tokens</li>
+     *   <li>Otherwise → create new connection</li>
+     * </ul>
      *
      * @param userId       the app user's ID
      * @param monzoUserId  the Monzo user ID from /ping/whoami
      * @param accessToken  the plaintext access token
      * @param refreshToken the plaintext refresh token
      * @param expiresAt    when the access token expires
-     * @return the created or updated connection
+     * @return the created, reactivated, or updated connection
      * @throws ApiException if user not found
      */
     @Transactional
@@ -65,17 +69,30 @@ public class MonzoConnectionService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(ErrorCode.USER_NOT_FOUND, "User not found"));
 
-        // Check for existing active connection to the same Monzo account
+        // Check for ANY existing connection to the same Monzo account (including soft-deleted)
         MonzoConnection existing = connectionRepository
-                .findActiveByUserIdAndMonzoUserId(userId, monzoUserId)
+                .findByUserIdAndMonzoUserId(userId, monzoUserId)
                 .orElse(null);
 
         if (existing != null) {
-            log.info("Updating existing Monzo connection {} for user {}", existing.getId(), userId);
-            return updateTokens(existing.getId(), userId, accessToken, refreshToken, expiresAt);
+            // Encrypt new tokens
+            String accessTokenEncrypted = encryptionService.encrypt(accessToken);
+            String refreshTokenEncrypted = encryptionService.encrypt(refreshToken);
+
+            if (existing.isActive()) {
+                // Active connection: just update tokens
+                log.info("Updating existing Monzo connection {} for user {}", existing.getId(), userId);
+            } else {
+                // Soft-deleted connection: reactivate it
+                log.info("Reactivating soft-deleted Monzo connection {} for user {}", existing.getId(), userId);
+                existing.reactivate();
+            }
+
+            existing.updateTokens(accessTokenEncrypted, refreshTokenEncrypted, expiresAt);
+            return connectionRepository.save(existing);
         }
 
-        // Encrypt tokens before storage
+        // No existing connection: create new one
         String accessTokenEncrypted = encryptionService.encrypt(accessToken);
         String refreshTokenEncrypted = encryptionService.encrypt(refreshToken);
 

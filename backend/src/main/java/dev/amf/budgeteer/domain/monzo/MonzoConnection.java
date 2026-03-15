@@ -173,6 +173,14 @@ public class MonzoConnection {
     }
 
     /**
+     * Reactivates a soft-deleted connection by clearing disconnectedAt.
+     * Used when a user reconnects a previously disconnected Monzo account.
+     */
+    public void reactivate() {
+        this.disconnectedAt = null;
+    }
+
+    /**
      * Updates the encrypted tokens after a token refresh.
      *
      * @param accessTokenEncrypted  the new encrypted access token
