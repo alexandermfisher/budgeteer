@@ -35,11 +35,17 @@ class EmailServiceTest {
     @Mock
     private AppProperties appProperties;
 
+    @Mock
+    private AppProperties.Mail mailProperties;
+
     private EmailService emailService;
 
     @BeforeEach
     void setUp() {
         emailService = new EmailService(mailSender, appProperties);
+        // Set up mail properties mock with default from address (lenient as not all tests send emails)
+        lenient().when(mailProperties.getFrom()).thenReturn("noreply@budgeteer.amfshr.dev");
+        lenient().when(appProperties.getMail()).thenReturn(mailProperties);
     }
 
     @Nested
@@ -140,7 +146,7 @@ class EmailServiceTest {
         }
 
         @Test
-        @DisplayName("should set correct from address")
+        @DisplayName("should set correct from address from app properties")
         void shouldSetCorrectFromAddress() {
             // Given
             String email = "test@example.com";
@@ -156,7 +162,7 @@ class EmailServiceTest {
             // Then
             verify(mailSender).send(messageCaptor.capture());
             SimpleMailMessage sentMessage = messageCaptor.getValue();
-            assertThat(sentMessage.getFrom()).isEqualTo("noreply@budgeteer.dev");
+            assertThat(sentMessage.getFrom()).isEqualTo("noreply@budgeteer.amfshr.dev");
         }
 
         @Test

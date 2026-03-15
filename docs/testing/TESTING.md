@@ -258,11 +258,13 @@ Test real database behaviour using PostgreSQL via Testcontainers. Verifies that:
 - JPA mappings work with PostgreSQL
 - Repository queries return expected results
 - Transactions behave correctly
+- **Third-party API integrations** (via WireMock)
 
 ### Configuration
 - **Database:** PostgreSQL via Testcontainers
 - **Spring Context:** Full or sliced (`@DataJpaTest`)
 - **Flyway:** Enabled (tests real migrations)
+- **WireMock:** For mocking external APIs (Monzo)
 
 ### Base Class Setup
 ```java
@@ -361,6 +363,174 @@ class AuthFlowIT extends AbstractIntegrationTest {
 | Testing Flyway migrations | Testcontainers |
 | Complex queries with joins | Testcontainers |
 | Performance testing | Testcontainers |
+
+---
+
+## 🌐 WireMock - Mocking Third-Party APIs
+
+### Purpose
+WireMock is used to mock external HTTP APIs (like Monzo) in integration tests. This allows testing the full OAuth flow without making real API calls.
+
+### Configuration
+
+#### Directory Structure
+```
+backend/src/test/resources/
+└── wiremock/
+    ├── README.md                    # Documentation
+    ├── mappings/                    # Request/response stubs (JSON)
+    │   └── monzo/
+    │       ├── oauth/
+    │       │   ├── token-exchange-success.json
+    │       │   ├── token-exchange-invalid-code.json
+    │       │   └── token-refresh-success.json
+    │       └── ping/
+    │           ├── whoami-authenticated.json
+    │           └── whoami-unauthenticated.json
+    └── __files/                     # Large response bodies (optional)
+        └── monzo/
+```
+
+#### Dependencies (pom.xml)
+```xml
+<!-- WireMock for mocking third-party HTTP APIs -->
+<dependency>
+    <groupId>org.wiremock</groupId>
+    <artifactId>wiremock-standalone</artifactId>
+    <version>3.10.0</version>
+    <scope>test</scope>
+</dependency>
+<dependency>
+    <groupId>org.wiremock.integrations</groupId>
+    <artifactId>wiremock-spring-boot</artifactId>
+    <version>3.6.0</version>
+    <scope>test</scope>
+</dependency>
+```
+
+### Usage Patterns
+
+#### 1. JSON Stub Files (Recommended for Reusable Stubs)
+
+Create JSON files in `wiremock/mappings/`:
+
+```json
+{
+  "name": "Monzo OAuth Token Exchange - Success",
+  "request": {
+    "method": "POST",
+    "urlPath": "/oauth2/token",
+    "bodyPatterns": [
+      { "contains": "grant_type=authorization_code" }
+    ]
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "access_token": "test-access-token",
+      "refresh_token": "test-refresh-token",
+      "expires_in": 3600
+    }
+  },
+  "priority": 5
+}
+```
+
+#### 2. Integration Test Setup
+
+```java
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("integration-test")
+@EnableWireMock({
+    @ConfigureWireMock(
+        name = "monzo-api",
+        filesUnderClasspath = "wiremock",
+        property = "monzo.api-base-url"
+    )
+})
+class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
+
+    @InjectWireMock("monzo-api")
+    private WireMockServer wireMock;
+
+    @DynamicPropertySource
+    static void configureWireMockUrl(DynamicPropertyRegistry registry) {
+        registry.add("monzo.token-url", () -> "${wiremock.server.url}/oauth2/token");
+    }
+
+    @BeforeEach
+    void setUp() {
+        wireMock.resetAll();  // Reset stubs between tests
+    }
+}
+```
+
+#### 3. Test-Specific Stubs (Java DSL)
+
+For error cases or test-specific scenarios, use the Java DSL:
+
+```java
+@Test
+void shouldHandleTokenExchangeError() {
+    // Override the default stub for this test
+    wireMock.stubFor(post(urlPathEqualTo("/oauth2/token"))
+        .willReturn(badRequest()
+            .withHeader("Content-Type", "application/json")
+            .withBody("""
+                {"error": "invalid_grant", "message": "Code expired"}
+                """)));
+    
+    // Test error handling...
+}
+```
+
+### Priority System
+
+Lower priority = higher precedence. Use to layer stubs:
+
+| Priority | Use Case |
+|----------|----------|
+| 1-4 | Specific error cases (e.g., `code=invalid`) |
+| 5 | Default happy-path responses |
+| 10 | Fallback/catch-all responses |
+
+### Request Verification
+
+Verify that your code made the expected HTTP calls:
+
+```java
+@Test
+void shouldCallMonzoApi() {
+    // ... test code ...
+    
+    // Verify POST to token endpoint was called
+    wireMock.verify(postRequestedFor(urlPathEqualTo("/oauth2/token"))
+        .withRequestBody(containing("grant_type=authorization_code")));
+    
+    // Verify GET to whoami was called with auth header
+    wireMock.verify(getRequestedFor(urlPathEqualTo("/ping/whoami"))
+        .withHeader("Authorization", matching("Bearer .*")));
+}
+```
+
+### Best Practices
+
+1. **Use JSON files for reusable stubs** - Shared across tests, version-controlled
+2. **Use Java DSL for test-specific overrides** - Error cases, edge cases
+3. **Reset WireMock in @BeforeEach** - Ensures test isolation
+4. **Verify API calls were made** - Catches missing or incorrect calls
+5. **Use meaningful stub names** - Helps with debugging
+
+### Example Test Class
+
+See `MonzoOAuthFlowIT.java` for a complete example covering:
+- OAuth initiation
+- Callback handling with mocked token exchange
+- Error scenarios (invalid/expired/used state)
+- Connection management
 
 ---
 

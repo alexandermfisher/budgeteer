@@ -2,6 +2,7 @@ package dev.amf.budgeteer.api.health;
 
 import dev.amf.budgeteer.api.common.GlobalExceptionHandler;
 import dev.amf.budgeteer.config.SecurityConfig;
+import dev.amf.budgeteer.service.AuthService;
 import dev.amf.budgeteer.service.CookieService;
 import dev.amf.budgeteer.service.JweTokenService;
 import org.junit.jupiter.api.DisplayName;
@@ -38,12 +39,15 @@ class HealthControllerTest {
     @MockitoBean
     private DataSource dataSource;
 
-    // Required by SecurityConfig
+    // Required by SecurityConfig and CurrentUserArgumentResolver
     @MockitoBean
     private JweTokenService jweTokenService;
 
     @MockitoBean
     private CookieService cookieService;
+
+    @MockitoBean
+    private AuthService authService;
 
     @Nested
     @DisplayName("GET /api/health")
