@@ -8,6 +8,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Phase 2: Monzo Token Persistence - Phase E** (`feature/monzo-token-persistence`)
+  - `@CurrentUser` annotation for injecting authenticated User into controllers
+  - `@CurrentUserId` annotation for injecting just UUID (more efficient)
+  - `CurrentUserArgumentResolver` to resolve annotations from JweAuthentication
+  - `WebMvcConfig` to register the argument resolver
+  - `OAuthStateRepositoryIT` integration tests (15 tests)
+  - `MonzoConnectionRepositoryIT` integration tests (25 tests)
+  - `MANUAL-TESTING.md` documentation for OAuth flow testing
+  - `manual-testing.sql` helper queries for development
+
+### Changed
+- Refactored `MonzoController` to use `@CurrentUser` instead of manual authentication extraction
+- Updated controller tests (`MonzoControllerTest`, `DevAuthControllerTest`, `HealthControllerTest`) with AuthService mock
+
+### Fixed
+- Redirect URI in `.env` corrected from `/auth/callback` to `/api/monzo/callback`
+
+---
+
+## [0.3.0] - 2026-02-08 (Phase D)
+
+### Added
+- **Phase 2: Monzo Token Persistence - API Layer** ✅ COMPLETE
+  - `MonzoController` - Consolidated controller for all Monzo endpoints
+  - `MonzoOAuthService` - OAuth flow orchestration with database state
+  - `OAuthState` entity and `OAuthStateRepository` for CSRF protection
+  - `MonzoConnectionResponse` and `MonzoConnectInitResponse` DTOs
+  - Database-backed OAuth state with user association, expiration, single-use
+  - New Monzo API endpoints:
+    - `GET /api/monzo/connect` - Redirect to Monzo OAuth
+    - `POST /api/monzo/connect` - Get auth URL as JSON
+    - `GET /api/monzo/callback` - OAuth callback (public, state-validated)
+    - `GET /api/monzo/connections` - List connections
+    - `GET /api/monzo/connections/{id}` - Get connection details
+    - `DELETE /api/monzo/connections/{id}` - Disconnect (soft delete)
+    - `GET /api/monzo/status` - Quick status check
+  - `V6__create_oauth_states.sql` Flyway migration
+  - OAuth-specific error codes in `ErrorCode` enum
+  - `MonzoControllerTest` (22 tests) and `MonzoOAuthServiceTest` (16 tests)
+
+---
+
+## [0.2.1] - 2026-01-24 (Phases A-C)
+
+### Added
+- **Phase 2: Monzo Token Persistence - Foundation** (`feature/monzo-token-persistence`)
+  - `EncryptionService` (AES-256-GCM) for secure token storage
+  - `EncryptionProperties` configuration
+  - `MonzoConnection` entity with encrypted token fields
+  - `MonzoConnectionRepository` with user-scoped queries
+  - `MonzoConnectionService` for CRUD operations
+  - `V5__create_monzo_connections.sql` Flyway migration
+  - `docs/features/ENCRYPTION.md` design documentation
+  - Unit tests: EncryptionService (24), MonzoConnection (12), MonzoConnectionService (22)
+
+---
+
+## [0.2.0] - 2026-01-23
+
+### Added
 - **CI/CD Pipeline Infrastructure** (`chore/ci-cd-setup`)
   - GitHub Actions CI workflow (`.github/workflows/ci.yml`)
     - Automatic build and test on every push

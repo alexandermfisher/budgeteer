@@ -721,6 +721,303 @@
 			"description": "Authentication using Bearer tokens (API-style).\n\nUse this for:\n- Mobile apps\n- API testing without cookies\n- Third-party integrations\n\n**First run Quick Login to get tokens!**"
 		},
 		{
+			"name": "Monzo Integration",
+			"item": [
+				{
+					"name": "1. Check Connection Status",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"console.log(\"🔗 Connected: \" + jsonData.data.connected);",
+									"console.log(\"📊 Connection count: \" + jsonData.data.connectionCount);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/monzo/status",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"monzo",
+								"status"
+							]
+						},
+						"description": "Check if user has any active Monzo connections.\n\nRun this first to see if you need to connect."
+					},
+					"response": []
+				},
+				{
+					"name": "2. Initiate OAuth (JSON)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Returns authorization URL\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.data).to.have.property(\"authorizationUrl\");",
+									"    pm.expect(jsonData.data.authorizationUrl).to.include(\"auth.monzo.com\");",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"",
+									"// Extract state from URL for later use",
+									"var url = new URL(jsonData.data.authorizationUrl);",
+									"var state = url.searchParams.get(\"state\");",
+									"pm.environment.set(\"monzo_oauth_state\", state);",
+									"",
+									"console.log(\"🔗 Authorization URL:\");",
+									"console.log(jsonData.data.authorizationUrl);",
+									"console.log(\"\");",
+									"console.log(\"📋 State saved to monzo_oauth_state\");",
+									"console.log(\"💡 Open the URL in browser, approve, then copy the 'code' from the callback URL\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/monzo/connect",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"monzo",
+								"connect"
+							]
+						},
+						"description": "Initiates Monzo OAuth flow and returns the authorization URL.\n\n**Steps:**\n1. Run this request\n2. Copy the authorization URL from response\n3. Open in browser\n4. Approve in Monzo app\n5. Copy the `code` from callback URL\n6. Set `monzo_auth_code` in environment\n7. Run 'Process OAuth Callback'"
+					},
+					"response": []
+				},
+				{
+					"name": "3. List Connections",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"console.log(\"📋 Found \" + jsonData.data.length + \" connection(s)\");",
+									"",
+									"jsonData.data.forEach(function(conn, i) {",
+									"    console.log((i+1) + \". ID: \" + conn.id);",
+									"    console.log(\"   Monzo User: \" + conn.monzoUserId);",
+									"    console.log(\"   Status: \" + conn.status);",
+									"    console.log(\"   Connected: \" + conn.connectedAt);",
+									"});",
+									"",
+									"// Save first connection ID if available",
+									"if (jsonData.data.length > 0) {",
+									"    pm.environment.set(\"monzo_connection_id\", jsonData.data[0].id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/monzo/connections",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"monzo",
+								"connections"
+							]
+						},
+						"description": "List all active Monzo connections for the authenticated user."
+					},
+					"response": []
+				},
+				{
+					"name": "4. Get Connection Details",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.environment.get(\"monzo_connection_id\")) {",
+									"    console.warn(\"⚠️ monzo_connection_id is not set!\");",
+									"    console.log(\"Run 'List Connections' first or complete OAuth flow.\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"var jsonData = pm.response.json();",
+									"console.log(\"🔍 Connection Details:\");",
+									"console.log(\"  ID: \" + jsonData.data.id);",
+									"console.log(\"  Monzo User: \" + jsonData.data.monzoUserId);",
+									"console.log(\"  Status: \" + jsonData.data.status);",
+									"console.log(\"  Connected: \" + jsonData.data.connectedAt);",
+									"console.log(\"  Token Expires: \" + jsonData.data.tokenExpiresAt);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/monzo/connections/{{monzo_connection_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"monzo",
+								"connections",
+								"{{monzo_connection_id}}"
+							]
+						},
+						"description": "Get details for a specific Monzo connection."
+					},
+					"response": []
+				},
+				{
+					"name": "5. Disconnect Monzo",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.environment.get(\"monzo_connection_id\")) {",
+									"    console.warn(\"⚠️ monzo_connection_id is not set!\");",
+									"    console.log(\"Run 'List Connections' first or complete OAuth flow.\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 204\", function () {",
+									"    pm.response.to.have.status(204);",
+									"});",
+									"",
+									"pm.environment.unset(\"monzo_connection_id\");",
+									"console.log(\"✅ Monzo disconnected!\");",
+									"console.log(\"Connection has been soft-deleted.\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{access_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/monzo/connections/{{monzo_connection_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"monzo",
+								"connections",
+								"{{monzo_connection_id}}"
+							]
+						},
+						"description": "Disconnect (soft-delete) a Monzo connection.\n\n**Note:** This doesn't delete data from database, just marks as disconnected."
+					},
+					"response": []
+				}
+			],
+			"description": "Monzo bank account integration endpoints.\n\n## OAuth Flow (Browser-Based)\n1. **Quick Login** first (Dev Tools)\n2. **Check Status** - see if already connected\n3. **Initiate OAuth** - get authorization URL\n4. Open URL in browser → approve in Monzo app\n5. Browser redirects to /callback → Server handles it automatically\n6. ✅ Connection created!\n\n## Frontend Endpoints (Postman Testable)\n- **Check Status** - GET /api/monzo/status\n- **Initiate OAuth** - POST /api/monzo/connect\n- **List Connections** - GET /api/monzo/connections\n- **Get Details** - GET /api/monzo/connections/{id}\n- **Disconnect** - DELETE /api/monzo/connections/{id}\n\n## Server-Handled (NOT for Postman)\n- GET /api/monzo/callback - Called by browser redirect from Monzo\n  - Error cases tested via integration tests (MonzoOAuthFlowIT)"
+		},
+		{
 			"name": "Error Cases",
 			"item": [
 				{

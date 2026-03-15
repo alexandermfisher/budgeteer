@@ -5,6 +5,7 @@
       <env name="SPRING_PROFILES_ACTIVE" value="dev" />
     </envs>
     <module name="budgeteer-backend" />
+    <shortenClasspath name="NONE" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="dev.amf.budgeteer.BudgeteerApplication" />
     <option name="WORKING_DIRECTORY" value="file://$PROJECT_DIR$/backend" />
     <extension name="net.ashald.envfile">
@@ -15,11 +16,9 @@
       <option name="IS_ENABLE_EXPERIMENTAL_INTEGRATIONS" value="false" />
       <ENTRIES>
         <ENTRY IS_ENABLED="true" PARSER="runconfig" IS_EXECUTABLE="false" />
-        <ENTRY IS_ENABLED="true" PARSER="dotenv" IS_EXECUTABLE="false" PATH="$PROJECT_DIR$/.env" />
+        <ENTRY IS_ENABLED="true" PARSER="env" IS_EXECUTABLE="false" PATH=".env" />
       </ENTRIES>
     </extension>
-    <method v="2">
-      <option name="Make" enabled="true" />
-    </method>
+    <method v="2" />
   </configuration>
 </component>

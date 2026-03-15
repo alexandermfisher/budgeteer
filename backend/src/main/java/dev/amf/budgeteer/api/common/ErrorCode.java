@@ -24,6 +24,11 @@ public enum ErrorCode {
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "Invalid request"),
     INVALID_EMAIL(HttpStatus.BAD_REQUEST, "Invalid email format"),
     STATE_MISMATCH(HttpStatus.BAD_REQUEST, "State parameter mismatch"),
+    OAUTH_STATE_INVALID(HttpStatus.BAD_REQUEST, "OAuth state is invalid or has already been used"),
+    OAUTH_STATE_EXPIRED(HttpStatus.BAD_REQUEST, "OAuth state has expired - please try connecting again"),
+    OAUTH_ACCESS_DENIED(HttpStatus.BAD_REQUEST, "User denied access to their account"),
+    OAUTH_CODE_MISSING(HttpStatus.BAD_REQUEST, "Authorization code is required"),
+    OAUTH_TOKEN_EXCHANGE_FAILED(HttpStatus.BAD_REQUEST, "Failed to exchange authorization code for tokens"),
 
     // ============ Not Found Errors (404) ============
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "User not found"),
