@@ -58,15 +58,29 @@ public interface MonzoConnectionRepository extends JpaRepository<MonzoConnection
     Optional<MonzoConnection> findActiveByIdAndUserId(@Param("id") UUID id, @Param("userId") UUID userId);
 
     /**
-     * Find an existing connection by user and Monzo user ID.
+     * Find an active connection by user and Monzo user ID.
      * Used to check for duplicate connections during OAuth flow.
      *
      * @param userId      the user's ID
      * @param monzoUserId the Monzo user ID
-     * @return the connection if exists
+     * @return the active connection if exists
      */
     @Query("SELECT mc FROM MonzoConnection mc WHERE mc.user.id = :userId AND mc.monzoUserId = :monzoUserId AND mc.disconnectedAt IS NULL")
     Optional<MonzoConnection> findActiveByUserIdAndMonzoUserId(
+            @Param("userId") UUID userId,
+            @Param("monzoUserId") String monzoUserId
+    );
+
+    /**
+     * Find any connection by user and Monzo user ID (including soft-deleted).
+     * Used during reconnection flow to reactivate a previously disconnected connection.
+     *
+     * @param userId      the user's ID
+     * @param monzoUserId the Monzo user ID
+     * @return the connection if exists (active or disconnected)
+     */
+    @Query("SELECT mc FROM MonzoConnection mc WHERE mc.user.id = :userId AND mc.monzoUserId = :monzoUserId")
+    Optional<MonzoConnection> findByUserIdAndMonzoUserId(
             @Param("userId") UUID userId,
             @Param("monzoUserId") String monzoUserId
     );

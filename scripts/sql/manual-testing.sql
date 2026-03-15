@@ -39,7 +39,7 @@ FROM users
 ORDER BY created_at DESC;
 
 -- Find user by email
-SELECT * FROM users WHERE email = 'test@example.com';
+SELECT * FROM users WHERE email = 'alexandermfisher73@gmail.com';
 
 -- Find user by ID (replace with actual UUID)
 -- SELECT * FROM users WHERE id = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx';

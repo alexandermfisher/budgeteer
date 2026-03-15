@@ -14,14 +14,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.client.RestClientException;
 
 import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -43,22 +38,7 @@ class MonzoOAuthServiceTest {
     private OAuthStateRepository stateRepository;
 
     @Mock
-    private RestClient restClient;
-
-    @Mock
-    private RestClient.RequestBodyUriSpec requestBodyUriSpec;
-
-    @Mock
-    private RestClient.RequestBodySpec requestBodySpec;
-
-    @Mock
-    private RestClient.RequestHeadersUriSpec<?> requestHeadersUriSpec;
-
-    @Mock
-    private RestClient.RequestHeadersSpec<?> requestHeadersSpec;
-
-    @Mock
-    private RestClient.ResponseSpec responseSpec;
+    private MonzoClient monzoClient;
 
     @Mock
     private SecureRandom secureRandom;
@@ -73,7 +53,7 @@ class MonzoOAuthServiceTest {
         oauthService = new MonzoOAuthService(
                 monzoProperties,
                 stateRepository,
-                restClient,
+                monzoClient,
                 secureRandom
         );
 
@@ -223,30 +203,17 @@ class MonzoOAuthServiceTest {
     @DisplayName("exchangeCodeForTokens")
     class ExchangeCodeForTokens {
 
-        @BeforeEach
-        void setUpRestClient() {
-            when(monzoProperties.tokenUrl()).thenReturn("https://api.monzo.com/oauth2/token");
-            when(monzoProperties.clientId()).thenReturn("client-123");
-            when(monzoProperties.clientSecret()).thenReturn("secret-456");
-            when(monzoProperties.redirectUri()).thenReturn("http://localhost:8080/callback");
-        }
-
         @Test
         @DisplayName("should exchange code for tokens successfully")
         void shouldExchangeCodeForTokens() {
             // Given
-            Map<String, Object> tokenResponse = Map.of(
-                    "access_token", "access-token-xyz",
-                    "refresh_token", "refresh-token-abc",
-                    "expires_in", 3600
+            Instant expiresAt = Instant.now().plusSeconds(3600);
+            MonzoClient.TokenResponse clientResponse = new MonzoClient.TokenResponse(
+                    "access-token-xyz",
+                    "refresh-token-abc",
+                    expiresAt
             );
-
-            when(restClient.post()).thenReturn(requestBodyUriSpec);
-            when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-            when(requestBodySpec.contentType(MediaType.APPLICATION_FORM_URLENCODED)).thenReturn(requestBodySpec);
-            when(requestBodySpec.body(any(MultiValueMap.class))).thenReturn(requestBodySpec);
-            when(requestBodySpec.retrieve()).thenReturn(responseSpec);
-            when(responseSpec.body(Map.class)).thenReturn(tokenResponse);
+            when(monzoClient.exchangeCode("auth-code-123")).thenReturn(clientResponse);
 
             // When
             MonzoOAuthService.TokenResponse result = oauthService.exchangeCodeForTokens("auth-code-123");
@@ -254,73 +221,8 @@ class MonzoOAuthServiceTest {
             // Then
             assertThat(result.accessToken()).isEqualTo("access-token-xyz");
             assertThat(result.refreshToken()).isEqualTo("refresh-token-abc");
-            assertThat(result.expiresAt()).isAfter(Instant.now());
-            assertThat(result.expiresAt()).isBefore(Instant.now().plusSeconds(3700));
-        }
-
-        @Test
-        @DisplayName("should throw exception when response is null")
-        void shouldThrowExceptionWhenResponseIsNull() {
-            // Given
-            when(restClient.post()).thenReturn(requestBodyUriSpec);
-            when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-            when(requestBodySpec.contentType(MediaType.APPLICATION_FORM_URLENCODED)).thenReturn(requestBodySpec);
-            when(requestBodySpec.body(any(MultiValueMap.class))).thenReturn(requestBodySpec);
-            when(requestBodySpec.retrieve()).thenReturn(responseSpec);
-            when(responseSpec.body(Map.class)).thenReturn(null);
-
-            // When/Then
-            assertThatThrownBy(() -> oauthService.exchangeCodeForTokens("auth-code"))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(ex -> {
-                        ApiException apiEx = (ApiException) ex;
-                        assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.MONZO_API_ERROR);
-                    });
-        }
-
-        @Test
-        @DisplayName("should throw exception when access token is missing")
-        void shouldThrowExceptionWhenAccessTokenMissing() {
-            // Given
-            Map<String, Object> tokenResponse = Map.of(
-                    "refresh_token", "refresh-token-abc",
-                    "expires_in", 3600
-            );
-
-            when(restClient.post()).thenReturn(requestBodyUriSpec);
-            when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-            when(requestBodySpec.contentType(MediaType.APPLICATION_FORM_URLENCODED)).thenReturn(requestBodySpec);
-            when(requestBodySpec.body(any(MultiValueMap.class))).thenReturn(requestBodySpec);
-            when(requestBodySpec.retrieve()).thenReturn(responseSpec);
-            when(responseSpec.body(Map.class)).thenReturn(tokenResponse);
-
-            // When/Then
-            assertThatThrownBy(() -> oauthService.exchangeCodeForTokens("auth-code"))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(ex -> {
-                        ApiException apiEx = (ApiException) ex;
-                        assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.MONZO_API_ERROR);
-                    });
-        }
-
-        @Test
-        @DisplayName("should throw exception on REST client error")
-        void shouldThrowExceptionOnRestClientError() {
-            // Given
-            when(restClient.post()).thenReturn(requestBodyUriSpec);
-            when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-            when(requestBodySpec.contentType(MediaType.APPLICATION_FORM_URLENCODED)).thenReturn(requestBodySpec);
-            when(requestBodySpec.body(any(MultiValueMap.class))).thenReturn(requestBodySpec);
-            when(requestBodySpec.retrieve()).thenThrow(new RestClientException("Connection failed"));
-
-            // When/Then
-            assertThatThrownBy(() -> oauthService.exchangeCodeForTokens("auth-code"))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(ex -> {
-                        ApiException apiEx = (ApiException) ex;
-                        assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.MONZO_API_ERROR);
-                        assertThat(apiEx.getMessage()).contains("Connection failed");
-                    });
+            assertThat(result.expiresAt()).isEqualTo(expiresAt);
+            verify(monzoClient).exchangeCode("auth-code-123");
         }
     }
 
@@ -330,110 +232,18 @@ class MonzoOAuthServiceTest {
     @DisplayName("getMonzoUserId")
     class GetMonzoUserId {
 
-        @BeforeEach
-        void setUpRestClient() {
-            when(monzoProperties.apiBaseUrl()).thenReturn("https://api.monzo.com");
-        }
-
         @Test
-        @DisplayName("should return user ID from whoami endpoint")
-        @SuppressWarnings("unchecked")
-        void shouldReturnUserIdFromWhoami() {
+        @DisplayName("should return user ID from MonzoClient")
+        void shouldReturnUserIdFromMonzoClient() {
             // Given
-            Map<String, Object> whoamiResponse = Map.of(
-                    "authenticated", true,
-                    "client_id", "client-123",
-                    "user_id", "user_abc123"
-            );
-
-            RestClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
-            RestClient.RequestHeadersSpec requestHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
-
-            when(restClient.get()).thenReturn(requestHeadersUriSpec);
-            when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-            when(requestHeadersSpec.header(eq("Authorization"), anyString())).thenReturn(requestHeadersSpec);
-            when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-            when(responseSpec.body(Map.class)).thenReturn(whoamiResponse);
+            when(monzoClient.whoAmI("access-token")).thenReturn("user_abc123");
 
             // When
-            String userId = oauthService.getMonzoUserId("access-token");
+            String result = oauthService.getMonzoUserId("access-token");
 
             // Then
-            assertThat(userId).isEqualTo("user_abc123");
-        }
-
-        @Test
-        @DisplayName("should throw exception when response is null")
-        @SuppressWarnings("unchecked")
-        void shouldThrowExceptionWhenResponseIsNull() {
-            // Given
-            RestClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
-            RestClient.RequestHeadersSpec requestHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
-
-            when(restClient.get()).thenReturn(requestHeadersUriSpec);
-            when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-            when(requestHeadersSpec.header(eq("Authorization"), anyString())).thenReturn(requestHeadersSpec);
-            when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-            when(responseSpec.body(Map.class)).thenReturn(null);
-
-            // When/Then
-            assertThatThrownBy(() -> oauthService.getMonzoUserId("access-token"))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(ex -> {
-                        ApiException apiEx = (ApiException) ex;
-                        assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.MONZO_API_ERROR);
-                    });
-        }
-
-        @Test
-        @DisplayName("should throw exception when user_id is missing")
-        @SuppressWarnings("unchecked")
-        void shouldThrowExceptionWhenUserIdMissing() {
-            // Given
-            Map<String, Object> whoamiResponse = Map.of(
-                    "authenticated", true,
-                    "client_id", "client-123"
-            );
-
-            RestClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
-            RestClient.RequestHeadersSpec requestHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
-
-            when(restClient.get()).thenReturn(requestHeadersUriSpec);
-            when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-            when(requestHeadersSpec.header(eq("Authorization"), anyString())).thenReturn(requestHeadersSpec);
-            when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
-            when(responseSpec.body(Map.class)).thenReturn(whoamiResponse);
-
-            // When/Then
-            assertThatThrownBy(() -> oauthService.getMonzoUserId("access-token"))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(ex -> {
-                        ApiException apiEx = (ApiException) ex;
-                        assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.MONZO_API_ERROR);
-                    });
-        }
-
-        @Test
-        @DisplayName("should throw exception on REST client error")
-        @SuppressWarnings("unchecked")
-        void shouldThrowExceptionOnRestClientError() {
-            // Given
-            RestClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
-            RestClient.RequestHeadersSpec requestHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
-
-            when(restClient.get()).thenReturn(requestHeadersUriSpec);
-            when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersSpec);
-            when(requestHeadersSpec.header(eq("Authorization"), anyString())).thenReturn(requestHeadersSpec);
-            when(requestHeadersSpec.retrieve()).thenThrow(new RestClientException("Unauthorized"));
-
-            // When/Then
-            assertThatThrownBy(() -> oauthService.getMonzoUserId("invalid-token"))
-                    .isInstanceOf(ApiException.class)
-                    .satisfies(ex -> {
-                        ApiException apiEx = (ApiException) ex;
-                        assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.MONZO_API_ERROR);
-                        assertThat(apiEx.getMessage()).contains("Unauthorized");
-                    });
+            assertThat(result).isEqualTo("user_abc123");
+            verify(monzoClient).whoAmI("access-token");
         }
     }
 

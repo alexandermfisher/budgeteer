@@ -130,10 +130,25 @@ load_env() {
     fi
 
     print_success "Environment loaded"
-    echo "   Client ID: ${MONZO_CLIENT_ID:0:30}..."
-    echo "   Redirect URI: $MONZO_REDIRECT_URI"
-    echo "   JWE Key: ${JWE_SECRET_KEY:+configured}"
-    echo "   Encryption Key: ${MONZO_ENCRYPTION_KEY:+configured}"
+    echo ""
+    echo "   ┌─ Monzo OAuth ─────────────────────────────────────────────┐"
+    echo "   │ Client ID:    ${MONZO_CLIENT_ID:0:30}..."
+    echo "   │ Redirect URI: $MONZO_REDIRECT_URI"
+    echo "   └───────────────────────────────────────────────────────────┘"
+    echo ""
+    echo "   ┌─ Security Keys ──────────────────────────────────────────┐"
+    echo "   │ JWE Key:        ${JWE_SECRET_KEY:+✅ configured}${JWE_SECRET_KEY:-❌ not set}"
+    echo "   │ Encryption Key: ${MONZO_ENCRYPTION_KEY:+✅ configured}${MONZO_ENCRYPTION_KEY:-❌ not set}"
+    echo "   └───────────────────────────────────────────────────────────┘"
+    echo ""
+    echo "   ┌─ Application ────────────────────────────────────────────┐"
+    echo "   │ Base URL:       ${APP_BASE_URL:-http://localhost:8080}"
+    echo "   │ Email Enabled:  ${APP_EMAIL_ENABLED:-false}"
+    if [ "$APP_EMAIL_ENABLED" = "true" ]; then
+    echo "   │ Mail Host:      ${MAIL_HOST:-not set}"
+    echo "   │ Mail From:      ${MAIL_FROM:-not set}"
+    fi
+    echo "   └───────────────────────────────────────────────────────────┘"
     echo ""
 }
 

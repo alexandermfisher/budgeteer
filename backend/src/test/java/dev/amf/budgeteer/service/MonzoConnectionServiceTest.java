@@ -87,7 +87,7 @@ class MonzoConnectionServiceTest {
             // Given
             Instant expiresAt = Instant.now().plus(6, ChronoUnit.HOURS);
             when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
-            when(connectionRepository.findActiveByUserIdAndMonzoUserId(userId, MONZO_USER_ID))
+            when(connectionRepository.findByUserIdAndMonzoUserId(userId, MONZO_USER_ID))
                     .thenReturn(Optional.empty());
             when(encryptionService.encrypt(ACCESS_TOKEN)).thenReturn(ACCESS_TOKEN_ENC);
             when(encryptionService.encrypt(REFRESH_TOKEN)).thenReturn(REFRESH_TOKEN_ENC);
@@ -115,7 +115,7 @@ class MonzoConnectionServiceTest {
         }
 
         @Test
-        @DisplayName("should update existing connection when same Monzo account")
+        @DisplayName("should update existing active connection when same Monzo account")
         void shouldUpdateExistingConnection() {
             // Given
             Instant newExpiresAt = Instant.now().plus(12, ChronoUnit.HOURS);
@@ -125,9 +125,7 @@ class MonzoConnectionServiceTest {
             String newRefreshTokenEnc = "new_encrypted_refresh";
 
             when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
-            when(connectionRepository.findActiveByUserIdAndMonzoUserId(userId, MONZO_USER_ID))
-                    .thenReturn(Optional.of(testConnection));
-            when(connectionRepository.findActiveByIdAndUserId(connectionId, userId))
+            when(connectionRepository.findByUserIdAndMonzoUserId(userId, MONZO_USER_ID))
                     .thenReturn(Optional.of(testConnection));
             when(encryptionService.encrypt(newAccessToken)).thenReturn(newAccessTokenEnc);
             when(encryptionService.encrypt(newRefreshToken)).thenReturn(newRefreshTokenEnc);
@@ -140,6 +138,41 @@ class MonzoConnectionServiceTest {
 
             // Then
             assertThat(result.getId()).isEqualTo(connectionId);
+            assertThat(result.getAccessTokenEncrypted()).isEqualTo(newAccessTokenEnc);
+            assertThat(result.getRefreshTokenEncrypted()).isEqualTo(newRefreshTokenEnc);
+            assertThat(result.isActive()).isTrue();
+        }
+
+        @Test
+        @DisplayName("should reactivate soft-deleted connection when reconnecting same Monzo account")
+        void shouldReactivateSoftDeletedConnection() {
+            // Given
+            Instant newExpiresAt = Instant.now().plus(12, ChronoUnit.HOURS);
+            String newAccessToken = "new_access_token";
+            String newRefreshToken = "new_refresh_token";
+            String newAccessTokenEnc = "new_encrypted_access";
+            String newRefreshTokenEnc = "new_encrypted_refresh";
+
+            // Soft-delete the test connection
+            testConnection.disconnect();
+            assertThat(testConnection.isActive()).isFalse();
+
+            when(userRepository.findById(userId)).thenReturn(Optional.of(testUser));
+            when(connectionRepository.findByUserIdAndMonzoUserId(userId, MONZO_USER_ID))
+                    .thenReturn(Optional.of(testConnection));
+            when(encryptionService.encrypt(newAccessToken)).thenReturn(newAccessTokenEnc);
+            when(encryptionService.encrypt(newRefreshToken)).thenReturn(newRefreshTokenEnc);
+            when(connectionRepository.save(any(MonzoConnection.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            // When
+            MonzoConnection result = service.createConnection(
+                    userId, MONZO_USER_ID, newAccessToken, newRefreshToken, newExpiresAt
+            );
+
+            // Then
+            assertThat(result.getId()).isEqualTo(connectionId);
+            assertThat(result.isActive()).isTrue(); // Reactivated!
+            assertThat(result.getDisconnectedAt()).isNull();
             assertThat(result.getAccessTokenEncrypted()).isEqualTo(newAccessTokenEnc);
             assertThat(result.getRefreshTokenEncrypted()).isEqualTo(newRefreshTokenEnc);
         }
