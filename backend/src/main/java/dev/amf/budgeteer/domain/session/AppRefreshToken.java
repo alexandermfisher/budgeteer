@@ -37,6 +37,7 @@ public class AppRefreshToken {
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 
+    // Todo make ip addresss its own class with validation
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
@@ -168,6 +169,7 @@ public class AppRefreshToken {
         return ipAddress;
     }
 
+    // todo make a class and add validation
     public void setIpAddress(String ipAddress) {
         this.ipAddress = ipAddress;
     }

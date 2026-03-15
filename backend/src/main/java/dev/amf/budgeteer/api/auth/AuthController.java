@@ -67,6 +67,12 @@ public class AuthController {
     /**
      * Verify magic link and create session.
      * GET /api/auth/verify?token=xxx
+     * 
+     * <p>Content negotiation:
+     * <ul>
+     *   <li>Accept: application/json → Returns JSON with tokens (for SPAs/APIs)</li>
+     *   <li>Accept: text/html or default → 302 redirect to loginSuccessUrl (for browser email clicks)</li>
+     * </ul>
      */
     @GetMapping("/verify")
     public ResponseEntity<ApiResponse<AuthResponse>> verify(
@@ -88,15 +94,23 @@ public class AuthController {
 
         SessionService.SessionTokens tokens = tokensOpt.get();
 
-        // Set cookies
+        // Set cookies (for both browser and API clients)
         cookieService.setAuthCookies(response, tokens.accessToken(), tokens.refreshToken());
 
         log.info("User authenticated via magic link [ipAddress={}]", LogSanitizer.sanitize(ipAddress));
 
-        // Redirect to login success URL
-        response.setHeader("Location", appProperties.getLoginSuccessUrl());
+        // Content negotiation: JSON for APIs/SPAs, redirect for browsers
+        if (wantsJson(request)) {
+            // API/SPA client: return JSON with tokens in body
+            return ResponseEntity.ok(ApiResponse.of(
+                    AuthResponse.loginSuccess(tokens.accessToken(), tokens.refreshToken())
+            ));
+        }
+
+        // Browser: redirect to frontend
         return ResponseEntity.status(302)
-                .body(ApiResponse.of(new AuthResponse("Login successful", null, null, null)));
+                .header("Location", appProperties.getLoginSuccessUrl())
+                .body(ApiResponse.of(AuthResponse.loginSuccess(null, null)));
     }
 
     /**
@@ -217,6 +231,18 @@ public class AuthController {
     // =========================================================================
     // HELPER METHODS
     // =========================================================================
+
+    /**
+     * Determines if the client wants a JSON response based on the Accept header.
+     * Used for content negotiation between browser requests (redirect) and API requests (JSON).
+     *
+     * @param request the HTTP request
+     * @return true if the client explicitly requests JSON, false otherwise
+     */
+    private boolean wantsJson(HttpServletRequest request) {
+        String accept = request.getHeader("Accept");
+        return accept != null && accept.contains("application/json");
+    }
 
     /**
      * Masks an email address for safe logging.

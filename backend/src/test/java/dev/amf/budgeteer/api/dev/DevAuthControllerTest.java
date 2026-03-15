@@ -3,6 +3,7 @@ package dev.amf.budgeteer.api.dev;
 import dev.amf.budgeteer.api.common.GlobalExceptionHandler;
 import dev.amf.budgeteer.config.SecurityConfig;
 import dev.amf.budgeteer.domain.user.User;
+import dev.amf.budgeteer.service.AuthService;
 import dev.amf.budgeteer.service.CookieService;
 import dev.amf.budgeteer.service.DevAuthService;
 import dev.amf.budgeteer.service.JweTokenService;
@@ -50,9 +51,12 @@ class DevAuthControllerTest {
     @MockitoBean
     private CookieService cookieService;
 
-    // Required by SecurityConfig
+    // Required by SecurityConfig and CurrentUserArgumentResolver
     @MockitoBean
     private JweTokenService jweTokenService;
+
+    @MockitoBean
+    private AuthService authService;
 
     private User testUser;
 
