@@ -73,7 +73,7 @@
         <dependency>
             <groupId>com.nimbusds</groupId>
             <artifactId>nimbus-jose-jwt</artifactId>
-            <version>10.0.2</version>
+            <version>10.7</version>
         </dependency>
         
         <!-- Database -->
@@ -210,7 +210,7 @@
         <dependency>
             <groupId>io.github.hakky54</groupId>
             <artifactId>logcaptor</artifactId>
-            <version>2.9.3</version>
+            <version>2.12.2</version>
             <scope>test</scope>
         </dependency>
         
