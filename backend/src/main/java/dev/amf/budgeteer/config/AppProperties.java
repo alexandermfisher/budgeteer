@@ -32,6 +32,21 @@ public class AppProperties {
      */
     private boolean emailEnabled = false;
 
-    // Getters and Setters
+    /**
+     * Mail configuration properties.
+     */
+    private Mail mail = new Mail();
 
+    /**
+     * Nested class for mail configuration.
+     */
+    @Setter
+    @Getter
+    public static class Mail {
+        /**
+         * From address for outgoing emails.
+         * Must be a verified domain in Resend.
+         */
+        private String from = "noreply@budgeteer.amfshr.dev";
+    }
 }

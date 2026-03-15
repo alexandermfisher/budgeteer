@@ -39,4 +39,13 @@ public record AuthResponse(
     public static AuthResponse loggedOut() {
         return new AuthResponse("Logged out", null, null, null);
     }
+
+    /**
+     * Creates a success response for login.
+     * For browser clients, tokens are not included (cookies are set separately).
+     * For API clients, tokens can be included in the response body.
+     */
+    public static AuthResponse loginSuccess(String accessToken, String refreshToken) {
+        return new AuthResponse("Login successful", null, accessToken, refreshToken);
+    }
 }
