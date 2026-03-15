@@ -10,6 +10,7 @@ import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.security.CurrentUser;
 import dev.amf.budgeteer.service.MonzoConnectionService;
 import dev.amf.budgeteer.service.MonzoOAuthService;
+import dev.amf.budgeteer.util.LogSanitizer;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,8 +136,11 @@ public class MonzoController {
 
         // Check if user denied access
         if (error != null) {
+            // Sanitize user-controlled input to prevent log injection attacks
             log.warn("Monzo OAuth denied by user {} [error={}, description={}]",
-                    user.getId(), error, errorDescription);
+                    user.getId(),
+                    LogSanitizer.sanitize(error, 50),
+                    LogSanitizer.sanitize(errorDescription, 200));
             throw new ApiException(
                     ErrorCode.OAUTH_ACCESS_DENIED,
                     errorDescription != null ? errorDescription : "User denied access to Monzo account"
