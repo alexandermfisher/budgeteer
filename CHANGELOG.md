@@ -7,7 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependency Updates** (March 2026)
+  - nimbus-jose-jwt: 10.0.2 → 10.7
+  - logcaptor: 2.9.3 → 2.12.2
+  - Spring Boot: 4.0.1 → 4.0.2 (parent, testcontainers, config processor)
+  - checkstyle: 10.26.1 → 13.0.0
+  - actions/upload-artifact: v6 → v7
+
+---
+
+## [0.4.0] - 2026-03-15 (Email Service + Token Persistence Complete)
+
 ### Added
+- **Email Service via Resend SMTP** (`feature/email-service`)
+  - `EmailService` now sends real emails via Resend SMTP
+  - `app.email.enabled=true/false` property to toggle
+  - Fallback to console logging when disabled
+  - Updated `.env.example` with Resend config
+  - `scripts/dev.sh` enhancements for email testing
+
+- **MonzoClient with 401 Handling**
+  - Centralized Monzo API client extracted from MonzoOAuthService
+  - Automatic detection of revoked tokens (401 responses)
+  - `MONZO_CONNECTION_REVOKED` error code
+
+- **MonzoOAuthFlowIT Integration Tests with WireMock**
+  - Full OAuth flow testing with mocked Monzo API
+  - WireMock JSON mappings for token exchange, refresh, whoami
+  - 15+ integration test scenarios
+
 - **Phase 2: Monzo Token Persistence - Phase E** (`feature/monzo-token-persistence`)
   - `@CurrentUser` annotation for injecting authenticated User into controllers
   - `@CurrentUserId` annotation for injecting just UUID (more efficient)
