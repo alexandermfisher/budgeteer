@@ -1,0 +1,24 @@
+{
+  "name": "Monzo Ping Whoami - Authenticated",
+  "request": {
+    "method": "GET",
+    "urlPath": "/ping/whoami",
+    "headers": {
+      "Authorization": {
+        "matches": "Bearer .*"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "authenticated": true,
+      "client_id": "oauth_client_test123",
+      "user_id": "user_00009abcdefgh12345"
+    }
+  },
+  "priority": 5
+}

@@ -1,19 +1,116 @@
 {
   "properties": [
     {
+      "name": "app.base-url",
+      "type": "java.lang.String",
+      "description": "Base URL for the application (used in magic link emails). Example: http://localhost:8080 or https://app.budgeteer.dev",
+      "defaultValue": "http://localhost:8080"
+    },
+    {
+      "name": "app.login-success-url",
+      "type": "java.lang.String",
+      "description": "URL to redirect to after successful login.",
+      "defaultValue": "/"
+    },
+    {
+      "name": "app.email-enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether email sending is enabled. When false, magic links are logged to console (for development).",
+      "defaultValue": false
+    },
+    {
+      "name": "app.cookies.secure",
+      "type": "java.lang.Boolean",
+      "description": "Whether cookies should have the Secure flag (HTTPS only). Should be true in production.",
+      "defaultValue": false
+    },
+    {
+      "name": "app.database.clean-on-startup",
+      "type": "java.lang.Boolean",
+      "description": "Whether to clean the database on startup (dev only). Useful for testing registration flows with the same email.",
+      "defaultValue": false
+    },
+    {
+      "name": "app.jwe.secret-key",
+      "type": "java.lang.String",
+      "description": "Secret key for JWE token encryption (Base64 encoded, 32 bytes). Generate with: openssl rand -base64 32"
+    },
+    {
+      "name": "app.jwe.access-token-expiry",
+      "type": "java.time.Duration",
+      "description": "Access token expiry duration.",
+      "defaultValue": "15m"
+    },
+    {
+      "name": "app.jwe.refresh-token-expiry",
+      "type": "java.time.Duration",
+      "description": "Refresh token expiry duration.",
+      "defaultValue": "7d"
+    },
+    {
+      "name": "app.jwe.magic-link-expiry",
+      "type": "java.time.Duration",
+      "description": "Magic link token expiry duration.",
+      "defaultValue": "15m"
+    },
+    {
+      "name": "monzo.client-id",
+      "type": "java.lang.String",
+      "description": "Monzo OAuth client ID from developer portal."
+    },
+    {
+      "name": "monzo.client-secret",
+      "type": "java.lang.String",
+      "description": "Monzo OAuth client secret from developer portal."
+    },
+    {
+      "name": "monzo.redirect-uri",
+      "type": "java.lang.String",
+      "description": "Monzo OAuth redirect URI (must match developer portal configuration).",
+      "defaultValue": "http://localhost:8080/auth/callback"
+    },
+    {
+      "name": "monzo.auth-url",
+      "type": "java.lang.String",
+      "description": "Monzo OAuth authorization URL.",
+      "defaultValue": "https://auth.monzo.com/"
+    },
+    {
+      "name": "monzo.token-url",
+      "type": "java.lang.String",
+      "description": "Monzo OAuth token exchange URL.",
+      "defaultValue": "https://api.monzo.com/oauth2/token"
+    },
+    {
+      "name": "monzo.api-base-url",
+      "type": "java.lang.String",
+      "description": "Monzo API base URL.",
+      "defaultValue": "https://api.monzo.com"
+    },
+    {
+      "name": "encryption.secret-key",
+      "type": "java.lang.String",
+      "description": "Base64-encoded 256-bit secret key for AES-256-GCM encryption (Monzo tokens at rest). Generate with: openssl rand -base64 32"
+    },
+    {
       "name": "info.app.name",
       "type": "java.lang.String",
-      "description": "Application name for info endpoint"
+      "description": "Application name for actuator info endpoint."
     },
     {
       "name": "info.app.description",
       "type": "java.lang.String",
-      "description": "Application description for info endpoint"
+      "description": "Application description for actuator info endpoint."
     },
     {
       "name": "info.app.version",
       "type": "java.lang.String",
-      "description": "Application version for info endpoint"
+      "description": "Application version for actuator info endpoint."
+    },
+    {
+      "name": "info.app.profiles",
+      "type": "java.lang.String",
+      "description": "Active Spring profiles for actuator info endpoint."
     }
   ]
 }

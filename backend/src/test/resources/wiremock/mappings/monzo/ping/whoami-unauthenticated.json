@@ -1,0 +1,20 @@
+{
+  "name": "Monzo Ping Whoami - Unauthenticated (No Token)",
+  "request": {
+    "method": "GET",
+    "urlPath": "/ping/whoami"
+  },
+  "response": {
+    "status": 401,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "code": "unauthorized",
+      "error": "unauthorized",
+      "error_description": "Access token is invalid or expired",
+      "message": "Access token is invalid or expired"
+    }
+  },
+  "priority": 10
+}

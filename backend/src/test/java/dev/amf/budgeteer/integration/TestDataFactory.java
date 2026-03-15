@@ -1,5 +1,9 @@
 package dev.amf.budgeteer.integration;
 
+import dev.amf.budgeteer.domain.monzo.MonzoConnection;
+import dev.amf.budgeteer.domain.monzo.MonzoConnectionRepository;
+import dev.amf.budgeteer.domain.oauth.OAuthState;
+import dev.amf.budgeteer.domain.oauth.OAuthStateRepository;
 import dev.amf.budgeteer.domain.session.AppRefreshToken;
 import dev.amf.budgeteer.domain.session.AppRefreshTokenRepository;
 import dev.amf.budgeteer.domain.session.MagicLinkToken;
@@ -54,6 +58,12 @@ public class TestDataFactory {
 
     @Autowired
     private AppRefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    private OAuthStateRepository oAuthStateRepository;
+
+    @Autowired
+    private MonzoConnectionRepository monzoConnectionRepository;
 
     // ========================================================================
     // User creation
@@ -190,6 +200,104 @@ public class TestDataFactory {
         AppRefreshToken token = new AppRefreshToken(user, tokenHash, expiresAt);
         token.revoke();
         return refreshTokenRepository.save(token);
+    }
+
+    // ========================================================================
+    // OAuth State creation
+    // ========================================================================
+
+    /**
+     * Creates a valid (unexpired, unused) OAuth state for the user.
+     */
+    public OAuthState createValidOAuthStateFor(User user) {
+        String stateToken = generateRandomToken();
+        OAuthState state = new OAuthState(user, stateToken);
+        return oAuthStateRepository.save(state);
+    }
+
+    /**
+     * Creates a valid OAuth state with a specific state token.
+     */
+    public OAuthState createValidOAuthStateFor(User user, String stateToken) {
+        OAuthState state = new OAuthState(user, stateToken);
+        return oAuthStateRepository.save(state);
+    }
+
+    /**
+     * Creates an expired OAuth state for the user.
+     */
+    public OAuthState createExpiredOAuthStateFor(User user) {
+        String stateToken = generateRandomToken();
+        Instant expiredAt = Instant.now().minus(1, ChronoUnit.HOURS);
+        OAuthState state = new OAuthState(user, stateToken, expiredAt);
+        return oAuthStateRepository.save(state);
+    }
+
+    /**
+     * Creates a used OAuth state for the user.
+     */
+    public OAuthState createUsedOAuthStateFor(User user) {
+        String stateToken = generateRandomToken();
+        OAuthState state = new OAuthState(user, stateToken);
+        state.markUsed();
+        return oAuthStateRepository.save(state);
+    }
+
+    // ========================================================================
+    // Monzo Connection creation
+    // ========================================================================
+
+    /**
+     * Creates an active Monzo connection for the user with random encrypted tokens.
+     */
+    public MonzoConnection createActiveMonzoConnectionFor(User user) {
+        return createActiveMonzoConnectionFor(user, "user_" + UUID.randomUUID().toString().substring(0, 8));
+    }
+
+    /**
+     * Creates an active Monzo connection for the user with a specific Monzo user ID.
+     */
+    public MonzoConnection createActiveMonzoConnectionFor(User user, String monzoUserId) {
+        // Simulate encrypted tokens (in real usage, these would be AES-256-GCM encrypted)
+        String fakeEncryptedAccessToken = "encrypted_access_" + generateRandomToken();
+        String fakeEncryptedRefreshToken = "encrypted_refresh_" + generateRandomToken();
+        Instant tokenExpiresAt = Instant.now().plus(6, ChronoUnit.HOURS);
+
+        MonzoConnection connection = new MonzoConnection(
+                user,
+                monzoUserId,
+                fakeEncryptedAccessToken,
+                fakeEncryptedRefreshToken,
+                tokenExpiresAt
+        );
+        return monzoConnectionRepository.save(connection);
+    }
+
+    /**
+     * Creates a Monzo connection with expired tokens.
+     */
+    public MonzoConnection createMonzoConnectionWithExpiredTokens(User user) {
+        String fakeEncryptedAccessToken = "encrypted_access_" + generateRandomToken();
+        String fakeEncryptedRefreshToken = "encrypted_refresh_" + generateRandomToken();
+        Instant tokenExpiresAt = Instant.now().minus(1, ChronoUnit.HOURS);
+
+        MonzoConnection connection = new MonzoConnection(
+                user,
+                "user_" + UUID.randomUUID().toString().substring(0, 8),
+                fakeEncryptedAccessToken,
+                fakeEncryptedRefreshToken,
+                tokenExpiresAt
+        );
+        return monzoConnectionRepository.save(connection);
+    }
+
+    /**
+     * Creates a disconnected (soft-deleted) Monzo connection.
+     */
+    public MonzoConnection createDisconnectedMonzoConnectionFor(User user) {
+        MonzoConnection connection = createActiveMonzoConnectionFor(user);
+        connection.disconnect();
+        return monzoConnectionRepository.save(connection);
     }
 
     // ========================================================================

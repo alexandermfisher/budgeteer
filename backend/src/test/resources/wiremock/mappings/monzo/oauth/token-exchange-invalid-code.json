@@ -1,0 +1,23 @@
+{
+  "name": "Monzo OAuth Token Exchange - Invalid Code",
+  "request": {
+    "method": "POST",
+    "urlPath": "/oauth2/token",
+    "bodyPatterns": [
+      { "contains": "code=invalid" }
+    ]
+  },
+  "response": {
+    "status": 400,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "code": "bad_request.invalid_grant",
+      "error": "invalid_grant",
+      "error_description": "The authorization code has expired or has already been used",
+      "message": "The authorization code has expired or has already been used"
+    }
+  },
+  "priority": 1
+}

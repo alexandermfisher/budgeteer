@@ -42,8 +42,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/refresh").permitAll()
                 .requestMatchers("/api/auth/logout").permitAll()  // Logout is idempotent, always clear cookies
                 
-                // Monzo OAuth endpoints (public for OAuth flow)
-                .requestMatchers("/api/monzo/oauth/**").permitAll()
+                // Monzo OAuth callback (public - Monzo redirects browser here)
+                // The callback uses database-stored state for CSRF protection
+                .requestMatchers("/api/monzo/callback").permitAll()
                 
                 // Health check endpoints (public for monitoring/load balancers)
                 .requestMatchers("/api/health/**").permitAll()
