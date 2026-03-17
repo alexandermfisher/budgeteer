@@ -1,5 +1,7 @@
 # Conventions
 
+> Full docs: `CONTRIBUTING.md` · `docs/testing/TESTING.md`
+
 ## Git Workflow
 
 1. Always branch from `main` — never work directly on it

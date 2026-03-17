@@ -1,5 +1,7 @@
 # Commands
 
+> Full docs: `docs/setup/SETUP.md` · `docs/setup/CI-CD.md` · `docs/testing/TESTING.md`
+
 ## Database
 
 ```bash

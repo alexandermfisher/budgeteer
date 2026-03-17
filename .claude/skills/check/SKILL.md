@@ -1,3 +1,9 @@
+---
+name: check
+description: Run the full pre-PR quality gate — checkstyle, unit tests, and integration tests. Use before raising a PR or when the user asks to verify the build is clean.
+allowed-tools: Bash
+---
+
 # check
 
 Run the full pre-PR quality gate: unit tests, integration tests, and checkstyle.

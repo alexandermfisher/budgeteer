@@ -23,6 +23,8 @@ Personal Monzo-integrated budgeting app. Spring Boot 3.4 / Java 25 backend, Post
 
 ## Skills
 
+Skill definitions live in `.claude/skills/<name>/SKILL.md`.
+
 | Command | What it does |
 |---------|-------------|
 | `/new-migration` | Scaffold the next Flyway migration with correct version number |

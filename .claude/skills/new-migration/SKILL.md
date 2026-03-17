@@ -1,3 +1,10 @@
+---
+name: new-migration
+description: Scaffold the next versioned Flyway migration file for Budgeteer. Use when the user wants to add a new database migration.
+argument-hint: "[migration-description]"
+allowed-tools: Read, Glob, Write
+---
+
 # new-migration
 
 Scaffold the next Flyway migration file for the Budgeteer project.

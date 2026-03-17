@@ -35,7 +35,9 @@ Phase 1 (Auth) and Phase 2 (Token Persistence) are fully complete and merged.
 
 ## Key Docs
 
-- `.cline/notes/DEVELOPMENT-PLAN.md` — full 8-phase roadmap with SQL schemas and flow diagrams
+> Full docs index: `docs/README.md`
+
 - `docs/architecture/` — tech design decisions
 - `docs/features/` — per-feature documentation
 - `docs/testing/` — test strategy and manual test scenarios
+- `CHANGELOG.md` — version history

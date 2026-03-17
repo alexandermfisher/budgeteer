@@ -1,5 +1,7 @@
 # Security
 
+> Full docs: `docs/architecture/SECURITY-ARCHITECTURE.md` · `docs/features/ENCRYPTION.md` · `docs/features/LOGGING.md`
+
 ## Auth Model
 
 1. User submits email → magic link token generated (SHA-256 hash stored, plain token emailed)

@@ -1,5 +1,7 @@
 # Architecture
 
+> Full docs: `docs/architecture/ARCHITECTURE.md` · `docs/architecture/MONZO-AUTH-FLOW.md`
+
 ## Tech Stack
 
 | Layer | Technology |
