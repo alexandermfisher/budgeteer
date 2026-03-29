@@ -18,21 +18,16 @@ query-filters:
       path: backend/src/main/java/dev/amf/budgeteer/api/common/GlobalExceptionHandler.java
   - exclude:
       id: java/log-injection
-      path: backend/src/main/java/dev/amf/budgeteer/service/SessionService.java
+      path: backend/src/main/java/dev/amf/budgeteer/service/auth/SessionService.java
   - exclude:
       id: java/log-injection
-      path: backend/src/main/java/dev/amf/budgeteer/service/DevAuthService.java
+      path: backend/src/main/java/dev/amf/budgeteer/service/auth/DevAuthService.java
   - exclude:
       id: java/log-injection
       path: backend/src/main/java/dev/amf/budgeteer/api/dev/DevAuthController.java
   - exclude:
       id: java/log-injection
-      path: backend/src/main/java/dev/amf/budgeteer/service/AuthService.java
-  
-  # Exclude sensitive-log findings that have been reviewed and mitigated
-  - exclude:
-      id: java/sensitive-log
-      path: backend/src/main/java/dev/amf/budgeteer/api/monzo/MonzoOAuthController.java
+      path: backend/src/main/java/dev/amf/budgeteer/service/auth/AuthService.java
       
   # Exclude unused-parameter finding (required by Spring exception handler signature)
   - exclude:
