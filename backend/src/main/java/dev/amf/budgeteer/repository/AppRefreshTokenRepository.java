@@ -1,5 +1,6 @@
-package dev.amf.budgeteer.domain.session;
+package dev.amf.budgeteer.repository;
 
+import dev.amf.budgeteer.domain.session.AppRefreshToken;
 import dev.amf.budgeteer.domain.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;

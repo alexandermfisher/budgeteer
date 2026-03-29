@@ -1,15 +1,15 @@
 package dev.amf.budgeteer.integration;
 
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
-import dev.amf.budgeteer.domain.monzo.MonzoConnectionRepository;
+import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.domain.oauth.OAuthState;
-import dev.amf.budgeteer.domain.oauth.OAuthStateRepository;
+import dev.amf.budgeteer.repository.OAuthStateRepository;
 import dev.amf.budgeteer.domain.session.AppRefreshToken;
-import dev.amf.budgeteer.domain.session.AppRefreshTokenRepository;
+import dev.amf.budgeteer.repository.AppRefreshTokenRepository;
 import dev.amf.budgeteer.domain.session.MagicLinkToken;
-import dev.amf.budgeteer.domain.session.MagicLinkTokenRepository;
+import dev.amf.budgeteer.repository.MagicLinkTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.domain.user.UserRepository;
+import dev.amf.budgeteer.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;

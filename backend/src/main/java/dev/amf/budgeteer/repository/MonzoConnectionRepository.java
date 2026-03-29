@@ -1,5 +1,6 @@
-package dev.amf.budgeteer.domain.monzo;
+package dev.amf.budgeteer.repository;
 
+import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

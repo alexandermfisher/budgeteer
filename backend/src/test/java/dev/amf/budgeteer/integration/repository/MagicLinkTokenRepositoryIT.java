@@ -1,7 +1,7 @@
 package dev.amf.budgeteer.integration.repository;
 
 import dev.amf.budgeteer.domain.session.MagicLinkToken;
-import dev.amf.budgeteer.domain.session.MagicLinkTokenRepository;
+import dev.amf.budgeteer.repository.MagicLinkTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

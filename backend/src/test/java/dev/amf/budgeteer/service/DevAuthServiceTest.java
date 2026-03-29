@@ -1,8 +1,8 @@
 package dev.amf.budgeteer.service;
 
-import dev.amf.budgeteer.domain.session.AppRefreshTokenRepository;
+import dev.amf.budgeteer.repository.AppRefreshTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.domain.user.UserRepository;
+import dev.amf.budgeteer.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

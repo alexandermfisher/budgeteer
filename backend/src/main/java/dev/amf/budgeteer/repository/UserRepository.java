@@ -1,5 +1,6 @@
-package dev.amf.budgeteer.domain.user;
+package dev.amf.budgeteer.repository;
 
+import dev.amf.budgeteer.domain.user.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

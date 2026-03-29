@@ -3,7 +3,7 @@ package dev.amf.budgeteer.service;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.config.MonzoProperties;
 import dev.amf.budgeteer.domain.oauth.OAuthState;
-import dev.amf.budgeteer.domain.oauth.OAuthStateRepository;
+import dev.amf.budgeteer.repository.OAuthStateRepository;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
 import org.slf4j.Logger;

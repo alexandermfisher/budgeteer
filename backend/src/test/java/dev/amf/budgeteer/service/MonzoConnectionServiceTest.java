@@ -2,9 +2,9 @@ package dev.amf.budgeteer.service;
 
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
-import dev.amf.budgeteer.domain.monzo.MonzoConnectionRepository;
+import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.domain.user.UserRepository;
+import dev.amf.budgeteer.repository.UserRepository;
 import dev.amf.budgeteer.exception.ApiException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

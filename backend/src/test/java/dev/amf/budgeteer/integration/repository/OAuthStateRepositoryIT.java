@@ -1,7 +1,7 @@
 package dev.amf.budgeteer.integration.repository;
 
 import dev.amf.budgeteer.domain.oauth.OAuthState;
-import dev.amf.budgeteer.domain.oauth.OAuthStateRepository;
+import dev.amf.budgeteer.repository.OAuthStateRepository;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.integration.AbstractPostgresIntegrationTest;
 import dev.amf.budgeteer.integration.TestDataFactory;

@@ -1,11 +1,11 @@
 package dev.amf.budgeteer.integration;
 
 import dev.amf.budgeteer.domain.session.AppRefreshToken;
-import dev.amf.budgeteer.domain.session.AppRefreshTokenRepository;
+import dev.amf.budgeteer.repository.AppRefreshTokenRepository;
 import dev.amf.budgeteer.domain.session.MagicLinkToken;
-import dev.amf.budgeteer.domain.session.MagicLinkTokenRepository;
+import dev.amf.budgeteer.repository.MagicLinkTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.domain.user.UserRepository;
+import dev.amf.budgeteer.repository.UserRepository;
 import dev.amf.budgeteer.service.AuthService;
 import dev.amf.budgeteer.service.JweTokenService;
 import dev.amf.budgeteer.service.SessionService;

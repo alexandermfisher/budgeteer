@@ -1,7 +1,7 @@
 package dev.amf.budgeteer.integration.repository;
 
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
-import dev.amf.budgeteer.domain.monzo.MonzoConnectionRepository;
+import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.integration.AbstractPostgresIntegrationTest;
 import dev.amf.budgeteer.integration.TestDataFactory;

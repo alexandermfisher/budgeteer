@@ -2,7 +2,7 @@ package dev.amf.budgeteer.service;
 
 import dev.amf.budgeteer.config.JweProperties;
 import dev.amf.budgeteer.domain.session.AppRefreshToken;
-import dev.amf.budgeteer.domain.session.AppRefreshTokenRepository;
+import dev.amf.budgeteer.repository.AppRefreshTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.util.LogSanitizer;
 import org.slf4j.Logger;
