@@ -1,5 +1,11 @@
 # Budgeteer
 
+[![Build & Test](https://github.com/alexandermfisher/budgeteer/actions/workflows/ci.yml/badge.svg)](https://github.com/alexandermfisher/budgeteer/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/alexandermfisher/budgeteer/actions/workflows/codeql.yml/badge.svg)](https://github.com/alexandermfisher/budgeteer/actions/workflows/codeql.yml)
+[![Java](https://img.shields.io/badge/Java-25-orange?logo=openjdk)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.5-brightgreen?logo=springboot)](https://spring.io/projects/spring-boot)
+[![License](https://img.shields.io/badge/License-Private-red)](LICENSE)
+
 A personal budgeting application integrated with the Monzo API to automatically track expenses, categorize transactions, and provide financial insights.
 
 ## Project Structure
