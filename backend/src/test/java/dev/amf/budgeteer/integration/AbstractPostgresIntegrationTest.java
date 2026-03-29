@@ -5,7 +5,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.postgresql.PostgreSQLContainer;
 
 /**
  * Base class for integration tests that require a real PostgreSQL database.
@@ -51,10 +51,10 @@ public abstract class AbstractPostgresIntegrationTest {
      * 
      * Protected visibility allows subclass tests to access container details if needed.
      */
-    protected static final PostgreSQLContainer<?> postgres;
+    protected static final PostgreSQLContainer postgres;
 
     static {
-        postgres = new PostgreSQLContainer<>("postgres:16-alpine")
+        postgres = new PostgreSQLContainer("postgres:16-alpine")
                 .withDatabaseName("budgeteer_test")
                 .withUsername("test")
                 .withPassword("test")
