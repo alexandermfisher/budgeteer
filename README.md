@@ -1,8 +1,14 @@
-# Budgeteer 💰
+# Budgeteer
+
+[![Build & Test](https://github.com/alexandermfisher/budgeteer/actions/workflows/ci.yml/badge.svg)](https://github.com/alexandermfisher/budgeteer/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/alexandermfisher/budgeteer/actions/workflows/codeql.yml/badge.svg)](https://github.com/alexandermfisher/budgeteer/actions/workflows/codeql.yml)
+[![Java](https://img.shields.io/badge/Java-25-orange?logo=openjdk)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.5-brightgreen?logo=springboot)](https://spring.io/projects/spring-boot)
+[![License](https://img.shields.io/badge/License-Private-red)](LICENSE)
 
 A personal budgeting application integrated with the Monzo API to automatically track expenses, categorize transactions, and provide financial insights.
 
-## 🏗️ Project Structure
+## Project Structure
 
 This is a **mono-repo** containing:
 
@@ -15,7 +21,7 @@ budgeteer/
 └── compose.yaml      # Docker services
 ```
 
-## ⚡ Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -34,10 +40,11 @@ budgeteer/
    # Edit .env with your credentials
    ```
 
-2. **Generate JWE secret key:**
+2. **Generate secret keys:**
    ```bash
-   openssl rand -base64 32
-   # Add to .env as JWE_SECRET_KEY=<generated-key>
+   openssl rand -base64 32   # JWE_SECRET_KEY
+   openssl rand -base64 32   # MONZO_ENCRYPTION_KEY
+   # Add both to .env
    ```
 
 3. **Start the database:**
@@ -47,95 +54,98 @@ budgeteer/
 
 4. **Run the backend:**
    ```bash
-   ./scripts/dev.sh
+   ./scripts/dev.sh start
    ```
 
 5. **Access the app:**
    - API: http://localhost:8080
    - Health: http://localhost:8080/actuator/health
-   - Monzo OAuth: http://localhost:8080/auth/connect
 
 See [docs/SETUP.md](docs/SETUP.md) for detailed setup instructions.
 
-## 🔧 Tech Stack
+## Tech Stack
 
 | Component | Technology |
 |-----------|------------|
-| **Backend** | Spring Boot 3.4, Java 25 |
+| **Backend** | Spring Boot 4.0.5, Java 25 |
 | **Database** | PostgreSQL 16 |
 | **Migrations** | Flyway |
-| **Authentication** | Magic Links + JWE Tokens |
-| **External API** | Monzo Banking API |
+| **Authentication** | Passwordless magic links + JWE tokens |
+| **Monzo integration** | OAuth 2.0, AES-256-GCM encrypted token storage |
+| **Email** | Resend SMTP |
+| **Testing** | JUnit 5, Testcontainers 2.x, WireMock |
 | **CI/CD** | GitHub Actions |
-| **Security Scanning** | CodeQL |
-| **Frontend** | TBD (React/Vue) |
+| **Security scanning** | CodeQL |
+| **Frontend** | TBD (React / Vue / HTMX) |
 
-## 🔐 Authentication
+## Authentication
 
 Budgeteer uses a **passwordless authentication** system:
 
-1. User enters email → receives magic link
-2. Magic link validates → JWE access token + refresh token issued
-3. Tokens stored in HttpOnly cookies
-4. Single-session policy (new login revokes existing sessions)
+1. User enters email → receives a magic link
+2. Magic link validates → JWE access token (15 min) + refresh token (7 days) issued as HttpOnly cookies
+3. Multi-session supported — users can be logged in on multiple devices simultaneously
+4. Monzo connection is user-scoped and shared across all sessions
 
 See [docs/features/USER-AUTHENTICATION.md](docs/features/USER-AUTHENTICATION.md) for details.
 
-## 📚 Documentation
+## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) - Technical design decisions
-- [CI/CD Setup](docs/CI-CD.md) - GitHub Actions pipeline
-- [Monzo Auth Flow](docs/MONZO-AUTH-FLOW.md) - OAuth implementation
-- [Security Architecture](docs/SECURITY-ARCHITECTURE.md) - Security model
-- [Setup Guide](docs/SETUP.md) - Development environment
-- [Testing Guide](docs/TESTING.md) - Test strategy and conventions
-- [Secrets Management](docs/SECRETS-MANAGEMENT.md) - Handling credentials
+- [Architecture](docs/ARCHITECTURE.md) — Technical design decisions
+- [CI/CD Setup](docs/CI-CD.md) — GitHub Actions pipeline
+- [Monzo Auth Flow](docs/MONZO-AUTH-FLOW.md) — OAuth implementation
+- [Security Architecture](docs/SECURITY-ARCHITECTURE.md) — Security model
+- [Setup Guide](docs/SETUP.md) — Development environment
+- [Testing Guide](docs/TESTING.md) — Test strategy and conventions
+- [Secrets Management](docs/SECRETS-MANAGEMENT.md) — Handling credentials
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Run all tests
 cd backend && mvn test
 
-# Run only unit tests
+# Unit tests only
 mvn test -DexcludedGroups=integration
 
-# Run integration tests (requires Docker)
+# Integration tests (requires Docker)
 mvn test -Dgroups=integration
 ```
 
-## 🔄 CI/CD
+485+ unit tests, 40+ integration tests.
 
-The project uses GitHub Actions for:
+## CI/CD
 
-- ✅ **Build & Test** - Runs on every push/PR
-- ✅ **Code Style** - Checkstyle enforcement
-- ✅ **Security Scanning** - CodeQL analysis
-- ✅ **Branch Protection** - Requires passing checks + code review
+Every push and PR runs:
 
-## 🤝 Contributing
+- **Build & Test** — compile, unit tests, integration tests
+- **Code Style** — Checkstyle (Google Java Style)
+- **Security Scanning** — CodeQL
+- **Dependency Updates** — Dependabot (monthly)
+
+## Current Status
+
+**Phases 1 & 2 complete. Phase 3 (token auto-refresh) is next.**
+
+- [x] Project setup & mono-repo structure
+- [x] CI/CD pipeline (GitHub Actions + CodeQL)
+- [x] Phase 1: User authentication — magic links, JWE tokens, multi-session
+- [x] Phase 2: Monzo integration — OAuth 2.0, encrypted token storage, MonzoClient
+- [x] Email service (Resend SMTP)
+- [x] 485+ tests (unit + integration with Testcontainers + WireMock)
+- [ ] Phase 3: Token auto-refresh
+- [ ] Phase 4: Transaction sync (backfill + delta)
+- [ ] Phase 5: Webhooks
+- [ ] Frontend UI
+
+## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for git workflow, branch naming, and commit conventions.
 
-## 📋 Current Status
+## License
 
-**Phase:** User Authentication & API Foundation
-
-- [x] Project setup & configuration
-- [x] CI/CD pipeline (GitHub Actions)
-- [x] Monzo OAuth flow
-- [x] User authentication (magic links)
-- [x] Session management (JWE tokens)
-- [x] Request logging & security
-- [ ] Monzo token persistence
-- [ ] Transaction sync
-- [ ] Budgeting features
-- [ ] Frontend UI
-
-## 📄 License
-
-Private project - not for distribution.
+Private project — not for distribution.
 
 ---
 
-*Built with ☕ and frustration at where my money goes*
+*Built with coffee and frustration at where my money goes*
