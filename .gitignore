@@ -48,6 +48,7 @@ dist/
 .env
 *.env.local
 .env.*.local
+.mcp.json
 
 # -----------------------------------------------------------------------------
 # Cline AI (Internal Notes & Memory)
