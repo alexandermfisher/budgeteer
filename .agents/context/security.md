@@ -61,6 +61,24 @@ DB_PASSWORD              # Postgres password
 
 All secrets live in `.env` (gitignored). Never hardcode or log these.
 
+## Input Validation
+
+All user-controlled input is validated at the boundary before reaching service or persistence layers.
+
+**Controller layer** — `@Validated` on each controller class enables `@NotBlank`, `@Email`, `@Size` on `@RequestParam` values. `ConstraintViolationException` is mapped to `400 VALIDATION_ERROR` in `GlobalExceptionHandler`.
+
+**Entity layer** — Hibernate Validator runs at persist/merge time:
+
+| Entity | Constraint |
+|--------|-----------|
+| `User.email` | `@Email @NotBlank @Size(max=255)` |
+| `MagicLinkToken.tokenHash` | `@Size(min=64, max=64)` — exact SHA-256 hex |
+| `AppRefreshToken.tokenHash` | `@Size(min=64, max=64)` — exact SHA-256 hex |
+| `OAuthState.state` | `@Size(min=32, max=64)` — Base64URL token |
+| `MonzoConnection.monzoUserId` | `@Pattern(regexp="user_[a-z0-9]+")` |
+
+**IP address sanitization** — `IpAddressUtil.sanitize()` validates client IPs extracted from `X-Forwarded-For` / `X-Real-IP` / `remoteAddr` before storing or logging. Prevents injection strings (hostnames, scripts) reaching the database. Used by `CookieService` and `RequestLoggingFilter`.
+
 ## CI Security
 
 - CodeQL runs weekly + on every push/PR (SQL injection, XSS, path traversal)

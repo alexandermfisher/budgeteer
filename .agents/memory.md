@@ -5,8 +5,8 @@
 ---
 
 ## 📅 Last Updated
-**Date:** 2026-03-15  
-**Session Focus:** Email Service, Dependency Updates, PR Cleanup
+**Date:** 2026-03-29
+**Session Focus:** Input Validation Hardening + dev.sh test-all
 
 ---
 
@@ -25,6 +25,7 @@
 - [x] **Branch Protection** ✅ Configured
 - [x] **Phase 2: Monzo Token Persistence** ✅ COMPLETE (all phases A-E)
 - [x] **Email Service** ✅ COMPLETE (Resend SMTP)
+- [x] **Input Validation Hardening** ✅ COMPLETE (516 tests)
 - [ ] Phase 3: Token Auto-Refresh
 - [ ] Phase 4: Transaction sync
 - [ ] Phase 5: Webhooks & Budgeting features

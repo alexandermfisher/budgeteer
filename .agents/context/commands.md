@@ -34,6 +34,12 @@ mvn test -DexcludedGroups=integration       # Unit tests only (no Docker needed)
 mvn test -Dgroups=integration               # Integration tests only (needs Docker)
 mvn test -Dtest=AuthServiceTest             # Single test class
 mvn test -Dtest=AuthFlowIT                  # Single IT class
+
+# Via dev script (from project root):
+./scripts/dev.sh test                       # All tests (unit + integration, requires Docker)
+./scripts/dev.sh unit                       # Unit tests only (no Docker)
+./scripts/dev.sh it                         # Integration tests only
+./scripts/dev.sh it MonzoOAuthFlowIT        # Single IT class
 ```
 
 ## Code Quality

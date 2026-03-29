@@ -22,7 +22,8 @@ Phase 1 (Auth) and Phase 2 (Token Persistence) are fully complete and merged.
 - [x] Monzo token persistence (AES-256-GCM encrypted in `monzo_connections`)
 - [x] Structured request logging + LogSanitizer (no PII/tokens in logs)
 - [x] Email service via Resend SMTP (magic link delivery)
-- [x] 485+ unit tests, 40+ integration tests (Testcontainers)
+- [x] Input validation hardening (Bean Validation on all user-input boundaries, IP sanitization)
+- [x] 516 tests (unit + integration, Testcontainers)
 
 ## Backlog (in priority order)
 

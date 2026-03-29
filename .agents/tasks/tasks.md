@@ -16,8 +16,7 @@
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 1 | 🔧 Code Structure Refactoring | 🔴 HIGH | 1 day | [plan](code-structure-refactoring/plan.md) |
-| 2 | 🔄 Phase 3: Token Auto-Refresh | 🟠 P1 | 1 day | [plan](token-auto-refresh/plan.md) |
+| 1 | 🔄 Phase 3: Token Auto-Refresh | 🟠 P1 | 1 day | [plan](token-auto-refresh/plan.md) |
 | 3 | 🔒 Security Headers & Hardening | 🟡 P2 | 0.5 days | [plan](security-headers/plan.md) |
 | 4 | 📊 Phase 4: Transaction Sync | 🟡 P2 | 2–3 days | [plan](transaction-sync/plan.md) |
 | 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](webhooks/plan.md) |
@@ -50,7 +49,6 @@
 | Idea | Notes |
 |------|-------|
 | Session Management Enhancements | Device limits, named sessions |
-| Input Validation Hardening | IP/email/user-agent validation |
 | Race Condition Handling | Optimistic locking for token refresh |
 | Mobile App | React Native |
 | Budget Alerts | Notifications |
@@ -68,6 +66,8 @@
 ## ✅ Done
 
 ### March 2026
+- [x] Input Validation Hardening — Bean Validation on all user-input boundaries, IP sanitization (`IpAddressUtil`), `ConstraintViolationException` handler, 516 tests
+- [x] Code Structure Refactoring — service subpackages, client/ layer, repository/ separation
 - [x] Monzo Token Persistence — all phases complete (PR #25)
 - [x] Email Service via Resend SMTP (PR #26)
 - [x] Dependency updates: Spring Boot 4.0.2, checkstyle 13.0.0 (PR #28)
@@ -104,4 +104,4 @@
 
 ---
 
-*Last updated: 2026-03-29*
+*Last updated: 2026-03-29 — Input Validation Hardening complete, dev.sh `test` now runs all tests*
