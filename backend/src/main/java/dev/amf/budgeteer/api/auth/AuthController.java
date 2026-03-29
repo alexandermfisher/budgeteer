@@ -17,12 +17,15 @@ import dev.amf.budgeteer.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
@@ -31,6 +34,7 @@ import java.util.Optional;
  * Controller for application authentication endpoints.
  * Handles magic link login, token refresh, logout, and current user info.
  */
+@Validated
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -76,7 +80,7 @@ public class AuthController {
      */
     @GetMapping("/verify")
     public ResponseEntity<ApiResponse<AuthResponse>> verify(
-            @RequestParam String token,
+            @RequestParam @NotBlank(message = "Token is required") @Size(max = 1024, message = "Token too long") String token,
             HttpServletRequest request,
             HttpServletResponse response) {
 
@@ -128,7 +132,7 @@ public class AuthController {
      */
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
-            @RequestBody(required = false) RefreshRequest body,
+            @Valid @RequestBody(required = false) RefreshRequest body,
             HttpServletRequest request,
             HttpServletResponse response) {
 

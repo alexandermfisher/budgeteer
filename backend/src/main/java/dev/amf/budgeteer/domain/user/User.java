@@ -1,6 +1,9 @@
 package dev.amf.budgeteer.domain.user;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -16,6 +19,9 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @NotBlank
+    @Email
+    @Size(max = 255)
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 

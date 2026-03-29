@@ -373,6 +373,48 @@ class CookieServiceTest {
             // Then
             assertThat(ip).isEqualTo("192.168.1.1");
         }
+
+        @Test
+        @DisplayName("should return null when X-Forwarded-For contains an injected non-IP string")
+        void shouldRejectInjectedXForwardedFor() {
+            // Given - attacker-controlled header value
+            request.addHeader("X-Forwarded-For", "'; DROP TABLE users; --");
+            request.setRemoteAddr("127.0.0.1");
+
+            // When
+            String ip = cookieService.getClientIpAddress(request);
+
+            // Then - falls through to remoteAddr (127.0.0.1), which is valid
+            assertThat(ip).isEqualTo("127.0.0.1");
+        }
+
+        @Test
+        @DisplayName("should fall back to X-Real-IP when X-Forwarded-For is absent")
+        void shouldFallBackToXRealIp() {
+            // Given
+            request.addHeader("X-Real-IP", "10.0.0.5");
+            request.setRemoteAddr("127.0.0.1");
+
+            // When
+            String ip = cookieService.getClientIpAddress(request);
+
+            // Then
+            assertThat(ip).isEqualTo("10.0.0.5");
+        }
+
+        @Test
+        @DisplayName("should reject invalid X-Real-IP and fall back to remote address")
+        void shouldRejectInvalidXRealIpAndFallBack() {
+            // Given
+            request.addHeader("X-Real-IP", "not-an-ip");
+            request.setRemoteAddr("192.168.0.1");
+
+            // When
+            String ip = cookieService.getClientIpAddress(request);
+
+            // Then
+            assertThat(ip).isEqualTo("192.168.0.1");
+        }
     }
 
     @Nested

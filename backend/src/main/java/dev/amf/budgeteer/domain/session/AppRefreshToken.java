@@ -2,6 +2,8 @@ package dev.amf.budgeteer.domain.session;
 
 import dev.amf.budgeteer.domain.user.User;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -22,6 +24,8 @@ public class AppRefreshToken {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @NotBlank
+    @Size(min = 64, max = 64)
     @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;
 
@@ -34,10 +38,11 @@ public class AppRefreshToken {
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
+    @Size(max = 500)
     @Column(name = "user_agent", length = 500)
     private String userAgent;
 
-    // Todo make ip addresss its own class with validation
+    @Size(max = 45)
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
@@ -169,7 +174,6 @@ public class AppRefreshToken {
         return ipAddress;
     }
 
-    // todo make a class and add validation
     public void setIpAddress(String ipAddress) {
         this.ipAddress = ipAddress;
     }

@@ -10,10 +10,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
  * <p><strong>⚠️ WARNING: This controller only exists in the 'dev' profile!</strong>
  * It will NOT be available in production.
  */
+@Validated
 @RestController
 @RequestMapping("/api/test/auth")
 @Profile("dev")
@@ -144,7 +147,7 @@ public class DevAuthController {
      */
     @PostMapping("/revoke-user")
     public ResponseEntity<ApiResponse<RevokeResponse>> revokeUserSessions(
-            @RequestParam String email,
+            @RequestParam @NotBlank(message = "Email is required") @Email(message = "Invalid email format") @Size(max = 255, message = "Email too long") String email,
             HttpServletResponse response) {
 
         log.warn("╔════════════════════════════════════════════════════════════╗");

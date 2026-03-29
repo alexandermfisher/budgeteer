@@ -2,6 +2,8 @@ package dev.amf.budgeteer.domain.session;
 
 import dev.amf.budgeteer.domain.user.User;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -30,6 +32,8 @@ public class MagicLinkToken {
     private User user;
 
     @Getter
+    @NotBlank
+    @Size(min = 64, max = 64)
     @Column(name = "token_hash", nullable = false, unique = true, length = 64)
     private String tokenHash;
 

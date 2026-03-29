@@ -212,6 +212,17 @@ class AuthControllerTest {
         }
 
         @Test
+        @DisplayName("should return 400 for blank token parameter")
+        void shouldReturn400ForBlankToken() throws Exception {
+            mockMvc.perform(get("/api/auth/verify")
+                            .param("token", "   "))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+            verify(authService, never()).verifyMagicLink(any(), any(), any());
+        }
+
+        @Test
         @DisplayName("should extract client IP and user agent")
         void shouldExtractClientInfo() throws Exception {
             // Given

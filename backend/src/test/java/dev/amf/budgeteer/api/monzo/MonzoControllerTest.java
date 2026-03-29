@@ -255,6 +255,18 @@ class MonzoControllerTest {
         }
 
         @Test
+        @DisplayName("should return 400 for blank state parameter")
+        void shouldReturn400ForBlankState() throws Exception {
+            mockMvc.perform(get("/api/monzo/callback")
+                            .param("code", "auth-code")
+                            .param("state", "   "))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+            verifyNoInteractions(oauthService);
+        }
+
+        @Test
         @DisplayName("should handle Monzo API error during token exchange")
         void shouldHandleMonzoApiError() throws Exception {
             // Given

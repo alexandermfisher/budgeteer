@@ -212,5 +212,27 @@ class DevAuthControllerTest {
             mockMvc.perform(post("/api/test/auth/revoke-user"))
                     .andExpect(status().isBadRequest());
         }
+
+        @Test
+        @DisplayName("should return 400 for invalid email format")
+        void shouldReturn400ForInvalidEmailFormat() throws Exception {
+            mockMvc.perform(post("/api/test/auth/revoke-user")
+                            .param("email", "not-an-email"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+            verify(devAuthService, never()).revokeUserSessions(any());
+        }
+
+        @Test
+        @DisplayName("should return 400 for blank email")
+        void shouldReturn400ForBlankEmail() throws Exception {
+            mockMvc.perform(post("/api/test/auth/revoke-user")
+                            .param("email", "   "))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+            verify(devAuthService, never()).revokeUserSessions(any());
+        }
     }
 }

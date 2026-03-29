@@ -1,9 +1,11 @@
 package dev.amf.budgeteer.service.common;
 
 import dev.amf.budgeteer.config.JweProperties;
+import dev.amf.budgeteer.util.IpAddressUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -178,18 +180,35 @@ public class CookieService {
     }
 
     /**
-     * Extracts the client IP address from the request, handling proxy headers.
+     * Extracts and validates the client IP address from the request, handling proxy headers.
+     *
+     * <p>Checks headers in order: {@code X-Forwarded-For}, {@code X-Real-IP}, then the
+     * direct remote address. The extracted value is validated against strict IPv4/IPv6
+     * format rules before being returned — invalid values (including injected strings from
+     * user-controlled headers) are rejected and {@code null} is returned instead.
      *
      * @param request the HTTP request
-     * @return the client IP address
+     * @return the validated client IP address, or {@code null} if no valid IP can be determined
      */
+    @Nullable
     public String getClientIpAddress(HttpServletRequest request) {
-        // Check for forwarded IP (when behind proxy/load balancer)
         String xForwardedFor = request.getHeader("X-Forwarded-For");
         if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            // Take the first IP in the list
-            return xForwardedFor.split(",")[0].trim();
+            String candidate = xForwardedFor.split(",")[0].trim();
+            String validated = IpAddressUtil.sanitize(candidate);
+            if (validated != null) {
+                return validated;
+            }
         }
-        return request.getRemoteAddr();
+
+        String xRealIp = request.getHeader("X-Real-IP");
+        if (xRealIp != null && !xRealIp.isBlank()) {
+            String validated = IpAddressUtil.sanitize(xRealIp.trim());
+            if (validated != null) {
+                return validated;
+            }
+        }
+
+        return IpAddressUtil.sanitize(request.getRemoteAddr());
     }
 }

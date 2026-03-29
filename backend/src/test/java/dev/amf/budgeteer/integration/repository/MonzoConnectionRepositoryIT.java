@@ -429,7 +429,7 @@ class MonzoConnectionRepositoryIT extends AbstractPostgresIntegrationTest {
         @DisplayName("should allow same Monzo user ID for different app users")
         void shouldAllowSameMonzoUserIdForDifferentAppUsers() {
             // Given - Two app users connect the same Monzo account (edge case but valid)
-            String sharedMonzoUserId = "user_shared_account";
+            String sharedMonzoUserId = "user_sharedaccount";
             MonzoConnection connection1 = testData.createActiveMonzoConnectionFor(testUser, sharedMonzoUserId);
             MonzoConnection connection2 = testData.createActiveMonzoConnectionFor(otherUser, sharedMonzoUserId);
 
