@@ -51,14 +51,9 @@ dist/
 .mcp.json
 
 # -----------------------------------------------------------------------------
-# Cline AI (Internal Notes & Memory)
+# AI Agent Tool Wrappers (symlinks only — real content committed in .agents/)
 # -----------------------------------------------------------------------------
-.cline/
-
-# -----------------------------------------------------------------------------
-# Personal Notes & Scratch Work
-# -----------------------------------------------------------------------------
-.notes/
+# .cline/ contains symlinks into .agents/ — no content to ignore here.
 
 # -----------------------------------------------------------------------------
 # OS Generated
@@ -96,5 +91,5 @@ yarn-error.log*
 # -----------------------------------------------------------------------------
 # Legacy (to be removed)
 # -----------------------------------------------------------------------------
-# Old docs folder - migrated to docs/ and .cline/
+# Old docs folder - migrated to docs/ and .agents/
 .docs/

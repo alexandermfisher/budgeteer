@@ -1,0 +1,107 @@
+# Budgeteer Task Board
+
+> Kanban index for solo development. Detailed plans live in subfolders — link provided where one exists.
+>
+> **Legend:** 🚀 In Progress | 📋 Queue | 🗂️ Backlog | ✅ Done | 🧊 Icebox
+
+---
+
+## 🚀 In Progress
+
+*Nothing currently in progress — ready for next task!*
+
+---
+
+## 📋 Queue (Next Up)
+
+| # | Task | Priority | Estimate | Plan |
+|---|------|----------|----------|------|
+| 1 | 🔧 Code Structure Refactoring | 🔴 HIGH | 1 day | [plan](code-structure-refactoring/plan.md) |
+| 2 | 🔄 Phase 3: Token Auto-Refresh | 🟠 P1 | 1 day | [plan](token-auto-refresh/plan.md) |
+| 3 | 🔒 Security Headers & Hardening | 🟡 P2 | 0.5 days | [plan](security-headers/plan.md) |
+| 4 | 📊 Phase 4: Transaction Sync | 🟡 P2 | 2–3 days | [plan](transaction-sync/plan.md) |
+| 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](webhooks/plan.md) |
+
+---
+
+## 🗂️ Backlog
+
+*Pull into Queue (and create a subfolder) when ready to start.*
+
+| Feature | Priority | Effort | Notes |
+|---------|----------|--------|-------|
+| 🔄 MonzoClient Resilience | P3 | 0.5d | Connection pooling, timeouts, retries, circuit breaker |
+| 🔐 WebAuthn/Passkey Authentication | P2 | 2d | Touch ID / biometric login for fast re-auth |
+| Monitoring Infrastructure | P3 | 0.5d | Prometheus/Grafana on NUC |
+| Request Correlation | P3 | 0.25d | Trace IDs to external APIs |
+| Frontend OAuth Redirects | P2 | 0.5d | When frontend exists |
+| Architecture Diagrams | P3 | 0.5d | Mermaid diagrams for docs |
+| Branch Protection | P2 | 0.5h | GitHub settings |
+| Dockerfile | P2 | 0.5d | For deployment |
+| NUC Deployment | P2 | 1–2d | Domain, Cloudflare, deploy |
+| Frontend | P2 | TBD | Framework TBD (React/Vue/HTMX) |
+
+---
+
+## 🧊 Icebox
+
+*Maybe later — not prioritised.*
+
+| Idea | Notes |
+|------|-------|
+| Session Management Enhancements | Device limits, named sessions |
+| Input Validation Hardening | IP/email/user-agent validation |
+| Race Condition Handling | Optimistic locking for token refresh |
+| Mobile App | React Native |
+| Budget Alerts | Notifications |
+| Spending Predictions | ML |
+| Multi-user Support | Admin dashboard |
+| Export CSV/PDF | Reports |
+| Recurring Payment Detection | Auto-categorisation |
+| Custom Category Rules | Rules engine |
+| Password Auth | Alternative to magic links |
+| Social OAuth | Google, GitHub login |
+| 2FA/MFA | Extra security |
+
+---
+
+## ✅ Done
+
+### March 2026
+- [x] Monzo Token Persistence — all phases complete (PR #25)
+- [x] Email Service via Resend SMTP (PR #26)
+- [x] Dependency updates: Spring Boot 4.0.2, checkstyle 13.0.0 (PR #28)
+- [x] MonzoOAuthFlowIT integration tests with WireMock
+- [x] MonzoClient with 401 handling
+- [x] @CurrentUser/@CurrentUserId annotations
+
+### January 2026
+- [x] Infrastructure: Logging & Observability
+- [x] DevOps: CI/CD Pipeline
+
+### December 2025
+- [x] Phase 1: User Authentication
+- [x] Unit Testing (329 tests)
+- [x] Integration Tests (35 tests)
+
+### December 2024
+- [x] Project setup
+- [x] Mono-repo restructure
+- [x] Documentation structure
+- [x] Initial Monzo OAuth flow
+
+---
+
+## 📌 Quick Links
+
+| Resource | Location |
+|----------|----------|
+| Session Memory | `.agents/memory.md` |
+| Manual Testing Guide | `docs/MANUAL-TESTING.md` |
+| Monzo OAuth Testing Plan | `docs/features/MONZO-OAUTH-TESTING-PLAN.md` |
+| Security Architecture | `docs/SECURITY-ARCHITECTURE.md` |
+| Setup Guide | `docs/SETUP.md` |
+
+---
+
+*Last updated: 2026-03-29*
