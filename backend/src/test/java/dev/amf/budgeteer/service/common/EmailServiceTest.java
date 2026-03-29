@@ -1,4 +1,4 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.common;
 
 import dev.amf.budgeteer.config.AppProperties;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,7 +21,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link EmailService}.
- * 
+ *
  * <p>Uses Mockito to mock the JavaMailSender and AppProperties dependencies.</p>
  */
 @ExtendWith(MockitoExtension.class)
@@ -92,7 +92,7 @@ class EmailServiceTest {
             String token = "my-secret-token";
             when(appProperties.isEmailEnabled()).thenReturn(true);
             when(appProperties.getBaseUrl()).thenReturn("https://budgeteer.dev");
-            
+
             ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
 
             // When
@@ -113,7 +113,7 @@ class EmailServiceTest {
             String token = "token-123";
             when(appProperties.isEmailEnabled()).thenReturn(true);
             when(appProperties.getBaseUrl()).thenReturn("https://budgeteer.dev");
-            
+
             ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
 
             // When
@@ -133,7 +133,7 @@ class EmailServiceTest {
             String token = "token-123";
             when(appProperties.isEmailEnabled()).thenReturn(true);
             when(appProperties.getBaseUrl()).thenReturn("https://budgeteer.dev");
-            
+
             ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
 
             // When
@@ -153,7 +153,7 @@ class EmailServiceTest {
             String token = "token-123";
             when(appProperties.isEmailEnabled()).thenReturn(true);
             when(appProperties.getBaseUrl()).thenReturn("https://budgeteer.dev");
-            
+
             ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
 
             // When
@@ -173,7 +173,7 @@ class EmailServiceTest {
             String token = "token-123";
             when(appProperties.isEmailEnabled()).thenReturn(true);
             when(appProperties.getBaseUrl()).thenReturn("https://budgeteer.dev");
-            
+
             ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
 
             // When
@@ -211,7 +211,7 @@ class EmailServiceTest {
             String token = "dev-token";
             when(appProperties.isEmailEnabled()).thenReturn(true);
             when(appProperties.getBaseUrl()).thenReturn("http://localhost:8080");
-            
+
             ArgumentCaptor<SimpleMailMessage> messageCaptor = ArgumentCaptor.forClass(SimpleMailMessage.class);
 
             // When

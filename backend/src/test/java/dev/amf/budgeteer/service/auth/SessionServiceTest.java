@@ -1,4 +1,4 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.auth;
 
 import dev.amf.budgeteer.config.JweProperties;
 import dev.amf.budgeteer.domain.session.AppRefreshToken;
@@ -26,7 +26,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link SessionService}.
- * 
+ *
  * <p>Uses Mockito to mock the repository and JweTokenService dependencies.</p>
  */
 @ExtendWith(MockitoExtension.class)
@@ -88,7 +88,7 @@ class SessionServiceTest {
             // Given
             User user = createTestUser();
             when(jweTokenService.createAccessToken(user)).thenReturn("access-token");
-            
+
             ArgumentCaptor<AppRefreshToken> tokenCaptor = ArgumentCaptor.forClass(AppRefreshToken.class);
             when(refreshTokenRepository.save(tokenCaptor.capture()))
                     .thenAnswer(invocation -> invocation.getArgument(0));
@@ -111,7 +111,7 @@ class SessionServiceTest {
             // Given
             User user = createTestUser();
             when(jweTokenService.createAccessToken(user)).thenReturn("access-token");
-            
+
             ArgumentCaptor<AppRefreshToken> tokenCaptor = ArgumentCaptor.forClass(AppRefreshToken.class);
             when(refreshTokenRepository.save(tokenCaptor.capture()))
                     .thenAnswer(invocation -> invocation.getArgument(0));
@@ -124,10 +124,10 @@ class SessionServiceTest {
             // Then
             Instant afterCreation = Instant.now();
             AppRefreshToken savedToken = tokenCaptor.getValue();
-            
+
             Instant expectedMinExpiry = beforeCreation.plus(jweProperties.getRefreshTokenExpiry());
             Instant expectedMaxExpiry = afterCreation.plus(jweProperties.getRefreshTokenExpiry());
-            
+
             assertThat(savedToken.getExpiresAt()).isBetween(expectedMinExpiry, expectedMaxExpiry);
         }
 
@@ -160,17 +160,17 @@ class SessionServiceTest {
             User user = createTestUser();
             String oldRefreshToken = "old-refresh-token";
             String tokenHash = sessionService.hashToken(oldRefreshToken);
-            
+
             AppRefreshToken existingToken = new AppRefreshToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
-            
+
             when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(existingToken));
             when(jweTokenService.createAccessToken(user)).thenReturn("new-access-token");
             when(refreshTokenRepository.save(any(AppRefreshToken.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
             // When
-            Optional<SessionService.SessionTokens> result = 
+            Optional<SessionService.SessionTokens> result =
                     sessionService.refreshSession(oldRefreshToken, "Agent", "127.0.0.1");
 
             // Then
@@ -187,10 +187,10 @@ class SessionServiceTest {
             User user = createTestUser();
             String oldRefreshToken = "old-refresh-token";
             String tokenHash = sessionService.hashToken(oldRefreshToken);
-            
+
             AppRefreshToken existingToken = new AppRefreshToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
-            
+
             when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(existingToken));
             when(jweTokenService.createAccessToken(user)).thenReturn("new-access-token");
             when(refreshTokenRepository.save(any(AppRefreshToken.class)))
@@ -213,7 +213,7 @@ class SessionServiceTest {
             when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.empty());
 
             // When
-            Optional<SessionService.SessionTokens> result = 
+            Optional<SessionService.SessionTokens> result =
                     sessionService.refreshSession(invalidToken, null, null);
 
             // Then
@@ -228,14 +228,14 @@ class SessionServiceTest {
             User user = createTestUser();
             String expiredToken = "expired-token";
             String tokenHash = sessionService.hashToken(expiredToken);
-            
+
             AppRefreshToken existingToken = new AppRefreshToken(
                     user, tokenHash, Instant.now().minusSeconds(3600)); // Expired 1 hour ago
-            
+
             when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(existingToken));
 
             // When
-            Optional<SessionService.SessionTokens> result = 
+            Optional<SessionService.SessionTokens> result =
                     sessionService.refreshSession(expiredToken, null, null);
 
             // Then
@@ -250,15 +250,15 @@ class SessionServiceTest {
             User user = createTestUser();
             String revokedToken = "revoked-token";
             String tokenHash = sessionService.hashToken(revokedToken);
-            
+
             AppRefreshToken existingToken = new AppRefreshToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
             existingToken.revoke(); // Already revoked
-            
+
             when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(existingToken));
 
             // When
-            Optional<SessionService.SessionTokens> result = 
+            Optional<SessionService.SessionTokens> result =
                     sessionService.refreshSession(revokedToken, null, null);
 
             // Then
@@ -278,10 +278,10 @@ class SessionServiceTest {
             User user = createTestUser();
             String refreshToken = "valid-refresh-token";
             String tokenHash = sessionService.hashToken(refreshToken);
-            
+
             AppRefreshToken existingToken = new AppRefreshToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
-            
+
             when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(existingToken));
             when(refreshTokenRepository.save(existingToken)).thenReturn(existingToken);
 
@@ -356,10 +356,10 @@ class SessionServiceTest {
             User user = createTestUser();
             String refreshToken = "valid-token";
             String tokenHash = sessionService.hashToken(refreshToken);
-            
+
             AppRefreshToken existingToken = new AppRefreshToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
-            
+
             when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(existingToken));
 
             // When
@@ -392,10 +392,10 @@ class SessionServiceTest {
             User user = createTestUser();
             String expiredToken = "expired-token";
             String tokenHash = sessionService.hashToken(expiredToken);
-            
+
             AppRefreshToken existingToken = new AppRefreshToken(
                     user, tokenHash, Instant.now().minusSeconds(3600));
-            
+
             when(refreshTokenRepository.findByTokenHash(tokenHash)).thenReturn(Optional.of(existingToken));
 
             // When

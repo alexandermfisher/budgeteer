@@ -1,4 +1,4 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.monzo;
 
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
@@ -6,6 +6,7 @@ import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.repository.UserRepository;
 import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.api.common.ErrorCode;
+import dev.amf.budgeteer.service.common.EncryptionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

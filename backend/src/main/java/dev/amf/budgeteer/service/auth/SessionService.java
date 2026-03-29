@@ -1,4 +1,4 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.auth;
 
 import dev.amf.budgeteer.config.JweProperties;
 import dev.amf.budgeteer.domain.session.AppRefreshToken;

@@ -1,5 +1,6 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.auth;
 
+import dev.amf.budgeteer.service.common.EmailService;
 import dev.amf.budgeteer.config.JweProperties;
 import dev.amf.budgeteer.domain.session.MagicLinkToken;
 import dev.amf.budgeteer.repository.MagicLinkTokenRepository;
@@ -29,7 +30,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link AuthService}.
- * 
+ *
  * <p>Uses Mockito to mock repository and service dependencies.</p>
  */
 @ExtendWith(MockitoExtension.class)
@@ -158,7 +159,7 @@ class AuthServiceTest {
             when(userRepository.findByEmailIgnoreCase(anyString()))
                     .thenReturn(Optional.of(existingUser));
             when(sessionService.hashToken(anyString())).thenReturn("hashed-token");
-            
+
             ArgumentCaptor<MagicLinkToken> tokenCaptor = ArgumentCaptor.forClass(MagicLinkToken.class);
             when(magicLinkTokenRepository.save(tokenCaptor.capture()))
                     .thenAnswer(invocation -> invocation.getArgument(0));
@@ -171,10 +172,10 @@ class AuthServiceTest {
             // Then
             Instant afterRequest = Instant.now();
             MagicLinkToken savedToken = tokenCaptor.getValue();
-            
+
             assertThat(savedToken.getUser()).isEqualTo(existingUser);
             assertThat(savedToken.getTokenHash()).isEqualTo("hashed-token");
-            
+
             Instant expectedMinExpiry = beforeRequest.plus(jweProperties.getMagicLinkExpiry());
             Instant expectedMaxExpiry = afterRequest.plus(jweProperties.getMagicLinkExpiry());
             assertThat(savedToken.getExpiresAt()).isBetween(expectedMinExpiry, expectedMaxExpiry);
@@ -217,13 +218,13 @@ class AuthServiceTest {
             user.setEmailVerified(true);
             String plainToken = "valid-magic-link-token";
             String tokenHash = "hashed-token";
-            
+
             MagicLinkToken magicLinkToken = new MagicLinkToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
-            
-            SessionService.SessionTokens expectedTokens = 
+
+            SessionService.SessionTokens expectedTokens =
                     new SessionService.SessionTokens("access-token", "refresh-token");
-            
+
             when(sessionService.hashToken(plainToken)).thenReturn(tokenHash);
             when(magicLinkTokenRepository.findByTokenHash(tokenHash))
                     .thenReturn(Optional.of(magicLinkToken));
@@ -234,7 +235,7 @@ class AuthServiceTest {
                     .thenReturn(expectedTokens);
 
             // When
-            Optional<SessionService.SessionTokens> result = 
+            Optional<SessionService.SessionTokens> result =
                     authService.verifyMagicLink(plainToken, "TestAgent", "127.0.0.1");
 
             // Then
@@ -249,10 +250,10 @@ class AuthServiceTest {
             User user = createTestUser();
             String plainToken = "valid-token";
             String tokenHash = "hashed-token";
-            
+
             MagicLinkToken magicLinkToken = new MagicLinkToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
-            
+
             when(sessionService.hashToken(plainToken)).thenReturn(tokenHash);
             when(magicLinkTokenRepository.findByTokenHash(tokenHash))
                     .thenReturn(Optional.of(magicLinkToken));
@@ -278,10 +279,10 @@ class AuthServiceTest {
             user.setEmailVerified(false); // Not yet verified
             String plainToken = "valid-token";
             String tokenHash = "hashed-token";
-            
+
             MagicLinkToken magicLinkToken = new MagicLinkToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
-            
+
             when(sessionService.hashToken(plainToken)).thenReturn(tokenHash);
             when(magicLinkTokenRepository.findByTokenHash(tokenHash))
                     .thenReturn(Optional.of(magicLinkToken));
@@ -308,10 +309,10 @@ class AuthServiceTest {
             user.setEmailVerified(true); // Already verified
             String plainToken = "valid-token";
             String tokenHash = "hashed-token";
-            
+
             MagicLinkToken magicLinkToken = new MagicLinkToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
-            
+
             when(sessionService.hashToken(plainToken)).thenReturn(tokenHash);
             when(magicLinkTokenRepository.findByTokenHash(tokenHash))
                     .thenReturn(Optional.of(magicLinkToken));
@@ -335,10 +336,10 @@ class AuthServiceTest {
             User user = createTestUser();
             String plainToken = "valid-token";
             String tokenHash = "hashed-token";
-            
+
             MagicLinkToken magicLinkToken = new MagicLinkToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
-            
+
             when(sessionService.hashToken(plainToken)).thenReturn(tokenHash);
             when(magicLinkTokenRepository.findByTokenHash(tokenHash))
                     .thenReturn(Optional.of(magicLinkToken));
@@ -362,10 +363,10 @@ class AuthServiceTest {
             User user = createTestUser();
             String plainToken = "valid-token";
             String tokenHash = "hashed-token";
-            
+
             MagicLinkToken magicLinkToken = new MagicLinkToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
-            
+
             when(sessionService.hashToken(plainToken)).thenReturn(tokenHash);
             when(magicLinkTokenRepository.findByTokenHash(tokenHash))
                     .thenReturn(Optional.of(magicLinkToken));
@@ -388,13 +389,13 @@ class AuthServiceTest {
             // Given
             String invalidToken = "invalid-token";
             String tokenHash = "hashed-invalid";
-            
+
             when(sessionService.hashToken(invalidToken)).thenReturn(tokenHash);
             when(magicLinkTokenRepository.findByTokenHash(tokenHash))
                     .thenReturn(Optional.empty());
 
             // When
-            Optional<SessionService.SessionTokens> result = 
+            Optional<SessionService.SessionTokens> result =
                     authService.verifyMagicLink(invalidToken, null, null);
 
             // Then
@@ -409,16 +410,16 @@ class AuthServiceTest {
             User user = createTestUser();
             String expiredToken = "expired-token";
             String tokenHash = "hashed-expired";
-            
+
             MagicLinkToken magicLinkToken = new MagicLinkToken(
                     user, tokenHash, Instant.now().minusSeconds(3600)); // Expired 1 hour ago
-            
+
             when(sessionService.hashToken(expiredToken)).thenReturn(tokenHash);
             when(magicLinkTokenRepository.findByTokenHash(tokenHash))
                     .thenReturn(Optional.of(magicLinkToken));
 
             // When
-            Optional<SessionService.SessionTokens> result = 
+            Optional<SessionService.SessionTokens> result =
                     authService.verifyMagicLink(expiredToken, null, null);
 
             // Then
@@ -433,17 +434,17 @@ class AuthServiceTest {
             User user = createTestUser();
             String usedToken = "used-token";
             String tokenHash = "hashed-used";
-            
+
             MagicLinkToken magicLinkToken = new MagicLinkToken(
                     user, tokenHash, Instant.now().plusSeconds(3600));
             magicLinkToken.markAsUsed(); // Already used
-            
+
             when(sessionService.hashToken(usedToken)).thenReturn(tokenHash);
             when(magicLinkTokenRepository.findByTokenHash(tokenHash))
                     .thenReturn(Optional.of(magicLinkToken));
 
             // When
-            Optional<SessionService.SessionTokens> result = 
+            Optional<SessionService.SessionTokens> result =
                     authService.verifyMagicLink(usedToken, null, null);
 
             // Then

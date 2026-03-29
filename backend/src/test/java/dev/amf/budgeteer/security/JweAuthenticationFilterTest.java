@@ -1,7 +1,7 @@
 package dev.amf.budgeteer.security;
 
-import dev.amf.budgeteer.service.CookieService;
-import dev.amf.budgeteer.service.JweTokenService;
+import dev.amf.budgeteer.service.common.CookieService;
+import dev.amf.budgeteer.service.auth.JweTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

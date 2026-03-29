@@ -1,4 +1,4 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.common;
 
 import dev.amf.budgeteer.config.EncryptionProperties;
 import dev.amf.budgeteer.exception.EncryptionException;

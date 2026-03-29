@@ -1,5 +1,6 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.monzo;
 
+import dev.amf.budgeteer.service.common.EncryptionService;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;

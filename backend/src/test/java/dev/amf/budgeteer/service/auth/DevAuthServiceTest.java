@@ -1,4 +1,4 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.auth;
 
 import dev.amf.budgeteer.repository.AppRefreshTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Unit tests for {@link DevAuthService}.
- * 
+ *
  * <p>Tests for the development-only authentication service.
  * While this service only runs in dev profile, we test it to:
  * <ul>
@@ -109,7 +109,7 @@ class DevAuthServiceTest {
             // Given
             String email = "newuser@example.com";
             when(userRepository.findByEmailIgnoreCase(email)).thenReturn(Optional.empty());
-            
+
             ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
             when(userRepository.save(userCaptor.capture())).thenAnswer(invocation -> {
                 User user = invocation.getArgument(0);
@@ -203,7 +203,7 @@ class DevAuthServiceTest {
             // Given
             ArgumentCaptor<Instant> instantCaptor = ArgumentCaptor.forClass(Instant.class);
             when(refreshTokenRepository.revokeAllTokens(instantCaptor.capture())).thenReturn(5);
-            
+
             Instant before = Instant.now();
 
             // When

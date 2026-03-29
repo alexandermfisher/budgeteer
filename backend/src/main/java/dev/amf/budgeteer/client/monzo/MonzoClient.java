@@ -1,4 +1,4 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.client.monzo;
 
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.config.MonzoProperties;
@@ -6,7 +6,6 @@ import dev.amf.budgeteer.exception.ApiException;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -44,18 +43,9 @@ public class MonzoClient {
     private final MonzoProperties monzoProperties;
     private final RestClient restClient;
 
-    @Autowired
-    public MonzoClient(MonzoProperties monzoProperties) {
+    public MonzoClient(MonzoProperties monzoProperties, RestClient monzoRestClient) {
         this.monzoProperties = monzoProperties;
-        this.restClient = RestClient.create();
-    }
-
-    /**
-     * Constructor for testing with custom RestClient.
-     */
-    MonzoClient(MonzoProperties monzoProperties, RestClient restClient) {
-        this.monzoProperties = monzoProperties;
-        this.restClient = restClient;
+        this.restClient = monzoRestClient;
     }
 
     /**
@@ -142,7 +132,7 @@ public class MonzoClient {
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restClient.get()
-                    .uri(monzoProperties.apiBaseUrl() + "/ping/whoami")
+                    .uri("/ping/whoami")
                     .header("Authorization", "Bearer " + accessToken)
                     .retrieve()
                     .body(Map.class);

@@ -1,4 +1,4 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.common;
 
 import dev.amf.budgeteer.config.JweProperties;
 import jakarta.servlet.http.Cookie;
@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.*;
 
 /**
  * Unit tests for {@link CookieService}.
- * 
+ *
  * <p>These are pure unit tests using Spring's MockHttpServletRequest/Response.
  * No Spring context is required.</p>
  */
@@ -37,7 +37,7 @@ class CookieServiceTest {
 
         // Test with secure=false (development mode)
         cookieService = new CookieService(jweProperties, false);
-        
+
         response = new MockHttpServletResponse();
         request = new MockHttpServletRequest();
     }
@@ -165,12 +165,12 @@ class CookieServiceTest {
             // Then
             var cookieHeaders = response.getHeaders(HttpHeaders.SET_COOKIE);
             assertThat(cookieHeaders).hasSize(2);
-            
+
             boolean hasAccessToken = cookieHeaders.stream()
                     .anyMatch(h -> h.contains("access_token=test-access-token"));
             boolean hasRefreshToken = cookieHeaders.stream()
                     .anyMatch(h -> h.contains("refresh_token=test-refresh-token"));
-            
+
             assertThat(hasAccessToken).isTrue();
             assertThat(hasRefreshToken).isTrue();
         }
@@ -189,7 +189,7 @@ class CookieServiceTest {
             // Then
             var cookieHeaders = response.getHeaders(HttpHeaders.SET_COOKIE);
             assertThat(cookieHeaders).hasSize(2);
-            
+
             // Both cookies should have Max-Age=0 to delete them
             for (String header : cookieHeaders) {
                 assertThat(header).contains("Max-Age=0");
@@ -204,12 +204,12 @@ class CookieServiceTest {
 
             // Then
             var cookieHeaders = response.getHeaders(HttpHeaders.SET_COOKIE);
-            
+
             boolean hasAccessPath = cookieHeaders.stream()
                     .anyMatch(h -> h.contains("access_token") && h.contains("Path=/api"));
             boolean hasRefreshPath = cookieHeaders.stream()
                     .anyMatch(h -> h.contains("refresh_token") && h.contains("Path=/api/auth"));
-            
+
             assertThat(hasAccessPath).isTrue();
             assertThat(hasRefreshPath).isTrue();
         }

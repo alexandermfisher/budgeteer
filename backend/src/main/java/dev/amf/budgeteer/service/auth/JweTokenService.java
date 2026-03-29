@@ -1,4 +1,4 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.auth;
 
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.DirectDecrypter;

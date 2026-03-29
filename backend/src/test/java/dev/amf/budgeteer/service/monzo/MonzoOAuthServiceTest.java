@@ -1,5 +1,6 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.monzo;
 
+import dev.amf.budgeteer.client.monzo.MonzoClient;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.config.MonzoProperties;
 import dev.amf.budgeteer.domain.oauth.OAuthState;

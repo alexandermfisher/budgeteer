@@ -2,9 +2,9 @@ package dev.amf.budgeteer.api.dev;
 
 import dev.amf.budgeteer.api.common.ApiResponse;
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.service.CookieService;
-import dev.amf.budgeteer.service.DevAuthService;
-import dev.amf.budgeteer.service.SessionService;
+import dev.amf.budgeteer.service.common.CookieService;
+import dev.amf.budgeteer.service.auth.DevAuthService;
+import dev.amf.budgeteer.service.auth.SessionService;
 import dev.amf.budgeteer.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;

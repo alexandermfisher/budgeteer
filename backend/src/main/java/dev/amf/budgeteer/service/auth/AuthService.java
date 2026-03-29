@@ -1,10 +1,11 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.auth;
 
 import dev.amf.budgeteer.config.JweProperties;
 import dev.amf.budgeteer.domain.session.MagicLinkToken;
 import dev.amf.budgeteer.repository.MagicLinkTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.repository.UserRepository;
+import dev.amf.budgeteer.service.common.EmailService;
 import dev.amf.budgeteer.util.LogSanitizer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

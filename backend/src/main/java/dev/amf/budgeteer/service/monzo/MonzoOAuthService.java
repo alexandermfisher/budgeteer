@@ -1,4 +1,4 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.monzo;
 
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.config.MonzoProperties;
@@ -6,6 +6,7 @@ import dev.amf.budgeteer.domain.oauth.OAuthState;
 import dev.amf.budgeteer.repository.OAuthStateRepository;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
+import dev.amf.budgeteer.client.monzo.MonzoClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,7 +59,7 @@ public class MonzoOAuthService {
     /**
      * Constructor for testing with custom dependencies.
      */
-    MonzoOAuthService(
+    public MonzoOAuthService(
             MonzoProperties monzoProperties,
             OAuthStateRepository stateRepository,
             MonzoClient monzoClient,

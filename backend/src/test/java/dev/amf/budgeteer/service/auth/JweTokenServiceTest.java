@@ -1,4 +1,4 @@
-package dev.amf.budgeteer.service;
+package dev.amf.budgeteer.service.auth;
 
 import dev.amf.budgeteer.config.JweProperties;
 import dev.amf.budgeteer.domain.user.User;
@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.*;
 
 /**
  * Unit tests for {@link JweTokenService}.
- * 
+ *
  * <p>These are pure unit tests with no Spring context required.
  * The service is instantiated directly with test configuration.</p>
  */
@@ -130,7 +130,7 @@ class JweTokenServiceTest {
             JweProperties shortExpiryProps = new JweProperties();
             shortExpiryProps.setSecretKey(TEST_SECRET_KEY);
             shortExpiryProps.setAccessTokenExpiry(Duration.ofMillis(1)); // 1ms expiry
-            
+
             JweTokenService shortExpiryService = new JweTokenService(shortExpiryProps);
             shortExpiryService.init();
 
@@ -155,7 +155,7 @@ class JweTokenServiceTest {
         @DisplayName("should return empty for malformed token")
         void shouldReturnEmptyForMalformedToken() {
             // When
-            Optional<JweTokenService.TokenClaims> claims = 
+            Optional<JweTokenService.TokenClaims> claims =
                     jweTokenService.validateAccessToken("not.a.valid.token");
 
             // Then
@@ -188,11 +188,11 @@ class JweTokenServiceTest {
             // Given - Create another service with different key
             String differentKey = Base64.getEncoder()
                     .encodeToString("different-key-that-is-32-bytes!!".getBytes());
-            
+
             JweProperties differentKeyProps = new JweProperties();
             differentKeyProps.setSecretKey(differentKey);
             differentKeyProps.setAccessTokenExpiry(Duration.ofMinutes(15));
-            
+
             JweTokenService differentKeyService = new JweTokenService(differentKeyProps);
             differentKeyService.init();
 
@@ -217,7 +217,7 @@ class JweTokenServiceTest {
             // Given - Key that's not 32 bytes
             JweProperties invalidProps = new JweProperties();
             invalidProps.setSecretKey(Base64.getEncoder().encodeToString("short-key".getBytes()));
-            
+
             JweTokenService invalidService = new JweTokenService(invalidProps);
 
             // When/Then
@@ -233,7 +233,7 @@ class JweTokenServiceTest {
             JweProperties noKeyProps = new JweProperties();
             noKeyProps.setSecretKey(null);
             noKeyProps.setAccessTokenExpiry(Duration.ofMinutes(15));
-            
+
             JweTokenService noKeyService = new JweTokenService(noKeyProps);
 
             // When/Then - Should throw because key is required
@@ -249,7 +249,7 @@ class JweTokenServiceTest {
             JweProperties blankKeyProps = new JweProperties();
             blankKeyProps.setSecretKey("   ");
             blankKeyProps.setAccessTokenExpiry(Duration.ofMinutes(15));
-            
+
             JweTokenService blankKeyService = new JweTokenService(blankKeyProps);
 
             // When/Then - Should throw because key is required
@@ -276,7 +276,7 @@ class JweTokenServiceTest {
             // Then
             assertThat(claimsOpt).isPresent();
             JweTokenService.TokenClaims claims = claimsOpt.get();
-            
+
             assertThat(claims.userId()).isEqualTo(user.getId());
             assertThat(claims.email()).isEqualTo(user.getEmail());
             assertThat(claims.tokenId()).isNotBlank();
@@ -298,10 +298,10 @@ class JweTokenServiceTest {
             // Then
             assertThat(claimsOpt).isPresent();
             JweTokenService.TokenClaims claims = claimsOpt.get();
-            
+
             Duration actualDuration = Duration.between(claims.issuedAt(), claims.expiresAt());
             Duration configuredDuration = jweProperties.getAccessTokenExpiry();
-            
+
             // Allow 1 second tolerance for test execution time
             assertThat(actualDuration).isBetween(
                     configuredDuration.minusSeconds(1),
