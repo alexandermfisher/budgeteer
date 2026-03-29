@@ -14,7 +14,7 @@ updates:
   - package-ecosystem: "maven"
     directory: "/backend"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
       time: "09:00"
       timezone: "Europe/London"
@@ -48,7 +48,7 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
       time: "09:00"
       timezone: "Europe/London"
@@ -65,7 +65,7 @@ updates:
   - package-ecosystem: "docker-compose"
     directory: "/"
     schedule:
-      interval: "weekly"
+      interval: "monthly"
       day: "monday"
       time: "09:00"
       timezone: "Europe/London"
