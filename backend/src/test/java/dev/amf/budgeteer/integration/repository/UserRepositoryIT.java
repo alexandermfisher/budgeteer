@@ -1,7 +1,7 @@
 package dev.amf.budgeteer.integration.repository;
 
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.domain.user.UserRepository;
+import dev.amf.budgeteer.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -5,10 +5,10 @@ import dev.amf.budgeteer.config.AppProperties;
 import dev.amf.budgeteer.config.SecurityConfig;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.security.JweAuthenticationFilter.JweAuthentication;
-import dev.amf.budgeteer.service.AuthService;
-import dev.amf.budgeteer.service.CookieService;
-import dev.amf.budgeteer.service.JweTokenService;
-import dev.amf.budgeteer.service.SessionService;
+import dev.amf.budgeteer.service.auth.AuthService;
+import dev.amf.budgeteer.service.common.CookieService;
+import dev.amf.budgeteer.service.auth.JweTokenService;
+import dev.amf.budgeteer.service.auth.SessionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -209,6 +209,17 @@ class AuthControllerTest {
             mockMvc.perform(get("/api/auth/verify"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
+        }
+
+        @Test
+        @DisplayName("should return 400 for blank token parameter")
+        void shouldReturn400ForBlankToken() throws Exception {
+            mockMvc.perform(get("/api/auth/verify")
+                            .param("token", "   "))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+            verify(authService, never()).verifyMagicLink(any(), any(), any());
         }
 
         @Test

@@ -1,7 +1,7 @@
 package dev.amf.budgeteer.integration.repository;
 
 import dev.amf.budgeteer.domain.session.AppRefreshToken;
-import dev.amf.budgeteer.domain.session.AppRefreshTokenRepository;
+import dev.amf.budgeteer.repository.AppRefreshTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +27,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DisplayName("AppRefreshTokenRepository Integration Tests")
 class AppRefreshTokenRepositoryIT {
 
+    // 64-character hash constants satisfying @Size(min=64, max=64) on tokenHash
+    private static final String H1 = "a".repeat(64);
+    private static final String H2 = "b".repeat(64);
+    private static final String H3 = "c".repeat(64);
+    private static final String H4 = "d".repeat(64);
+
     @Autowired
     private AppRefreshTokenRepository tokenRepository;
 
@@ -46,14 +52,14 @@ class AppRefreshTokenRepositoryIT {
     @Test
     @DisplayName("findByTokenHash - should find token by hash")
     void findByTokenHash_shouldFindByHash() {
-        AppRefreshToken token = new AppRefreshToken(testUser, "refresh-hash", Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken token = new AppRefreshToken(testUser, H1, Instant.now().plus(7, ChronoUnit.DAYS));
         entityManager.persistAndFlush(token);
         entityManager.clear();
 
-        Optional<AppRefreshToken> found = tokenRepository.findByTokenHash("refresh-hash");
+        Optional<AppRefreshToken> found = tokenRepository.findByTokenHash(H1);
 
         assertThat(found).isPresent();
-        assertThat(found.get().getTokenHash()).isEqualTo("refresh-hash");
+        assertThat(found.get().getTokenHash()).isEqualTo(H1);
     }
 
     @Test
@@ -68,11 +74,11 @@ class AppRefreshTokenRepositoryIT {
     @Test
     @DisplayName("findActiveTokensByUser - should find only active tokens")
     void findActiveTokensByUser_shouldFindOnlyActiveTokens() {
-        AppRefreshToken active = new AppRefreshToken(testUser, "active-hash", Instant.now().plus(7, ChronoUnit.DAYS));
-        AppRefreshToken expired = new AppRefreshToken(testUser, "expired-hash", Instant.now().minus(1, ChronoUnit.HOURS));
-        AppRefreshToken revoked = new AppRefreshToken(testUser, "revoked-hash", Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken active = new AppRefreshToken(testUser, H1, Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken expired = new AppRefreshToken(testUser, H2, Instant.now().minus(1, ChronoUnit.HOURS));
+        AppRefreshToken revoked = new AppRefreshToken(testUser, H3, Instant.now().plus(7, ChronoUnit.DAYS));
         revoked.revoke();
-        
+
         entityManager.persistAndFlush(active);
         entityManager.persistAndFlush(expired);
         entityManager.persistAndFlush(revoked);
@@ -81,7 +87,7 @@ class AppRefreshTokenRepositoryIT {
         List<AppRefreshToken> activeTokens = tokenRepository.findActiveTokensByUser(testUser, Instant.now());
 
         assertThat(activeTokens).hasSize(1);
-        assertThat(activeTokens.get(0).getTokenHash()).isEqualTo("active-hash");
+        assertThat(activeTokens.get(0).getTokenHash()).isEqualTo(H1);
     }
 
     @Test
@@ -90,8 +96,8 @@ class AppRefreshTokenRepositoryIT {
         User otherUser = new User("other@example.com");
         entityManager.persistAndFlush(otherUser);
         
-        AppRefreshToken myToken = new AppRefreshToken(testUser, "my-token", Instant.now().plus(7, ChronoUnit.DAYS));
-        AppRefreshToken theirToken = new AppRefreshToken(otherUser, "their-token", Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken myToken = new AppRefreshToken(testUser, H1, Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken theirToken = new AppRefreshToken(otherUser, H2, Instant.now().plus(7, ChronoUnit.DAYS));
         entityManager.persistAndFlush(myToken);
         entityManager.persistAndFlush(theirToken);
         entityManager.clear();
@@ -99,7 +105,7 @@ class AppRefreshTokenRepositoryIT {
         List<AppRefreshToken> myTokens = tokenRepository.findActiveTokensByUser(testUser, Instant.now());
 
         assertThat(myTokens).hasSize(1);
-        assertThat(myTokens.get(0).getTokenHash()).isEqualTo("my-token");
+        assertThat(myTokens.get(0).getTokenHash()).isEqualTo(H1);
     }
 
     // revokeAllTokensForUser tests
@@ -107,8 +113,8 @@ class AppRefreshTokenRepositoryIT {
     @Test
     @DisplayName("revokeAllTokensForUser - should revoke all active tokens for user")
     void revokeAllTokensForUser_shouldRevokeAllActiveTokens() {
-        AppRefreshToken token1 = new AppRefreshToken(testUser, "token1", Instant.now().plus(7, ChronoUnit.DAYS));
-        AppRefreshToken token2 = new AppRefreshToken(testUser, "token2", Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken token1 = new AppRefreshToken(testUser, H1, Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken token2 = new AppRefreshToken(testUser, H2, Instant.now().plus(7, ChronoUnit.DAYS));
         entityManager.persistAndFlush(token1);
         entityManager.persistAndFlush(token2);
         entityManager.clear();
@@ -126,8 +132,8 @@ class AppRefreshTokenRepositoryIT {
         User otherUser = new User("other@example.com");
         entityManager.persistAndFlush(otherUser);
         
-        AppRefreshToken myToken = new AppRefreshToken(testUser, "my-token", Instant.now().plus(7, ChronoUnit.DAYS));
-        AppRefreshToken theirToken = new AppRefreshToken(otherUser, "their-token", Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken myToken = new AppRefreshToken(testUser, H1, Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken theirToken = new AppRefreshToken(otherUser, H2, Instant.now().plus(7, ChronoUnit.DAYS));
         entityManager.persistAndFlush(myToken);
         entityManager.persistAndFlush(theirToken);
         entityManager.clear();
@@ -144,10 +150,10 @@ class AppRefreshTokenRepositoryIT {
     @Test
     @DisplayName("countActiveSessionsByUser - should count only active sessions")
     void countActiveSessionsByUser_shouldCountOnlyActive() {
-        AppRefreshToken active1 = new AppRefreshToken(testUser, "active1", Instant.now().plus(7, ChronoUnit.DAYS));
-        AppRefreshToken active2 = new AppRefreshToken(testUser, "active2", Instant.now().plus(7, ChronoUnit.DAYS));
-        AppRefreshToken expired = new AppRefreshToken(testUser, "expired", Instant.now().minus(1, ChronoUnit.HOURS));
-        AppRefreshToken revoked = new AppRefreshToken(testUser, "revoked", Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken active1 = new AppRefreshToken(testUser, H1, Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken active2 = new AppRefreshToken(testUser, H2, Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken expired = new AppRefreshToken(testUser, H3, Instant.now().minus(1, ChronoUnit.HOURS));
+        AppRefreshToken revoked = new AppRefreshToken(testUser, H4, Instant.now().plus(7, ChronoUnit.DAYS));
         revoked.revoke();
         
         entityManager.persistAndFlush(active1);
@@ -169,8 +175,8 @@ class AppRefreshTokenRepositoryIT {
         User otherUser = new User("other@example.com");
         entityManager.persistAndFlush(otherUser);
         
-        AppRefreshToken token1 = new AppRefreshToken(testUser, "token1", Instant.now().plus(7, ChronoUnit.DAYS));
-        AppRefreshToken token2 = new AppRefreshToken(otherUser, "token2", Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken token1 = new AppRefreshToken(testUser, H1, Instant.now().plus(7, ChronoUnit.DAYS));
+        AppRefreshToken token2 = new AppRefreshToken(otherUser, H2, Instant.now().plus(7, ChronoUnit.DAYS));
         entityManager.persistAndFlush(token1);
         entityManager.persistAndFlush(token2);
         entityManager.clear();
@@ -189,13 +195,13 @@ class AppRefreshTokenRepositoryIT {
     @DisplayName("Device info - should persist device info")
     void deviceInfo_shouldPersistDeviceInfo() {
         AppRefreshToken token = new AppRefreshToken(
-                testUser, "device-token", Instant.now().plus(7, ChronoUnit.DAYS),
+                testUser, H1, Instant.now().plus(7, ChronoUnit.DAYS),
                 "Mozilla/5.0 Chrome", "192.168.1.100"
         );
         entityManager.persistAndFlush(token);
         entityManager.clear();
 
-        AppRefreshToken found = tokenRepository.findByTokenHash("device-token").orElseThrow();
+        AppRefreshToken found = tokenRepository.findByTokenHash(H1).orElseThrow();
 
         assertThat(found.getUserAgent()).isEqualTo("Mozilla/5.0 Chrome");
         assertThat(found.getIpAddress()).isEqualTo("192.168.1.100");

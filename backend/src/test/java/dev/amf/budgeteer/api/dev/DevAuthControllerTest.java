@@ -3,11 +3,11 @@ package dev.amf.budgeteer.api.dev;
 import dev.amf.budgeteer.api.common.GlobalExceptionHandler;
 import dev.amf.budgeteer.config.SecurityConfig;
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.service.AuthService;
-import dev.amf.budgeteer.service.CookieService;
-import dev.amf.budgeteer.service.DevAuthService;
-import dev.amf.budgeteer.service.JweTokenService;
-import dev.amf.budgeteer.service.SessionService;
+import dev.amf.budgeteer.service.auth.AuthService;
+import dev.amf.budgeteer.service.common.CookieService;
+import dev.amf.budgeteer.service.auth.DevAuthService;
+import dev.amf.budgeteer.service.auth.JweTokenService;
+import dev.amf.budgeteer.service.auth.SessionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -211,6 +211,28 @@ class DevAuthControllerTest {
         void shouldReturn400WhenEmailMissing() throws Exception {
             mockMvc.perform(post("/api/test/auth/revoke-user"))
                     .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("should return 400 for invalid email format")
+        void shouldReturn400ForInvalidEmailFormat() throws Exception {
+            mockMvc.perform(post("/api/test/auth/revoke-user")
+                            .param("email", "not-an-email"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+            verify(devAuthService, never()).revokeUserSessions(any());
+        }
+
+        @Test
+        @DisplayName("should return 400 for blank email")
+        void shouldReturn400ForBlankEmail() throws Exception {
+            mockMvc.perform(post("/api/test/auth/revoke-user")
+                            .param("email", "   "))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+            verify(devAuthService, never()).revokeUserSessions(any());
         }
     }
 }

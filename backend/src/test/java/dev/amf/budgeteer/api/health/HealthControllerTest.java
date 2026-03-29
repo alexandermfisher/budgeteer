@@ -2,9 +2,9 @@ package dev.amf.budgeteer.api.health;
 
 import dev.amf.budgeteer.api.common.GlobalExceptionHandler;
 import dev.amf.budgeteer.config.SecurityConfig;
-import dev.amf.budgeteer.service.AuthService;
-import dev.amf.budgeteer.service.CookieService;
-import dev.amf.budgeteer.service.JweTokenService;
+import dev.amf.budgeteer.service.auth.AuthService;
+import dev.amf.budgeteer.service.common.CookieService;
+import dev.amf.budgeteer.service.auth.JweTokenService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

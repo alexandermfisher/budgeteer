@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import dev.amf.budgeteer.util.IpAddressUtil;
 import dev.amf.budgeteer.util.LogSanitizer;
 
 import java.io.IOException;
@@ -48,7 +49,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         
         // Extract IP address
         String ipAddress = getClientIpAddress(request);
-        MDC.put(MDC_IP_ADDRESS, ipAddress);
+        MDC.put(MDC_IP_ADDRESS, ipAddress != null ? ipAddress : "unknown");
         
         // Add request ID to response headers
         response.setHeader(REQUEST_ID_HEADER, requestId);
@@ -117,21 +118,28 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     }
     
     /**
-     * Extracts the client's IP address, accounting for proxies.
+     * Extracts and validates the client's IP address, accounting for proxies.
+     * Delegates to {@link IpAddressUtil#sanitize} to reject non-IP values from
+     * user-controlled headers.
      */
     private String getClientIpAddress(HttpServletRequest request) {
         String xForwardedFor = request.getHeader("X-Forwarded-For");
         if (xForwardedFor != null && !xForwardedFor.isBlank()) {
-            // X-Forwarded-For can contain multiple IPs, take the first one
-            return xForwardedFor.split(",")[0].trim();
+            String validated = IpAddressUtil.sanitize(xForwardedFor.split(",")[0].trim());
+            if (validated != null) {
+                return validated;
+            }
         }
-        
+
         String xRealIp = request.getHeader("X-Real-IP");
         if (xRealIp != null && !xRealIp.isBlank()) {
-            return xRealIp;
+            String validated = IpAddressUtil.sanitize(xRealIp.trim());
+            if (validated != null) {
+                return validated;
+            }
         }
-        
-        return request.getRemoteAddr();
+
+        return IpAddressUtil.sanitize(request.getRemoteAddr());
     }
     
     /**

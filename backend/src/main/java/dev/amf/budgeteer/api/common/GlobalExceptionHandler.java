@@ -3,6 +3,7 @@ package dev.amf.budgeteer.api.common;
 import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -58,6 +59,37 @@ public class GlobalExceptionHandler {
         );
 
         log.warn("Validation failed: {}", fieldErrors);
+
+        ApiError error = ApiError.of(
+                ErrorCode.VALIDATION_ERROR,
+                "Request validation failed",
+                request.getRequestURI(),
+                fieldErrors
+        );
+
+        return ResponseEntity
+                .status(ErrorCode.VALIDATION_ERROR.getHttpStatus())
+                .body(error);
+    }
+
+    /**
+     * Handle validation errors from @Validated on @RequestParam and @PathVariable.
+     * These produce ConstraintViolationException, not MethodArgumentNotValidException.
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiError> handleConstraintViolation(
+            ConstraintViolationException ex,
+            HttpServletRequest request) {
+
+        Map<String, String> fieldErrors = new HashMap<>();
+        ex.getConstraintViolations().forEach(violation -> {
+            // The property path includes the method and param name — extract just the param name
+            String path = violation.getPropertyPath().toString();
+            String param = path.contains(".") ? path.substring(path.lastIndexOf('.') + 1) : path;
+            fieldErrors.put(param, violation.getMessage());
+        });
+
+        log.warn("Constraint violation: {}", fieldErrors);
 
         ApiError error = ApiError.of(
                 ErrorCode.VALIDATION_ERROR,

@@ -1,7 +1,7 @@
 package dev.amf.budgeteer.integration.repository;
 
 import dev.amf.budgeteer.domain.oauth.OAuthState;
-import dev.amf.budgeteer.domain.oauth.OAuthStateRepository;
+import dev.amf.budgeteer.repository.OAuthStateRepository;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.integration.AbstractPostgresIntegrationTest;
 import dev.amf.budgeteer.integration.TestDataFactory;
@@ -48,7 +48,7 @@ class OAuthStateRepositoryIT extends AbstractPostgresIntegrationTest {
         @DisplayName("should find OAuth state by state token")
         void shouldFindByStateToken() {
             // Given
-            String stateToken = "test-state-token-12345";
+            String stateToken = "test-state-token-12345-padded-to-meet-min-length";
             OAuthState state = testData.createValidOAuthStateFor(testUser, stateToken);
 
             // When
@@ -248,7 +248,7 @@ class OAuthStateRepositoryIT extends AbstractPostgresIntegrationTest {
         @DisplayName("should set createdAt on persist")
         void shouldSetCreatedAtOnPersist() {
             // Given
-            OAuthState state = new OAuthState(testUser, "test-state");
+            OAuthState state = new OAuthState(testUser, "test-state-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
 
             // When
             OAuthState saved = oAuthStateRepository.save(state);
@@ -262,7 +262,7 @@ class OAuthStateRepositoryIT extends AbstractPostgresIntegrationTest {
         @DisplayName("should calculate correct expiry time")
         void shouldCalculateCorrectExpiryTime() {
             // Given
-            OAuthState state = new OAuthState(testUser, "test-state");
+            OAuthState state = new OAuthState(testUser, "test-state-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx");
 
             // When
             OAuthState saved = oAuthStateRepository.save(state);

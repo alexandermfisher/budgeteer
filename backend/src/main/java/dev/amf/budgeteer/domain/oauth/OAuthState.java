@@ -2,6 +2,8 @@ package dev.amf.budgeteer.domain.oauth;
 
 import dev.amf.budgeteer.domain.user.User;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -37,6 +39,8 @@ public class OAuthState {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @NotBlank
+    @Size(min = 32, max = 64)
     @Column(name = "state", nullable = false, unique = true, length = 64)
     private String state;
 
@@ -143,8 +147,8 @@ public class OAuthState {
     public String toString() {
         return "OAuthState{"
                 + "id=" + id
-                + ", userId=" + (user != null ? user.getId() : null)
-                + ", state='" + (state != null ? state.substring(0, Math.min(8, state.length())) + "..." : null) + '\''
+                + ", userId=" + user.getId()
+                + ", state='" + state.substring(0, Math.min(8, state.length())) + "..." + '\''
                 + ", createdAt=" + createdAt
                 + ", expiresAt=" + expiresAt
                 + ", used=" + used

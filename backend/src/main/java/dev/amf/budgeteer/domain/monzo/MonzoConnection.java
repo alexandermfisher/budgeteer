@@ -12,6 +12,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
@@ -26,7 +28,7 @@ import java.util.UUID;
  * <h2>Security</h2>
  * <ul>
  *   <li>Tokens are stored encrypted using AES-256-GCM</li>
- *   <li>Encryption/decryption is handled by {@link dev.amf.budgeteer.service.EncryptionService}</li>
+ *   <li>Encryption/decryption is handled by {@link dev.amf.budgeteer.service.common.EncryptionService}</li>
  *   <li>This entity stores the ENCRYPTED tokens, not plaintext</li>
  *   <li>Soft delete preserves encrypted tokens for audit trail</li>
  * </ul>
@@ -38,7 +40,7 @@ import java.util.UUID;
  *   <li>Soft-deleted when user disconnects (disconnectedAt is set)</li>
  * </ul>
  *
- * @see dev.amf.budgeteer.service.EncryptionService
+ * @see dev.amf.budgeteer.service.common.EncryptionService
  */
 @Entity
 @Table(name = "monzo_connections")
@@ -59,6 +61,8 @@ public class MonzoConnection {
      * Monzo user identifier from /ping/whoami endpoint.
      * Format: "user_xxxxx"
      */
+    @NotBlank
+    @Pattern(regexp = "user_[a-z0-9]+", message = "Invalid Monzo user ID format")
     @Column(name = "monzo_user_id", nullable = false, length = 255)
     private String monzoUserId;
 
@@ -66,6 +70,7 @@ public class MonzoConnection {
      * AES-256-GCM encrypted access token.
      * Format: base64(IV + ciphertext + authTag)
      */
+    @NotBlank
     @Column(name = "access_token_enc", nullable = false, columnDefinition = "TEXT")
     private String accessTokenEncrypted;
 
@@ -73,6 +78,7 @@ public class MonzoConnection {
      * AES-256-GCM encrypted refresh token.
      * Format: base64(IV + ciphertext + authTag)
      */
+    @NotBlank
     @Column(name = "refresh_token_enc", nullable = false, columnDefinition = "TEXT")
     private String refreshTokenEncrypted;
 

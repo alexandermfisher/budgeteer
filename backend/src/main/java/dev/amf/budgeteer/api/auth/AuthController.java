@@ -10,19 +10,22 @@ import dev.amf.budgeteer.config.AppProperties;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.security.JweAuthenticationFilter.JweAuthentication;
-import dev.amf.budgeteer.service.CookieService;
-import dev.amf.budgeteer.service.AuthService;
-import dev.amf.budgeteer.service.SessionService;
+import dev.amf.budgeteer.service.common.CookieService;
+import dev.amf.budgeteer.service.auth.AuthService;
+import dev.amf.budgeteer.service.auth.SessionService;
 import dev.amf.budgeteer.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
@@ -31,6 +34,7 @@ import java.util.Optional;
  * Controller for application authentication endpoints.
  * Handles magic link login, token refresh, logout, and current user info.
  */
+@Validated
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -76,7 +80,7 @@ public class AuthController {
      */
     @GetMapping("/verify")
     public ResponseEntity<ApiResponse<AuthResponse>> verify(
-            @RequestParam String token,
+            @RequestParam @NotBlank(message = "Token is required") @Size(max = 1024, message = "Token too long") String token,
             HttpServletRequest request,
             HttpServletResponse response) {
 
@@ -128,7 +132,7 @@ public class AuthController {
      */
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(
-            @RequestBody(required = false) RefreshRequest body,
+            @Valid @RequestBody(required = false) RefreshRequest body,
             HttpServletRequest request,
             HttpServletResponse response) {
 

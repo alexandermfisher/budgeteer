@@ -9,9 +9,9 @@
 #   restart - Stop and start the application
 #   logs    - Show recent logs (if running in background)
 #   db      - Start only the database
-#   test    - Run unit tests
-#   it      - Run integration tests (requires Docker)
-#   test-all - Run all tests (unit + integration)
+#   test    - Run all tests (unit + integration, requires Docker)
+#   unit    - Run unit tests only (no Docker required)
+#   it      - Run integration tests only (requires Docker)
 #   tunnel  - Start ngrok tunnel for Monzo OAuth
 #   help    - Show this help
 
@@ -254,9 +254,22 @@ cmd_db() {
 }
 
 cmd_test() {
-    print_status "Running unit tests..."
+    if ! docker info > /dev/null 2>&1; then
+        print_error "Docker doesn't seem to be running. Start Docker Desktop first."
+        print_warning "Integration tests require Docker for Testcontainers (PostgreSQL)"
+        exit 1
+    fi
+
+    print_status "Running all tests (unit + integration)..."
     cd "$PROJECT_ROOT/backend"
-    mvn test -DskipITs
+    mvn test
+    print_success "All tests completed"
+}
+
+cmd_unit() {
+    print_status "Running unit tests only..."
+    cd "$PROJECT_ROOT/backend"
+    mvn test -DexcludedGroups=integration
     print_success "Unit tests completed"
 }
 
@@ -344,9 +357,9 @@ cmd_help() {
     echo "  restart     Stop and start the application"
     echo "  db          Start only the database"
     echo "  tunnel      Start ngrok tunnel (for Monzo OAuth)"
-    echo "  test        Run unit tests (no Docker required)"
-    echo "  it [name]   Run integration tests (requires Docker)"
-    echo "  test-all    Run all tests (unit + integration)"
+    echo "  test        Run all tests (unit + integration, requires Docker)"
+    echo "  unit        Run unit tests only (no Docker required)"
+    echo "  it [name]   Run integration tests only (requires Docker)"
     echo "  help        Show this help"
     echo ""
     echo "Examples:"
@@ -355,7 +368,8 @@ cmd_help() {
     echo "  ./scripts/dev.sh stop         # Stop the app"
     echo "  ./scripts/dev.sh status       # Check status"
     echo "  ./scripts/dev.sh tunnel       # Start ngrok for Monzo OAuth"
-    echo "  ./scripts/dev.sh test         # Run unit tests"
+    echo "  ./scripts/dev.sh test         # Run all tests (unit + integration)"
+    echo "  ./scripts/dev.sh unit         # Run unit tests only"
     echo "  ./scripts/dev.sh it           # Run all integration tests"
     echo "  ./scripts/dev.sh it MonzoOAuthFlowIT  # Run specific IT"
     echo ""
@@ -386,14 +400,14 @@ case "$COMMAND" in
     db)
         cmd_db
         ;;
-    test)
+    test|test-all)
         cmd_test
+        ;;
+    unit)
+        cmd_unit
         ;;
     it|integration)
         cmd_it "$2"
-        ;;
-    test-all)
-        cmd_test_all
         ;;
     tunnel|ngrok)
         cmd_tunnel

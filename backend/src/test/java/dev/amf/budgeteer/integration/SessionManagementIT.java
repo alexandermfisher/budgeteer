@@ -1,13 +1,13 @@
 package dev.amf.budgeteer.integration;
 
 import dev.amf.budgeteer.domain.session.AppRefreshToken;
-import dev.amf.budgeteer.domain.session.AppRefreshTokenRepository;
-import dev.amf.budgeteer.domain.session.MagicLinkTokenRepository;
+import dev.amf.budgeteer.repository.AppRefreshTokenRepository;
+import dev.amf.budgeteer.repository.MagicLinkTokenRepository;
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.domain.user.UserRepository;
-import dev.amf.budgeteer.service.AuthService;
-import dev.amf.budgeteer.service.JweTokenService;
-import dev.amf.budgeteer.service.SessionService;
+import dev.amf.budgeteer.repository.UserRepository;
+import dev.amf.budgeteer.service.auth.AuthService;
+import dev.amf.budgeteer.service.auth.JweTokenService;
+import dev.amf.budgeteer.service.auth.SessionService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

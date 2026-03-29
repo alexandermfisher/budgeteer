@@ -4,7 +4,7 @@ import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.security.JweAuthenticationFilter.JweAuthentication;
-import dev.amf.budgeteer.service.AuthService;
+import dev.amf.budgeteer.service.auth.AuthService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.MethodParameter;

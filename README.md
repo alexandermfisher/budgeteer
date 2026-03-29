@@ -61,7 +61,7 @@ budgeteer/
    - API: http://localhost:8080
    - Health: http://localhost:8080/actuator/health
 
-See [docs/SETUP.md](docs/SETUP.md) for detailed setup instructions.
+See [docs/setup/SETUP.md](docs/setup/SETUP.md) for detailed setup instructions.
 
 ## Tech Stack
 
@@ -91,13 +91,13 @@ See [docs/features/USER-AUTHENTICATION.md](docs/features/USER-AUTHENTICATION.md)
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — Technical design decisions
-- [CI/CD Setup](docs/CI-CD.md) — GitHub Actions pipeline
-- [Monzo Auth Flow](docs/MONZO-AUTH-FLOW.md) — OAuth implementation
-- [Security Architecture](docs/SECURITY-ARCHITECTURE.md) — Security model
-- [Setup Guide](docs/SETUP.md) — Development environment
-- [Testing Guide](docs/TESTING.md) — Test strategy and conventions
-- [Secrets Management](docs/SECRETS-MANAGEMENT.md) — Handling credentials
+- [Architecture](docs/architecture/ARCHITECTURE.md) — Technical design decisions
+- [CI/CD Setup](docs/setup/CI-CD.md) — GitHub Actions pipeline
+- [Monzo Auth Flow](docs/architecture/MONZO-AUTH-FLOW.md) — OAuth implementation
+- [Security Architecture](docs/architecture/SECURITY-ARCHITECTURE.md) — Security model
+- [Setup Guide](docs/setup/SETUP.md) — Development environment
+- [Testing Guide](docs/testing/TESTING.md) — Test strategy and conventions
+- [Secrets Management](docs/setup/SECRETS-MANAGEMENT.md) — Handling credentials
 
 ## Testing
 

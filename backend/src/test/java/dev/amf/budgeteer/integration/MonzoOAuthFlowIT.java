@@ -5,14 +5,14 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
-import dev.amf.budgeteer.domain.monzo.MonzoConnectionRepository;
+import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.domain.oauth.OAuthState;
-import dev.amf.budgeteer.domain.oauth.OAuthStateRepository;
+import dev.amf.budgeteer.repository.OAuthStateRepository;
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.domain.user.UserRepository;
+import dev.amf.budgeteer.repository.UserRepository;
 import dev.amf.budgeteer.exception.ApiException;
-import dev.amf.budgeteer.service.MonzoConnectionService;
-import dev.amf.budgeteer.service.MonzoOAuthService;
+import dev.amf.budgeteer.service.monzo.MonzoConnectionService;
+import dev.amf.budgeteer.service.monzo.MonzoOAuthService;
 import io.restassured.RestAssured;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -131,8 +131,8 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
             OAuthState state = testData.createValidOAuthStateFor(user);
 
             // Stub Monzo API responses
-            stubMonzoTokenExchangeSuccess("test-access-token", "test-refresh-token", "user_monzo_123");
-            stubMonzoWhoamiSuccess("user_monzo_123");
+            stubMonzoTokenExchangeSuccess("test-access-token", "test-refresh-token", "user_monzo123");
+            stubMonzoWhoamiSuccess("user_monzo123");
 
             // When - Monzo redirects to callback with code and state (user approved)
             given()
@@ -143,13 +143,13 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
             .then()
                 .statusCode(200)
                 .body("success", is(true))
-                .body("data.monzoUserId", is("user_monzo_123"))
+                .body("data.monzoUserId", is("user_monzo123"))
                 .body("data.id", notNullValue());
 
             // Then - Connection is saved in database
             List<MonzoConnection> connections = monzoConnectionRepository.findAll();
             assertThat(connections).hasSize(1);
-            assertThat(connections.getFirst().getMonzoUserId()).isEqualTo("user_monzo_123");
+            assertThat(connections.getFirst().getMonzoUserId()).isEqualTo("user_monzo123");
             assertThat(connections.getFirst().getUser().getId()).isEqualTo(user.getId());
             assertThat(connections.getFirst().isActive()).isTrue();
 
@@ -323,8 +323,8 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
             String state = extractStateFromUrl(authUrl);
 
             // Stub Monzo API for successful flow
-            stubMonzoTokenExchangeSuccess("full-flow-access-token", "full-flow-refresh-token", "user_full_flow");
-            stubMonzoWhoamiSuccess("user_full_flow");
+            stubMonzoTokenExchangeSuccess("full-flow-access-token", "full-flow-refresh-token", "user_fullflow");
+            stubMonzoWhoamiSuccess("user_fullflow");
 
             // 2. Simulate user approving at Monzo → Monzo redirects to callback
             given()
@@ -335,14 +335,14 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
             .then()
                 .statusCode(200)
                 .body("success", is(true))
-                .body("data.monzoUserId", is("user_full_flow"))
+                .body("data.monzoUserId", is("user_fullflow"))
                 .body("data.isActive", is(true));
 
             // 3. Verify connection is in database
             List<MonzoConnection> connections = monzoConnectionRepository.findAll();
             assertThat(connections).hasSize(1);
             MonzoConnection connection = connections.getFirst();
-            assertThat(connection.getMonzoUserId()).isEqualTo("user_full_flow");
+            assertThat(connection.getMonzoUserId()).isEqualTo("user_fullflow");
             assertThat(connection.getUser().getId()).isEqualTo(user.getId());
 
             // 4. Verify state cannot be reused
@@ -436,16 +436,16 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
         void shouldReturnOnlyUsersConnections() {
             User user1 = testData.createVerifiedUser();
             User user2 = testData.createVerifiedUser();
-            testData.createActiveMonzoConnectionFor(user1, "monzo_user_1");
-            testData.createActiveMonzoConnectionFor(user1, "monzo_user_2");
-            testData.createActiveMonzoConnectionFor(user2, "monzo_user_3");
+            testData.createActiveMonzoConnectionFor(user1, "user_monzo1");
+            testData.createActiveMonzoConnectionFor(user1, "user_monzo2");
+            testData.createActiveMonzoConnectionFor(user2, "user_monzo3");
 
             List<MonzoConnection> connections = monzoConnectionService.listActiveConnections(user1.getId());
 
             assertThat(connections).hasSize(2);
             assertThat(connections)
                     .extracting(MonzoConnection::getMonzoUserId)
-                    .containsExactlyInAnyOrder("monzo_user_1", "monzo_user_2");
+                    .containsExactlyInAnyOrder("user_monzo1", "user_monzo2");
         }
 
         @Test

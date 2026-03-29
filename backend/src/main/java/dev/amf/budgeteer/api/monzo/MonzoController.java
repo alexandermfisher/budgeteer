@@ -8,13 +8,16 @@ import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.security.CurrentUser;
-import dev.amf.budgeteer.service.MonzoConnectionService;
-import dev.amf.budgeteer.service.MonzoOAuthService;
+import dev.amf.budgeteer.service.monzo.MonzoConnectionService;
+import dev.amf.budgeteer.service.monzo.MonzoOAuthService;
 import dev.amf.budgeteer.util.LogSanitizer;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.view.RedirectView;
 
@@ -33,6 +36,7 @@ import java.util.UUID;
  * <p>Most endpoints require authentication. The OAuth callback is public but
  * uses database-stored state for CSRF protection and user association.
  */
+@Validated
 @RestController
 @RequestMapping("/api/monzo")
 public class MonzoController {
@@ -123,10 +127,10 @@ public class MonzoController {
      */
     @GetMapping("/callback")
     public ResponseEntity<ApiResponse<MonzoConnectionResponse>> handleCallback(
-            @RequestParam(value = "code", required = false) @Nullable String code,
-            @RequestParam("state") String state,
-            @RequestParam(value = "error", required = false) @Nullable String error,
-            @RequestParam(value = "error_description", required = false) @Nullable String errorDescription
+            @RequestParam(value = "code", required = false) @Nullable @Size(max = 1024, message = "Code too long") String code,
+            @RequestParam("state") @NotBlank(message = "State is required") @Size(max = 64, message = "State too long") String state,
+            @RequestParam(value = "error", required = false) @Nullable @Size(max = 256, message = "Error too long") String error,
+            @RequestParam(value = "error_description", required = false) @Nullable @Size(max = 1000, message = "Error description too long") String errorDescription
     ) {
         log.info("Received Monzo OAuth callback");
 
