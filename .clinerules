@@ -12,12 +12,13 @@
 @context docs/api/monzo-api.pdf
 @context docs/ARCHITECTURE.md
 @context docs/TESTING.md
-@context .cline/memory.md
-@context .cline/tasks.md
+@context .agents/memory.md
+@context .agents/tasks/tasks.md
 
 # Files to read at the start of tasks to understand project state
-@read .cline/memory.md
-@read .cline/tasks.md
+@read .agents/memory.md
+@read .agents/tasks/tasks.md
+@read .agents/context/project.md
 @read docs/ARCHITECTURE.md
 @read docs/TESTING.md
 
@@ -26,7 +27,7 @@
 # =============================================================================
 
 # This is a MONO-REPO with the following structure:
-# 
+#
 # budgeteer/
 # ├── backend/              # Spring Boot API
 # │   ├── src/main/java/    # Java source code
@@ -42,11 +43,14 @@
 # │   └── api/monzo-api.pdf
 # ├── scripts/              # Development scripts
 # │   └── dev.sh
-# ├── .cline/               # Cline AI context (git-ignored)
-# │   ├── memory.md         # Session memory
-# │   ├── tasks.md          # Task board
-# │   └── notes/            # Cline working notes
-# ├── .notes/               # Personal scratch work (git-ignored)
+# ├── .agents/              # Shared AI agent context (committed)
+# │   ├── context/          # Project context files
+# │   ├── memory.md         # Cross-session memory (all agents)
+# │   ├── tasks/            # Task board: index + per-task subfolders
+# │   ├── notes/            # Planning notes and guides
+# │   └── skills/           # Reusable skill definitions
+# ├── .claude/              # Claude Code config (settings, symlinks into .agents/)
+# ├── .cline/               # Cline config (symlinks into .agents/)
 # ├── compose.yaml          # Docker services
 # ├── .env                  # Local secrets (git-ignored)
 # ├── README.md             # Project readme
@@ -59,10 +63,10 @@
 # When working on this project, Cline should:
 
 # PROJECT MANAGEMENT
-# 1. Check .cline/memory.md for current status and context
-# 2. Review .cline/tasks.md for the task board and priorities
-# 3. Reference docs/ARCHITECTURE.md before making significant changes
-# 4. Update .cline/memory.md with important decisions and context
+# 1. Check .agents/memory.md for current status and context
+# 2. Review .agents/tasks/tasks.md for the kanban index — active tasks have a subfolder with a plan.md
+# 3. Reference .agents/context/architecture.md before making significant changes
+# 4. Update .agents/memory.md with important decisions and context
 
 # MONZO API INTEGRATION
 # 5. Reference docs/api/monzo-api.pdf when implementing Monzo API integrations
@@ -209,7 +213,7 @@
 # When user says "close task", "close this task", or "finish task":
 # Cline should automatically perform these steps:
 #
-# 1. UPDATE .cline/tasks.md:
+# 1. UPDATE .agents/tasks/tasks.md:
 #    - Move the current task from "🚀 In Progress" to "✅ Done" section
 #    - Add completion date (format: January YYYY)
 #    - Check off all completed subtasks
@@ -220,7 +224,7 @@
 #    - Include a brief description and the git commit hash if available
 #    - Ensure the version and date are correct
 #
-# 3. UPDATE .cline/memory.md:
+# 3. UPDATE .agents/memory.md:
 #    - Update "📅 Last Updated" with current date
 #    - Update "Session Focus" with what was worked on
 #    - Update "🎯 Current Project Status" checkboxes
@@ -243,7 +247,7 @@
 # 🧠 SESSION MEMORY
 # =============================================================================
 
-# At the end of significant work sessions, update .cline/memory.md with:
+# At the end of significant work sessions, update .agents/memory.md with:
 # - Decisions made and their rationale
 # - Current state of work in progress
 # - Known issues or TODOs
@@ -260,10 +264,16 @@
 # docs/SECRETS-MANAGEMENT.md   - Credentials handling
 # docs/api/monzo-api.pdf       - Monzo API reference
 
-# Internal/Cline docs (git-ignored):
-# .cline/memory.md             - Session memory for Cline
-# .cline/tasks.md              - Task board
-# .cline/notes/                - Cline working notes
+# Shared AI agent context (committed to git):
+# .agents/context/             - Project context (architecture, conventions, commands, security, status)
+# .agents/memory.md            - Cross-session memory (all agents read/write here)
+# .agents/tasks/               - Task board: tasks.md index + per-task subfolders
+# .agents/notes/               - Planning notes, guides, reference material
+# .agents/skills/              - Reusable skill definitions (Claude + Cline)
 
-# Personal scratch work (git-ignored):
-# .notes/                      - Your personal notes, guides, scratch files
+# Tool-specific wrappers (symlinks into .agents/):
+# .claude/context              -> .agents/context
+# .claude/skills               -> .agents/skills
+# .cline/memory.md             -> .agents/memory.md
+# .agents/tasks/tasks.md       - Kanban index (links to per-task subfolders)
+# .cline/notes                 -> .agents/notes
