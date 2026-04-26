@@ -256,7 +256,13 @@ public class MonzoController {
     /**
      * Gets the connection status for the authenticated user.
      *
-     * <p>Quick endpoint to check if a user has any active Monzo connections.
+     * <p>Returns whether the user has an active Monzo connection and the health
+     * of their OAuth tokens. The {@code tokenStatus} field values are:
+     * <ul>
+     *   <li>{@code ACTIVE} — connected, token valid</li>
+     *   <li>{@code EXPIRING_SOON} — connected, token expiring within 5 minutes</li>
+     *   <li>{@code RECONNECT_REQUIRED} — no active connection, re-OAuth needed</li>
+     * </ul>
      *
      * <p>GET /api/monzo/status
      *
@@ -267,19 +273,25 @@ public class MonzoController {
     public ResponseEntity<ApiResponse<ConnectionStatus>> getStatus(@CurrentUser User user) {
         boolean hasConnection = connectionService.hasActiveConnection(user.getId());
         long connectionCount = connectionService.countActiveConnections(user.getId());
+        MonzoConnectionService.TokenStatus tokenStatus = connectionService.getTokenStatus(user.getId());
 
-        ConnectionStatus status = new ConnectionStatus(hasConnection, connectionCount);
+        ConnectionStatus status = new ConnectionStatus(hasConnection, connectionCount, tokenStatus);
         return ResponseEntity.ok(ApiResponse.of(status));
     }
 
     // ============ Response Records ============
 
     /**
-     * Simple status response for connection check.
+     * Connection status response including token health.
+     *
+     * @param connected       whether the user has at least one active Monzo connection
+     * @param connectionCount number of active connections
+     * @param tokenStatus     health of the OAuth tokens
      */
     public record ConnectionStatus(
             boolean connected,
-            long connectionCount
+            long connectionCount,
+            MonzoConnectionService.TokenStatus tokenStatus
     ) {
     }
 }

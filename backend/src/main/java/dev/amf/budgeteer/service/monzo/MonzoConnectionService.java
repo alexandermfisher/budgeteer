@@ -1,5 +1,6 @@
 package dev.amf.budgeteer.service.monzo;
 
+import dev.amf.budgeteer.config.MonzoTokenRefreshProperties;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.domain.user.User;
@@ -12,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -21,6 +23,14 @@ import java.util.UUID;
  *
  * <p>Handles the business logic for creating, retrieving, and managing
  * Monzo OAuth connections. All token encryption/decryption is handled here.
+ *
+ * <h2>Eager refresh</h2>
+ * <p>{@link #getDecryptedAccessToken} and {@link #getDecryptedTokens} include an
+ * eager-refresh guard: if the token will expire within the configured eager-refresh
+ * window ({@code monzo.token-refresh.eager-refresh-window-minutes}), they proactively
+ * refresh via {@link MonzoTokenRefreshService} before returning.
+ * This is a belt-and-suspenders measure for active users, complementing the
+ * {@link MonzoTokenRefreshJob} background scheduler that covers inactive users.
  */
 @Service
 public class MonzoConnectionService {
@@ -30,15 +40,23 @@ public class MonzoConnectionService {
     private final MonzoConnectionRepository connectionRepository;
     private final UserRepository userRepository;
     private final EncryptionService encryptionService;
+    private final MonzoTokenRefreshService tokenRefreshService;
+
+    /** Window used by the eager-refresh guard, driven by {@code monzo.token-refresh.eager-refresh-window-minutes}. */
+    private final Duration eagerRefreshWindow;
 
     public MonzoConnectionService(
             MonzoConnectionRepository connectionRepository,
             UserRepository userRepository,
-            EncryptionService encryptionService
+            EncryptionService encryptionService,
+            MonzoTokenRefreshService tokenRefreshService,
+            MonzoTokenRefreshProperties properties
     ) {
         this.connectionRepository = connectionRepository;
         this.userRepository = userRepository;
         this.encryptionService = encryptionService;
+        this.tokenRefreshService = tokenRefreshService;
+        this.eagerRefreshWindow = Duration.ofMinutes(properties.eagerRefreshWindowMinutes());
     }
 
     /**
@@ -218,14 +236,18 @@ public class MonzoConnectionService {
     /**
      * Decrypts and returns the access token for a connection.
      *
+     * <p>Includes an eager-refresh guard: if the token expires within
+     * {@link #eagerRefreshWindow}, it is refreshed before being returned.
+     *
      * @param connectionId the connection ID
      * @param userId       the user ID (for ownership verification)
-     * @return the decrypted access token
-     * @throws ApiException if a connection isn't found or not owned by a user
+     * @return the decrypted access token (refreshed if near expiry)
+     * @throws ApiException if a connection isn't found, not owned by a user, or was revoked
      */
     @Transactional(readOnly = true)
     public String getDecryptedAccessToken(UUID connectionId, UUID userId) {
         MonzoConnection connection = getActiveConnection(connectionId, userId);
+        connection = refreshIfExpiringSoon(connection);
         return encryptionService.decrypt(connection.getAccessTokenEncrypted());
     }
 
@@ -246,14 +268,18 @@ public class MonzoConnectionService {
     /**
      * Decrypts and returns both tokens for a connection.
      *
+     * <p>Includes an eager-refresh guard: if the access token expires within
+     * {@link #eagerRefreshWindow}, both tokens are refreshed before being returned.
+     *
      * @param connectionId the connection ID
      * @param userId       the user ID (for ownership verification)
-     * @return record containing both decrypted tokens
-     * @throws ApiException if a connection isn't found or not owned by a user
+     * @return record containing both decrypted tokens (refreshed if near expiry)
+     * @throws ApiException if a connection isn't found, not owned by a user, or was revoked
      */
     @Transactional(readOnly = true)
     public DecryptedTokens getDecryptedTokens(UUID connectionId, UUID userId) {
         MonzoConnection connection = getActiveConnection(connectionId, userId);
+        connection = refreshIfExpiringSoon(connection);
         return new DecryptedTokens(
                 encryptionService.decrypt(connection.getAccessTokenEncrypted()),
                 encryptionService.decrypt(connection.getRefreshTokenEncrypted())
@@ -280,6 +306,80 @@ public class MonzoConnectionService {
     @Transactional(readOnly = true)
     public long countActiveConnections(UUID userId) {
         return connectionRepository.countActiveByUserId(userId);
+    }
+
+    /**
+     * Returns the token health status for the user's Monzo connections.
+     *
+     * <p>Evaluates the user's active connections:
+     * <ul>
+     *   <li>{@link TokenStatus#RECONNECT_REQUIRED} — no active connections</li>
+     *   <li>{@link TokenStatus#EXPIRING_SOON} — at least one connection is expiring within
+     *       the configured eager-refresh window</li>
+     *   <li>{@link TokenStatus#ACTIVE} — all tokens are healthy</li>
+     * </ul>
+     *
+     * @param userId the user ID
+     * @return the token status
+     */
+    @Transactional(readOnly = true)
+    public TokenStatus getTokenStatus(UUID userId) {
+        List<MonzoConnection> connections = connectionRepository.findActiveByUserId(userId);
+        if (connections.isEmpty()) {
+            return TokenStatus.RECONNECT_REQUIRED;
+        }
+        boolean anyExpiringSoon = connections.stream()
+                .anyMatch(c -> c.isTokenExpiringSoon(eagerRefreshWindow));
+        return anyExpiringSoon ? TokenStatus.EXPIRING_SOON : TokenStatus.ACTIVE;
+    }
+
+    // =========================================================================
+    // Private helpers
+    // =========================================================================
+
+    /**
+     * Proactively refreshes the connection if its token is expiring soon.
+     *
+     * <p>{@link MonzoTokenRefreshService#refresh} uses {@code REQUIRES_NEW} propagation,
+     * so it runs in its own transaction even when called from within this service's
+     * read-only transaction.
+     *
+     * @param connection the connection to check
+     * @return the original connection, or the freshly-refreshed one
+     * @throws ApiException if the connection was revoked during refresh
+     */
+    private MonzoConnection refreshIfExpiringSoon(MonzoConnection connection) {
+        if (!connection.isTokenExpiringSoon(eagerRefreshWindow)) {
+            return connection;
+        }
+        log.debug("Connection {} token expiring soon - refreshing eagerly", connection.getId());
+        MonzoConnection refreshed = tokenRefreshService.refresh(connection.getId());
+        if (!refreshed.isActive()) {
+            throw new ApiException(
+                    ErrorCode.MONZO_CONNECTION_REVOKED,
+                    "Monzo connection was revoked. Please reconnect your account."
+            );
+        }
+        return refreshed;
+    }
+
+    // =========================================================================
+    // Public types
+    // =========================================================================
+
+    /**
+     * Token health status for a user's Monzo connections.
+     *
+     * <p>Returned by {@link MonzoConnectionService#getTokenStatus(UUID)} and
+     * exposed via the {@code GET /api/monzo/status} endpoint.
+     */
+    public enum TokenStatus {
+        /** All active connections have healthy tokens. */
+        ACTIVE,
+        /** At least one connection has a token expiring within the eager-refresh window. */
+        EXPIRING_SOON,
+        /** No active connections — user must re-run the Monzo OAuth flow. */
+        RECONNECT_REQUIRED
     }
 
     /**

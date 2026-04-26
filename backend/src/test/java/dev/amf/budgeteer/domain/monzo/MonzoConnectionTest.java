@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
@@ -100,6 +101,55 @@ class MonzoConnectionTest {
                     Instant.now().minus(1, ChronoUnit.HOURS)
             );
             assertThat(pastExpiry.isTokenExpired()).isTrue();
+        }
+    }
+
+    @Nested
+    @DisplayName("isTokenExpiringSoon()")
+    class IsTokenExpiringSoonTests {
+
+        @Test
+        @DisplayName("should return true when token expires within the window")
+        void shouldReturnTrueWhenTokenExpiresWithinWindow() {
+            MonzoConnection expiringSoon = new MonzoConnection(
+                    testUser, "user_test", "access", "refresh",
+                    Instant.now().plus(3, ChronoUnit.MINUTES)
+            );
+            assertThat(expiringSoon.isTokenExpiringSoon(Duration.ofMinutes(5))).isTrue();
+        }
+
+        @Test
+        @DisplayName("should return false when token expires outside the window")
+        void shouldReturnFalseWhenTokenExpiresOutsideWindow() {
+            MonzoConnection notExpiringSoon = new MonzoConnection(
+                    testUser, "user_test", "access", "refresh",
+                    Instant.now().plus(1, ChronoUnit.HOURS)
+            );
+            assertThat(notExpiringSoon.isTokenExpiringSoon(Duration.ofMinutes(5))).isFalse();
+        }
+
+        @Test
+        @DisplayName("should return true when token is already expired")
+        void shouldReturnTrueWhenTokenAlreadyExpired() {
+            MonzoConnection expired = new MonzoConnection(
+                    testUser, "user_test", "access", "refresh",
+                    Instant.now().minus(1, ChronoUnit.MINUTES)
+            );
+            assertThat(expired.isTokenExpiringSoon(Duration.ofMinutes(5))).isTrue();
+        }
+
+        @Test
+        @DisplayName("should use the provided window duration for comparison")
+        void shouldUseProvidedWindowDuration() {
+            // Token expires in 30 minutes
+            MonzoConnection connection = new MonzoConnection(
+                    testUser, "user_test", "access", "refresh",
+                    Instant.now().plus(30, ChronoUnit.MINUTES)
+            );
+            // 5-minute window: not expiring soon
+            assertThat(connection.isTokenExpiringSoon(Duration.ofMinutes(5))).isFalse();
+            // 60-minute window: expiring soon
+            assertThat(connection.isTokenExpiringSoon(Duration.ofMinutes(60))).isTrue();
         }
     }
 

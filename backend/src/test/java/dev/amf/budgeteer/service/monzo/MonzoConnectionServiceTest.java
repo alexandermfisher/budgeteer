@@ -1,5 +1,6 @@
 package dev.amf.budgeteer.service.monzo;
 
+import dev.amf.budgeteer.config.MonzoTokenRefreshProperties;
 import dev.amf.budgeteer.service.common.EncryptionService;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
@@ -13,7 +14,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -47,7 +48,9 @@ class MonzoConnectionServiceTest {
     @Mock
     private EncryptionService encryptionService;
 
-    @InjectMocks
+    @Mock
+    private MonzoTokenRefreshService tokenRefreshService;
+
     private MonzoConnectionService service;
 
     private User testUser;
@@ -76,6 +79,14 @@ class MonzoConnectionServiceTest {
                 Instant.now().plus(6, ChronoUnit.HOURS)
         );
         testConnection.setId(connectionId);
+
+        service = new MonzoConnectionService(
+                connectionRepository,
+                userRepository,
+                encryptionService,
+                tokenRefreshService,
+                new MonzoTokenRefreshProperties(60, 5)
+        );
     }
 
     @Nested
@@ -407,9 +418,9 @@ class MonzoConnectionServiceTest {
     class GetDecryptedAccessTokenTests {
 
         @Test
-        @DisplayName("should return decrypted access token")
+        @DisplayName("should return decrypted access token when token is healthy")
         void shouldReturnDecryptedAccessToken() {
-            // Given
+            // Given - token expires in 6 hours (not expiring soon)
             when(connectionRepository.findActiveByIdAndUserId(connectionId, userId))
                     .thenReturn(Optional.of(testConnection));
             when(encryptionService.decrypt(ACCESS_TOKEN_ENC)).thenReturn(ACCESS_TOKEN);
@@ -419,6 +430,71 @@ class MonzoConnectionServiceTest {
 
             // Then
             assertThat(result).isEqualTo(ACCESS_TOKEN);
+            verifyNoInteractions(tokenRefreshService);
+        }
+
+        @Test
+        @DisplayName("should eagerly refresh and return new access token when token is expiring soon")
+        void shouldEagerlyRefreshWhenTokenExpiringSoon() {
+            // Given - token expires in 2 minutes (within the 5-min eager window)
+            MonzoConnection expiringSoonConnection = new MonzoConnection(
+                    testUser, MONZO_USER_ID, ACCESS_TOKEN_ENC, REFRESH_TOKEN_ENC,
+                    Instant.now().plus(2, ChronoUnit.MINUTES)
+            );
+            expiringSoonConnection.setId(connectionId);
+
+            String newAccessTokenEnc = "new_encrypted_access";
+            String newAccessToken = "new_access_token";
+            MonzoConnection refreshedConnection = new MonzoConnection(
+                    testUser, MONZO_USER_ID, newAccessTokenEnc, REFRESH_TOKEN_ENC,
+                    Instant.now().plus(6, ChronoUnit.HOURS)
+            );
+            refreshedConnection.setId(connectionId);
+
+            when(connectionRepository.findActiveByIdAndUserId(connectionId, userId))
+                    .thenReturn(Optional.of(expiringSoonConnection));
+            when(tokenRefreshService.refresh(connectionId)).thenReturn(refreshedConnection);
+            when(encryptionService.decrypt(newAccessTokenEnc)).thenReturn(newAccessToken);
+
+            // When
+            String result = service.getDecryptedAccessToken(connectionId, userId);
+
+            // Then
+            assertThat(result).isEqualTo(newAccessToken);
+            verify(tokenRefreshService).refresh(connectionId);
+        }
+
+        @Test
+        @DisplayName("should throw MONZO_CONNECTION_REVOKED when eager refresh disconnects the connection")
+        void shouldThrowWhenEagerRefreshDisconnectsConnection() {
+            // Given - token expiring soon
+            MonzoConnection expiringSoonConnection = new MonzoConnection(
+                    testUser, MONZO_USER_ID, ACCESS_TOKEN_ENC, REFRESH_TOKEN_ENC,
+                    Instant.now().plus(2, ChronoUnit.MINUTES)
+            );
+            expiringSoonConnection.setId(connectionId);
+
+            // Refresh service returns a disconnected connection (Monzo revoked it)
+            MonzoConnection disconnectedConnection = new MonzoConnection(
+                    testUser, MONZO_USER_ID, ACCESS_TOKEN_ENC, REFRESH_TOKEN_ENC,
+                    Instant.now().minus(1, ChronoUnit.HOURS)
+            );
+            disconnectedConnection.setId(connectionId);
+            disconnectedConnection.disconnect();
+
+            when(connectionRepository.findActiveByIdAndUserId(connectionId, userId))
+                    .thenReturn(Optional.of(expiringSoonConnection));
+            when(tokenRefreshService.refresh(connectionId)).thenReturn(disconnectedConnection);
+
+            // When/Then
+            assertThatThrownBy(() -> service.getDecryptedAccessToken(connectionId, userId))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(ex -> {
+                        ApiException apiEx = (ApiException) ex;
+                        assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.MONZO_CONNECTION_REVOKED);
+                    });
+
+            verify(encryptionService, never()).decrypt(anyString());
         }
 
         @Test
@@ -537,6 +613,74 @@ class MonzoConnectionServiceTest {
 
             // Then
             assertThat(result).isZero();
+        }
+    }
+
+    @Nested
+    @DisplayName("getTokenStatus()")
+    class GetTokenStatusTests {
+
+        @Test
+        @DisplayName("should return RECONNECT_REQUIRED when no active connections")
+        void shouldReturnReconnectRequiredWhenNoConnections() {
+            // Given
+            when(connectionRepository.findActiveByUserId(userId)).thenReturn(List.of());
+
+            // When
+            MonzoConnectionService.TokenStatus result = service.getTokenStatus(userId);
+
+            // Then
+            assertThat(result).isEqualTo(MonzoConnectionService.TokenStatus.RECONNECT_REQUIRED);
+        }
+
+        @Test
+        @DisplayName("should return ACTIVE when all tokens are healthy")
+        void shouldReturnActiveWhenAllTokensHealthy() {
+            // Given - testConnection expires in 6 hours (healthy)
+            when(connectionRepository.findActiveByUserId(userId)).thenReturn(List.of(testConnection));
+
+            // When
+            MonzoConnectionService.TokenStatus result = service.getTokenStatus(userId);
+
+            // Then
+            assertThat(result).isEqualTo(MonzoConnectionService.TokenStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("should return EXPIRING_SOON when a token is expiring within the window")
+        void shouldReturnExpiringSoonWhenTokenNearExpiry() {
+            // Given - connection expires in 2 minutes
+            MonzoConnection expiringSoon = new MonzoConnection(
+                    testUser, MONZO_USER_ID, ACCESS_TOKEN_ENC, REFRESH_TOKEN_ENC,
+                    Instant.now().plus(2, ChronoUnit.MINUTES)
+            );
+            expiringSoon.setId(UUID.randomUUID());
+            when(connectionRepository.findActiveByUserId(userId)).thenReturn(List.of(expiringSoon));
+
+            // When
+            MonzoConnectionService.TokenStatus result = service.getTokenStatus(userId);
+
+            // Then
+            assertThat(result).isEqualTo(MonzoConnectionService.TokenStatus.EXPIRING_SOON);
+        }
+
+        @Test
+        @DisplayName("should return EXPIRING_SOON when any connection is expiring (mixed state)")
+        void shouldReturnExpiringSoonWhenAnyConnectionExpiring() {
+            // Given - one healthy, one expiring soon
+            MonzoConnection expiringSoon = new MonzoConnection(
+                    testUser, "user_other", ACCESS_TOKEN_ENC, REFRESH_TOKEN_ENC,
+                    Instant.now().plus(2, ChronoUnit.MINUTES)
+            );
+            expiringSoon.setId(UUID.randomUUID());
+            when(connectionRepository.findActiveByUserId(userId))
+                    .thenReturn(List.of(testConnection, expiringSoon));
+
+            // When
+            MonzoConnectionService.TokenStatus result = service.getTokenStatus(userId);
+
+            // Then
+            assertThat(result).isEqualTo(MonzoConnectionService.TokenStatus.EXPIRING_SOON);
         }
     }
 }

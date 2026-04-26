@@ -97,6 +97,18 @@ public interface MonzoConnectionRepository extends JpaRepository<MonzoConnection
     List<MonzoConnection> findActiveWithExpiredTokens(@Param("now") Instant now);
 
     /**
+     * Find all active connections whose tokens expire before the given threshold.
+     *
+     * <p>Pass {@code Instant.now().plus(window)} as the threshold to find tokens
+     * expiring within a proactive refresh window.
+     *
+     * @param threshold connections with {@code tokenExpiresAt < threshold} are returned
+     * @return list of connections to refresh
+     */
+    @Query("SELECT mc FROM MonzoConnection mc WHERE mc.disconnectedAt IS NULL AND mc.tokenExpiresAt < :threshold")
+    List<MonzoConnection> findActiveExpiringBefore(@Param("threshold") Instant threshold);
+
+    /**
      * Count active connections for a user.
      *
      * @param userId the user's ID
