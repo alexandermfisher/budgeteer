@@ -172,6 +172,19 @@ public class MonzoConnection {
     }
 
     /**
+     * Checks if the access token will expire within the given window.
+     *
+     * <p>Used by the eager-refresh guard to proactively refresh tokens before they
+     * expire mid-request, and by the status endpoint to surface {@code EXPIRING_SOON}.
+     *
+     * @param window how far ahead to look (e.g. {@code Duration.ofMinutes(5)})
+     * @return true if the token expires within {@code window} from now
+     */
+    public boolean isTokenExpiringSoon(java.time.Duration window) {
+        return Instant.now().plus(window).isAfter(tokenExpiresAt);
+    }
+
+    /**
      * Soft-deletes this connection by setting disconnectedAt.
      */
     public void disconnect() {

@@ -65,6 +65,9 @@ public class TestDataFactory {
     @Autowired
     private MonzoConnectionRepository monzoConnectionRepository;
 
+    @Autowired
+    private dev.amf.budgeteer.service.common.EncryptionService encryptionService;
+
     // ========================================================================
     // User creation
     // ========================================================================
@@ -297,6 +300,51 @@ public class TestDataFactory {
     public MonzoConnection createDisconnectedMonzoConnectionFor(User user) {
         MonzoConnection connection = createActiveMonzoConnectionFor(user);
         connection.disconnect();
+        return monzoConnectionRepository.save(connection);
+    }
+
+    /**
+     * Creates a Monzo connection with tokens expiring very soon (3 minutes).
+     * Uses fake encrypted tokens (not suitable for tests that call the Monzo API).
+     */
+    public MonzoConnection createMonzoConnectionExpiringSoon(User user) {
+        String fakeEncryptedAccessToken = "encrypted_access_" + generateRandomToken();
+        String fakeEncryptedRefreshToken = "encrypted_refresh_" + generateRandomToken();
+        Instant tokenExpiresAt = Instant.now().plus(3, java.time.temporal.ChronoUnit.MINUTES);
+
+        MonzoConnection connection = new MonzoConnection(
+                user,
+                "user_" + UUID.randomUUID().toString().substring(0, 8),
+                fakeEncryptedAccessToken,
+                fakeEncryptedRefreshToken,
+                tokenExpiresAt
+        );
+        return monzoConnectionRepository.save(connection);
+    }
+
+    /**
+     * Creates a Monzo connection with real AES-256-GCM encrypted tokens.
+     *
+     * <p>Use this when the test will actually call the Monzo API via the refresh service,
+     * since the real {@code EncryptionService} must be able to decrypt the stored tokens.
+     *
+     * @param user               the owning user
+     * @param plainRefreshToken  the plaintext refresh token to store (encrypted)
+     * @param expiresAt          when the access token expires
+     * @return persisted connection with real encrypted tokens
+     */
+    public MonzoConnection createMonzoConnectionWithRealTokens(
+            User user,
+            String plainRefreshToken,
+            Instant expiresAt
+    ) {
+        String encAccessToken = encryptionService.encrypt("test-access-token-" + UUID.randomUUID());
+        String encRefreshToken = encryptionService.encrypt(plainRefreshToken);
+        String monzoUserId = "user_" + UUID.randomUUID().toString().substring(0, 8);
+
+        MonzoConnection connection = new MonzoConnection(
+                user, monzoUserId, encAccessToken, encRefreshToken, expiresAt
+        );
         return monzoConnectionRepository.save(connection);
     }
 

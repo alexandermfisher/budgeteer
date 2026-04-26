@@ -8,7 +8,9 @@
 
 ## 🚀 In Progress
 
-*Nothing currently in progress — ready for next task!*
+| # | Task | Priority | Estimate | Plan |
+|---|------|----------|----------|------|
+| 1 | 🔄 Phase 3: Token Auto-Refresh | 🟠 P1 | 1 day | [plan](token-auto-refresh/plan.md) |
 
 ---
 
@@ -16,7 +18,6 @@
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 1 | 🔄 Phase 3: Token Auto-Refresh | 🟠 P1 | 1 day | [plan](token-auto-refresh/plan.md) |
 | 3 | 🔒 Security Headers & Hardening | 🟡 P2 | 0.5 days | [plan](security-headers/plan.md) |
 | 4 | 📊 Phase 4: Transaction Sync | 🟡 P2 | 2–3 days | [plan](transaction-sync/plan.md) |
 | 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](webhooks/plan.md) |
@@ -104,4 +105,4 @@
 
 ---
 
-*Last updated: 2026-03-29 — Input Validation Hardening complete, dev.sh `test` now runs all tests*
+*Last updated: 2026-04-19 — Phase 3: Token Auto-Refresh moved to In Progress*
