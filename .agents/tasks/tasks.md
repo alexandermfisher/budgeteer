@@ -8,9 +8,7 @@
 
 ## 🚀 In Progress
 
-| # | Task | Priority | Estimate | Plan |
-|---|------|----------|----------|------|
-| 1 | 🔄 Phase 3: Token Auto-Refresh | 🟠 P1 | 1 day | [plan](token-auto-refresh/plan.md) |
+*Nothing currently in progress — ready for next task!*
 
 ---
 
@@ -66,6 +64,9 @@
 
 ## ✅ Done
 
+### April 2026
+- [x] Phase 3: Token Auto-Refresh — background job + eager inline guard, WireMock IT, `tokenStatus` on status endpoint
+
 ### March 2026
 - [x] Input Validation Hardening — Bean Validation on all user-input boundaries, IP sanitization (`IpAddressUtil`), `ConstraintViolationException` handler, 516 tests
 - [x] Code Structure Refactoring — service subpackages, client/ layer, repository/ separation
@@ -105,4 +106,4 @@
 
 ---
 
-*Last updated: 2026-04-19 — Phase 3: Token Auto-Refresh moved to In Progress*
+*Last updated: 2026-04-26 — Phase 3: Token Auto-Refresh complete*
