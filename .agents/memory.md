@@ -1,6 +1,26 @@
-# Cline Session Memory - Budgeteer Project
+# Session Memory - Budgeteer Project
 
-> This file maintains context between Cline sessions. Update this at the end of significant work sessions.
+> This file maintains context between sessions. Update this at the end of significant work sessions.
+
+---
+
+## Frontend Phase — Do This When Creating the Vite App
+
+Configure a Vite dev proxy in `vite.config.ts` so all `/api` requests forward to the Spring backend:
+
+```ts
+server: {
+  proxy: {
+    '/api': 'http://localhost:8080'
+  }
+}
+```
+
+**Why:** `localhost:3000` (Vite) → `localhost:8080` (Spring) is cross-origin in the browser's eyes. Without the proxy, every API call triggers a CORS preflight and `SameSite=Lax` cookies won't be sent on `fetch()`. The proxy makes everything same-origin on `:3000`, matching production behaviour. The `app.cors.allowed-origins` config remains as a fallback but won't be actively relied on.
+
+Also add `Referrer-Policy` and `Permissions-Policy` headers to `SecurityConfig` during this phase (tracked in backlog).
+
+---
 
 ---
 
