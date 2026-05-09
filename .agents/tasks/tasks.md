@@ -8,7 +8,7 @@
 
 ## 🚀 In Progress
 
-*Nothing currently in progress — ready for next task!*
+*Nothing in progress.*
 
 ---
 
@@ -16,7 +16,6 @@
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 3 | 🔒 Security Headers & Hardening | 🟡 P2 | 0.5 days | [plan](security-headers/plan.md) |
 | 4 | 📊 Phase 4: Transaction Sync | 🟡 P2 | 2–3 days | [plan](transaction-sync/plan.md) |
 | 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](webhooks/plan.md) |
 
@@ -38,6 +37,7 @@
 | Dockerfile | P2 | 0.5d | For deployment |
 | NUC Deployment | P2 | 1–2d | Domain, Cloudflare, deploy |
 | Frontend | P2 | TBD | Framework TBD (React/Vue/HTMX) |
+| 🔒 Remaining Security Headers | P3 | 0.25d | `Referrer-Policy: strict-origin-when-cross-origin` + `Permissions-Policy: camera=(), microphone=(), geolocation=()` — defer until frontend build; also configure Vite proxy (`/api` → `localhost:8080`) to avoid CORS/SameSite issues in dev |
 
 ---
 
@@ -63,6 +63,9 @@
 ---
 
 ## ✅ Done
+
+### May 2026
+- [x] Security Headers & Hardening — HSTS, CSP, CORS, error suppression; fixed `server.error.*` prefix bug; educational doc at `.agents/notes/security-headers-explained.md`
 
 ### April 2026
 - [x] Phase 3: Token Auto-Refresh — background job + eager inline guard, WireMock IT, `tokenStatus` on status endpoint
@@ -106,4 +109,4 @@
 
 ---
 
-*Last updated: 2026-04-26 — Phase 3: Token Auto-Refresh complete*
+*Last updated: 2026-05-09*
