@@ -8,7 +8,9 @@
 
 ## 🚀 In Progress
 
-*Nothing in progress.*
+| # | Task | Priority | Estimate | Plan |
+|---|------|----------|----------|------|
+| 4 | 📊 Phase 4: Transaction Sync | 🟡 P2 | 2–3 days | [plan](transaction-sync/plan.md) |
 
 ---
 
@@ -16,7 +18,6 @@
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 4 | 📊 Phase 4: Transaction Sync | 🟡 P2 | 2–3 days | [plan](transaction-sync/plan.md) |
 | 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](webhooks/plan.md) |
 
 ---
@@ -109,4 +110,4 @@
 
 ---
 
-*Last updated: 2026-05-09*
+*Last updated: 2026-05-09 — Transaction Sync in progress*
