@@ -9,9 +9,11 @@ import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.security.CurrentUser;
+import dev.amf.budgeteer.service.monzo.MonzoConnectionCreatedEvent;
 import dev.amf.budgeteer.service.monzo.MonzoConnectionService;
 import dev.amf.budgeteer.service.monzo.MonzoOAuthService;
 import dev.amf.budgeteer.util.LogSanitizer;
+import org.springframework.context.ApplicationEventPublisher;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.jspecify.annotations.Nullable;
@@ -46,13 +48,16 @@ public class MonzoController {
 
     private final MonzoOAuthService oauthService;
     private final MonzoConnectionService connectionService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public MonzoController(
             MonzoOAuthService oauthService,
-            MonzoConnectionService connectionService
+            MonzoConnectionService connectionService,
+            ApplicationEventPublisher eventPublisher
     ) {
         this.oauthService = oauthService;
         this.connectionService = connectionService;
+        this.eventPublisher = eventPublisher;
     }
 
     // ============ OAuth Endpoints ============
@@ -178,6 +183,8 @@ public class MonzoController {
 
         log.info("Successfully connected Monzo account for user {} [connectionId={}]",
                 user.getId(), connection.getId());
+
+        eventPublisher.publishEvent(new MonzoConnectionCreatedEvent(connection.getId(), user.getId()));
 
         // Return JSON response (frontend can redirect based on this)
         // In the future, could redirect to a frontend URL

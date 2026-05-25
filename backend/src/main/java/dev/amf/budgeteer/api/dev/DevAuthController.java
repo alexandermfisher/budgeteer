@@ -1,10 +1,15 @@
 package dev.amf.budgeteer.api.dev;
 
 import dev.amf.budgeteer.api.common.ApiResponse;
+import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.service.common.CookieService;
+import dev.amf.budgeteer.exception.ApiException;
+import dev.amf.budgeteer.repository.MonzoConnectionRepository;
+import dev.amf.budgeteer.security.CurrentUserId;
 import dev.amf.budgeteer.service.auth.DevAuthService;
 import dev.amf.budgeteer.service.auth.SessionService;
+import dev.amf.budgeteer.service.common.CookieService;
+import dev.amf.budgeteer.service.monzo.TransactionSyncService;
 import dev.amf.budgeteer.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -36,13 +41,19 @@ public class DevAuthController {
     private final DevAuthService devAuthService;
     private final SessionService sessionService;
     private final CookieService cookieService;
+    private final TransactionSyncService transactionSyncService;
+    private final MonzoConnectionRepository connectionRepository;
 
     public DevAuthController(DevAuthService devAuthService,
                              SessionService sessionService,
-                             CookieService cookieService) {
+                             CookieService cookieService,
+                             TransactionSyncService transactionSyncService,
+                             MonzoConnectionRepository connectionRepository) {
         this.devAuthService = devAuthService;
         this.sessionService = sessionService;
         this.cookieService = cookieService;
+        this.transactionSyncService = transactionSyncService;
+        this.connectionRepository = connectionRepository;
     }
 
     /**
@@ -171,6 +182,32 @@ public class DevAuthController {
                 revoked,
                 "Revoked " + revoked + " session(s) for " + email
         )));
+    }
+
+    // =========================================================================
+    // SYNC ENDPOINTS
+    // =========================================================================
+
+    /**
+     * Triggers a full backfill for the authenticated user's active Monzo connection.
+     * Useful during development to re-sync without re-doing the real OAuth flow.
+     *
+     * <p>POST /api/test/auth/sync/trigger
+     */
+    @PostMapping("/sync/trigger")
+    public ResponseEntity<ApiResponse<Void>> triggerSync(@CurrentUserId java.util.UUID userId) {
+        log.warn("DEV: Triggering manual transaction backfill for user {}", userId);
+
+        var connection = connectionRepository
+                .findActiveByUserId(userId)
+                .stream()
+                .findFirst()
+                .orElseThrow(() -> new ApiException(ErrorCode.RESOURCE_NOT_FOUND,
+                        "No active Monzo connection found for user " + userId));
+
+        transactionSyncService.backfill(connection.getId());
+
+        return ResponseEntity.ok(ApiResponse.of(null));
     }
 
     /**
