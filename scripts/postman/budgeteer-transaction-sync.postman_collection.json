@@ -1,0 +1,517 @@
+{
+	"info": {
+		"_postman_id": "budgeteer-transaction-sync-collection",
+		"name": "Budgeteer — Transaction Sync",
+		"description": "Manual testing collection for Phase 4: Monzo Transaction Sync.\n\n## Recommended Order\n\n1. **Setup** — Quick Login + verify Monzo is connected\n2. **Inspect DB** — confirm tables are empty\n3. **Trigger Sync** — use dev trigger to run backfill without re-doing OAuth\n4. **Verify Results** — check accounts and transactions were created\n5. **Delta Sync** — trigger delta and confirm only new rows are added\n6. **Edge Cases** — unauthenticated, no connection, etc.\n\n## Prerequisites\n- App running with `dev` profile (`./scripts/dev.sh start`)\n- Monzo OAuth already completed (you have an active connection)\n- Import `budgeteer-local.postman_environment.json` and select it\n- Run `⚡ Quick Login` first to set auth cookies\n\n## What This Tests\n- POST /api/test/auth/sync/trigger (backfill)\n- GET /api/monzo/status (tokenStatus field)\n- Database state via curl-accessible psql",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "0. Setup",
+			"item": [
+				{
+					"name": "⚡ Quick Login (Dev Only)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+									"",
+									"var json = pm.response.json();",
+									"pm.environment.set(\"access_token\", json.data.accessToken);",
+									"pm.environment.set(\"refresh_token\", json.data.refreshToken);",
+									"pm.environment.set(\"user_id\", json.data.userId);",
+									"pm.environment.set(\"user_email\", json.data.email);",
+									"",
+									"console.log(\"✅ Logged in as: \" + json.data.email);",
+									"console.log(\"🆔 User ID: \" + json.data.userId);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{user_email}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/test/auth/quick-login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "test", "auth", "quick-login"]
+						},
+						"description": "Log in without a magic link. Saves access_token, refresh_token, and user_id to environment.\n\n⚠️ Dev profile only."
+					},
+					"response": []
+				},
+				{
+					"name": "Check Monzo Status",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+									"",
+									"var json = pm.response.json();",
+									"var data = json.data;",
+									"",
+									"console.log(\"🔗 Connected: \" + data.connected);",
+									"console.log(\"📊 Active connections: \" + data.connectionCount);",
+									"console.log(\"🔑 Token status: \" + (data.tokenStatus || 'N/A'));",
+									"",
+									"if (!data.connected) {",
+									"    console.warn(\"⚠️  No active Monzo connection — complete OAuth before testing sync!\");",
+									"    console.log(\"Run: POST /api/monzo/connect → open URL → approve in Monzo app\");",
+									"} else {",
+									"    console.log(\"✅ Ready to test sync!\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/monzo/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "monzo", "status"]
+						},
+						"description": "Verify an active Monzo connection exists before attempting sync.\n\nExpected (if connected):\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"connected\": true,\n    \"connectionCount\": 1,\n    \"tokenStatus\": \"VALID\"\n  }\n}\n```\n\nIf `connected: false` — complete OAuth first."
+					},
+					"response": []
+				},
+				{
+					"name": "List Monzo Connections (get ID)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+									"",
+									"var json = pm.response.json();",
+									"console.log(\"Found \" + json.data.length + \" connection(s)\");",
+									"",
+									"if (json.data.length > 0) {",
+									"    var conn = json.data[0];",
+									"    pm.environment.set(\"monzo_connection_id\", conn.id);",
+									"    console.log(\"✅ Connection ID saved: \" + conn.id);",
+									"    console.log(\"   Monzo user: \" + conn.monzoUserId);",
+									"    console.log(\"   Token expires: \" + conn.tokenExpiresAt);",
+									"} else {",
+									"    console.warn(\"⚠️  No connections found — run OAuth first\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/monzo/connections",
+							"host": ["{{base_url}}"],
+							"path": ["api", "monzo", "connections"]
+						},
+						"description": "Lists connections and auto-saves `monzo_connection_id` to environment. Needed to verify backfill results later."
+					},
+					"response": []
+				}
+			],
+			"description": "Run these first. Quick Login → check Monzo is connected → save connection ID."
+		},
+		{
+			"name": "1. Pre-Sync State",
+			"item": [
+				{
+					"name": "Check Account Count (should be 0)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// This is a diagnostic request — no auth endpoint returns account counts yet.",
+									"// Use DB queries from the testing guide instead:",
+									"//",
+									"// docker exec -it budgeteer-postgres psql -U budgeteer -d budgeteer \\",
+									"//   -c \"SELECT COUNT(*) FROM monzo_accounts;\"",
+									"//",
+									"// Expected before sync: 0",
+									"console.log(\"ℹ️  Check the DB directly:\");",
+									"console.log(\"  docker exec -it budgeteer-postgres psql -U budgeteer -d budgeteer -c \\\"SELECT COUNT(*) FROM monzo_accounts;\\\"\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/monzo/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "monzo", "status"]
+						},
+						"description": "Run this before triggering sync to establish baseline.\n\nThis hits status (a live endpoint). Use the DB queries below to check account/transaction counts:\n\n```sql\nSELECT COUNT(*) FROM monzo_accounts;\nSELECT COUNT(*) FROM monzo_transactions;\n```"
+					},
+					"response": []
+				}
+			],
+			"description": "Verify state before sync so you have a baseline to compare against."
+		},
+		{
+			"name": "2. Trigger Backfill",
+			"item": [
+				{
+					"name": "🔄 Trigger Full Backfill (Dev Only)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"if (!pm.environment.get(\"access_token\")) {",
+									"    console.warn(\"⚠️  access_token not set — run Quick Login first\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+									"",
+									"pm.test(\"Response indicates success\", () => {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.true;",
+									"});",
+									"",
+									"var responseTime = pm.response.responseTime;",
+									"console.log(\"⏱️  Backfill took: \" + responseTime + \"ms\");",
+									"console.log(\"\");",
+									"console.log(\"✅ Backfill complete — run DB queries to verify:\");",
+									"console.log(\"  SELECT id, account_type, last_transaction_id, last_synced_at FROM monzo_accounts;\");",
+									"console.log(\"  SELECT COUNT(*) FROM monzo_transactions;\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/test/auth/sync/trigger",
+							"host": ["{{base_url}}"],
+							"path": ["api", "test", "auth", "sync", "trigger"]
+						},
+						"description": "Triggers a full backfill for the authenticated user's active Monzo connection.\n\n**How it works without re-doing OAuth:**\n1. Your Monzo tokens are stored encrypted in `monzo_connections`\n2. The `MonzoTokenRefreshJob` keeps them alive automatically\n3. This endpoint finds your active connection by `userId` and calls `backfill()` directly\n4. `backfill()` decrypts the token, calls `GET /accounts` then `GET /transactions` per account\n5. All data is upserted into `monzo_accounts` and `monzo_transactions`\n\n**Note:** Unlike post-OAuth backfill (which is async), this endpoint runs **synchronously** — the response waits for full completion.\n\n**Expected response:**\n```json\n{\"success\": true, \"data\": null}\n```\n\nAfter success, check:\n- `monzo_accounts` has rows with your real account IDs\n- `monzo_transactions` has your real transactions\n- `last_transaction_id` is set on each account (cursor for next delta)\n- `last_synced_at` is set\n\n⚠️ Dev profile only."
+					},
+					"response": []
+				},
+				{
+					"name": "Trigger Backfill — No Connection (expect 404)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Log in as a user that has no Monzo connection",
+									"// This test requires a second user with no connection.",
+									"// Best done manually — quick-login as a different email first.",
+									"console.log(\"ℹ️  For this test, first quick-login as a user with no Monzo connection.\");"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 404\", () => pm.response.to.have.status(404));",
+									"",
+									"pm.test(\"Returns RESOURCE_NOT_FOUND error\", () => {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.false;",
+									"    pm.expect(json.error.code).to.equal(\"RESOURCE_NOT_FOUND\");",
+									"});",
+									"",
+									"console.log(\"✅ Correct 404 when no active connection exists\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/test/auth/sync/trigger",
+							"host": ["{{base_url}}"],
+							"path": ["api", "test", "auth", "sync", "trigger"]
+						},
+						"description": "Expected when the authenticated user has no active Monzo connection.\n\n**Setup:** Quick-login as a different email (e.g. `nomonzo@example.com`) before running this.\n\nExpected:\n```json\n{\n  \"success\": false,\n  \"error\": {\n    \"code\": \"RESOURCE_NOT_FOUND\",\n    \"message\": \"No active Monzo connection found for user ...\"\n  }\n}\n```"
+					},
+					"response": []
+				},
+				{
+					"name": "Trigger Backfill — Unauthenticated (expect 401)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 401\", () => pm.response.to.have.status(401));",
+									"",
+									"pm.test(\"Returns auth error\", () => {",
+									"    var json = pm.response.json();",
+									"    pm.expect(json.success).to.be.false;",
+									"});",
+									"",
+									"console.log(\"✅ Correct 401 for unauthenticated request\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/test/auth/sync/trigger",
+							"host": ["{{base_url}}"],
+							"path": ["api", "test", "auth", "sync", "trigger"]
+						},
+						"description": "Verifies the endpoint requires authentication.\n\nNo auth header or cookie sent — should return 401."
+					},
+					"response": []
+				}
+			],
+			"description": "Trigger a full backfill and verify the response.\n\nAfter a successful trigger, use DB queries to confirm accounts and transactions were created."
+		},
+		{
+			"name": "3. Verify Sync Results",
+			"item": [
+				{
+					"name": "Re-check Monzo Status (after sync)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+									"",
+									"var json = pm.response.json();",
+									"console.log(\"🔗 Connected: \" + json.data.connected);",
+									"console.log(\"📊 Connection count: \" + json.data.connectionCount);",
+									"console.log(\"🔑 Token status: \" + (json.data.tokenStatus || 'N/A'));",
+									"",
+									"pm.test(\"Still connected after sync\", () => {",
+									"    pm.expect(json.data.connected).to.be.true;",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/monzo/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "monzo", "status"]
+						},
+						"description": "Verify the connection is still active after sync completed.\n\nSync only reads data; it should not affect the connection state."
+					},
+					"response": []
+				}
+			],
+			"description": "After triggering sync, use these requests and the DB queries from the testing guide to confirm data was written correctly."
+		},
+		{
+			"name": "4. Idempotency (Re-run Backfill)",
+			"item": [
+				{
+					"name": "🔄 Re-trigger Backfill (idempotency check)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+									"",
+									"console.log(\"✅ Second backfill complete\");",
+									"console.log(\"\");",
+									"console.log(\"Now verify row counts are UNCHANGED vs the first run:\");",
+									"console.log(\"  SELECT COUNT(*) FROM monzo_accounts;\");",
+									"console.log(\"  SELECT COUNT(*) FROM monzo_transactions;\");",
+									"console.log(\"\");",
+									"console.log(\"Check that updated_at did NOT change for existing rows\");",
+									"console.log(\"(upsert only updates mutable fields like settled_at / amount)\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/test/auth/sync/trigger",
+							"host": ["{{base_url}}"],
+							"path": ["api", "test", "auth", "sync", "trigger"]
+						},
+						"description": "Run backfill a second time without resetting DB.\n\n**What to verify:**\n- Row counts in `monzo_accounts` and `monzo_transactions` are IDENTICAL to after the first run\n- `last_synced_at` on accounts updates (expected — we always record sync time)\n- `last_transaction_id` cursor does NOT change (same latest transaction)\n- No duplicate transactions\n\nThis proves the native upsert (`INSERT ... ON CONFLICT DO UPDATE`) is working correctly."
+					},
+					"response": []
+				}
+			],
+			"description": "Run backfill twice and confirm row counts don't change — verifies the upsert is idempotent."
+		},
+		{
+			"name": "5. Edge Cases",
+			"item": [
+				{
+					"name": "Monzo Status — token fields",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+									"",
+									"var json = pm.response.json();",
+									"var ts = json.data.tokenStatus;",
+									"",
+									"console.log(\"Token status: \" + ts);",
+									"console.log(\"\");",
+									"",
+									"if (ts === \"VALID\") {",
+									"    console.log(\"✅ Token is valid — sync should work fine\");",
+									"} else if (ts === \"EXPIRING_SOON\") {",
+									"    console.log(\"⚠️  Token expiring soon — refresh job will run shortly\");",
+									"} else if (ts === \"EXPIRED\") {",
+									"    console.log(\"❌ Token EXPIRED — sync will fail, trigger a refresh or re-connect\");",
+									"} else if (ts === \"REVOKED\") {",
+									"    console.log(\"❌ Token REVOKED — user denied access in Monzo app, re-connect needed\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/monzo/status",
+							"host": ["{{base_url}}"],
+							"path": ["api", "monzo", "status"]
+						},
+						"description": "Inspect the `tokenStatus` field to understand token health.\n\nPossible values:\n- `VALID` — token is fresh, sync will work\n- `EXPIRING_SOON` — within the refresh threshold, job will renew it shortly\n- `EXPIRED` — token expired, sync will attempt eager refresh on next call\n- `REVOKED` — user revoked access in Monzo app, re-OAuth required\n- `UNKNOWN` — no token / never connected"
+					},
+					"response": []
+				},
+				{
+					"name": "Trigger Sync (cookie auth)",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"// Uses the HttpOnly access_token cookie automatically set by Quick Login",
+									"// Postman sends cookies automatically for the same domain",
+									"console.log(\"ℹ️  This request relies on cookie set by Quick Login\");"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200 with cookie auth\", () => pm.response.to.have.status(200));",
+									"console.log(\"✅ Cookie-based auth works for sync trigger\");"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/test/auth/sync/trigger",
+							"host": ["{{base_url}}"],
+							"path": ["api", "test", "auth", "sync", "trigger"]
+						},
+						"description": "Same trigger, but using cookie auth (no explicit Bearer token).\n\nAfter Quick Login, Postman holds the `access_token` and `refresh_token` HttpOnly cookies automatically.\nThis verifies the endpoint works with both auth methods."
+					},
+					"response": []
+				}
+			],
+			"description": "Token status inspection and alternative auth method checks."
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": ["// Global pre-request — nothing required"]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Log response time for every request",
+					"console.log(\"⏱️  \" + pm.response.responseTime + \"ms\");"
+				]
+			}
+		}
+	]
+}
