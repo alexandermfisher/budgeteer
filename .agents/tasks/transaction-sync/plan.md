@@ -18,7 +18,8 @@ The Monzo API requires an account ID to list transactions, so accounts are disco
 - [ ] V8 migration: `monzo_transactions` table
 - [ ] `MonzoAccount` + `MonzoTransaction` domain entities
 - [ ] `MonzoAccountRepository` + `MonzoTransactionRepository` (incl. native upsert)
-- [ ] `MonzoClient` — add `getAccounts()` and `getTransactions()` methods
+- [ ] Refactor: extract `TokenResponse` out of `MonzoClient` → `client/monzo/dto/`; extract `ConnectionStatus` out of `MonzoController` → `api/monzo/dto/MonzoStatusResponse`
+- [ ] `MonzoClient` — add `getAccounts()` and `getTransactions()` methods; new DTOs in `client/monzo/dto/`
 - [ ] `AsyncConfig` — `@EnableAsync` + `backfillTaskExecutor` thread pool
 - [ ] `MonzoConnectionCreatedEvent` + `TransactionSyncEventListener` (async backfill trigger)
 - [ ] `TransactionSyncService` — `backfill()` and `deltaSync()` logic
@@ -79,6 +80,33 @@ CREATE INDEX idx_monzo_txn_account_created ON monzo_transactions(account_id, mon
 
 ---
 
+## DTO Structure
+
+All records live in dedicated files — no inline records inside classes.
+
+```
+client/monzo/dto/
+  TokenResponse.java              ← MOVE out of MonzoClient (existing inline record)
+  MonzoAccountResponse.java       ← new: single account from GET /accounts
+  MonzoAccountsResponse.java      ← new: wrapper { List<MonzoAccountResponse> accounts }
+  MonzoMerchantResponse.java      ← new: merchant sub-object on a transaction
+  MonzoTransactionResponse.java   ← new: single transaction from GET /transactions
+  MonzoTransactionsResponse.java  ← new: wrapper { List<MonzoTransactionResponse> transactions }
+
+api/monzo/dto/
+  MonzoConnectInitResponse.java   ← existing
+  MonzoConnectionResponse.java    ← existing
+  MonzoStatusResponse.java        ← MOVE out of MonzoController (existing inline ConnectionStatus record)
+
+api/transaction/dto/
+  TransactionResponse.java        ← our API response to the frontend (different from MonzoTransactionResponse)
+  TransactionPageResponse.java    ← paginated wrapper with nextCursor + hasMore
+```
+
+The `Monzo` prefix on client DTOs (`MonzoTransactionResponse` vs `TransactionResponse`) prevents import ambiguity in `TransactionSyncService`, which uses both layers.
+
+---
+
 ## New Files
 
 | Path | Purpose |
@@ -97,15 +125,21 @@ CREATE INDEX idx_monzo_txn_account_created ON monzo_transactions(account_id, mon
 | `service/monzo/TransactionSyncJob.java` | `@Scheduled` cron → `deltaSync` for all syncable accounts |
 | `service/transaction/TransactionQueryService.java` | Cursor-paginated query logic |
 | `api/transaction/TransactionController.java` | `GET /api/transactions` |
-| `api/transaction/dto/TransactionResponse.java` | Single transaction DTO |
+| `api/transaction/dto/TransactionResponse.java` | Our API response DTO (frontend-facing) |
 | `api/transaction/dto/TransactionPageResponse.java` | Paginated wrapper with `nextCursor` + `hasMore` |
+| `client/monzo/dto/MonzoAccountResponse.java` | Monzo API account object |
+| `client/monzo/dto/MonzoAccountsResponse.java` | Wrapper for `GET /accounts` response |
+| `client/monzo/dto/MonzoMerchantResponse.java` | Merchant sub-object on a transaction |
+| `client/monzo/dto/MonzoTransactionResponse.java` | Monzo API transaction object |
+| `client/monzo/dto/MonzoTransactionsResponse.java` | Wrapper for `GET /transactions` response |
+| `api/monzo/dto/MonzoStatusResponse.java` | Moved from inline `ConnectionStatus` in `MonzoController` |
 
 ## Modified Files
 
 | Path | Change |
 |------|--------|
-| `client/monzo/MonzoClient.java` | Add `getAccounts()`, `getTransactions()`, 5 new response records |
-| `api/monzo/MonzoController.java` | Inject `ApplicationEventPublisher`; publish `MonzoConnectionCreatedEvent` in `handleCallback()` |
+| `client/monzo/MonzoClient.java` | Add `getAccounts()`, `getTransactions()`; remove inline `TokenResponse` (moved to `client/monzo/dto/`) |
+| `api/monzo/MonzoController.java` | Remove inline `ConnectionStatus` (→ `MonzoStatusResponse`); inject `ApplicationEventPublisher`; publish `MonzoConnectionCreatedEvent` post-callback |
 | `api/common/ErrorCode.java` | Add `ACCOUNT_NOT_FOUND` (404), `MONZO_SYNC_ERROR` (502) |
 | `application.properties` | Add `monzo.transaction-sync.*` properties |
 
@@ -115,25 +149,41 @@ CREATE INDEX idx_monzo_txn_account_created ON monzo_transactions(account_id, mon
 
 ```java
 // GET /accounts
-List<AccountResponse> getAccounts(String accessToken)
+List<MonzoAccountResponse> getAccounts(String accessToken)
 
 // GET /transactions?account_id=x&expand[]=merchant&limit=x[&since_id=x]
-List<TransactionResponse> getTransactions(String accessToken, String accountId,
+List<MonzoTransactionResponse> getTransactions(String accessToken, String accountId,
         @Nullable String sinceId, int limit)
 ```
 
-New response records (added at end of `MonzoClient.java`):
+New files in `client/monzo/dto/` (one record per file, no inline records):
+
 ```java
-record AccountResponse(String id, String type, @Nullable String description, String currency, boolean closed) {}
-record AccountsResponse(List<AccountResponse> accounts) {}
-record MerchantResponse(@Nullable String name, @Nullable String category) {}
-record TransactionResponse(String id, int amount, String currency, @Nullable String description,
-        @Nullable MerchantResponse merchant, @Nullable String notes, @Nullable String declineReason,
+// MonzoAccountResponse.java
+record MonzoAccountResponse(String id, String type, @Nullable String description,
+        String currency, boolean closed) {}
+
+// MonzoAccountsResponse.java  — Jackson deserialization wrapper
+record MonzoAccountsResponse(List<MonzoAccountResponse> accounts) {}
+
+// MonzoMerchantResponse.java
+record MonzoMerchantResponse(@Nullable String name, @Nullable String category) {}
+
+// MonzoTransactionResponse.java
+record MonzoTransactionResponse(String id, int amount, String currency,
+        @Nullable String description, @Nullable MonzoMerchantResponse merchant,
+        @Nullable String notes, @Nullable String declineReason,
         String created, @Nullable String settled) {}
-record TransactionsResponse(List<TransactionResponse> transactions) {}
+
+// MonzoTransactionsResponse.java  — Jackson deserialization wrapper
+record MonzoTransactionsResponse(List<MonzoTransactionResponse> transactions) {}
 ```
 
-Both methods follow the existing `handleMonzoError()` pattern: 401 → `MONZO_CONNECTION_REVOKED`.
+Also move the existing inline record out:
+- `TokenResponse` (currently at bottom of `MonzoClient.java`) → `client/monzo/dto/TokenResponse.java`
+- `ConnectionStatus` (currently at bottom of `MonzoController.java`) → `api/monzo/dto/MonzoStatusResponse.java`
+
+Both new methods follow the existing `handleMonzoError()` pattern: 401 → `MONZO_CONNECTION_REVOKED`.
 
 ---
 
@@ -236,18 +286,19 @@ monzo.transaction-sync.backfill-queue-capacity=10
 
 ## Implementation Order
 
-1. V7/V8 migrations + local verify
-2. `MonzoAccount` + `MonzoTransaction` entities
-3. `MonzoAccountRepository` + `MonzoTransactionRepository` (incl. native upsert)
-4. `ErrorCode` additions
-5. `MonzoClient` extensions + unit tests
-6. `AsyncConfig` + `TransactionSyncProperties` + properties
-7. `TransactionSyncService` + `TransactionSyncServiceTest`
-8. `MonzoConnectionCreatedEvent` + `TransactionSyncEventListener`
-9. Publish event in `MonzoController` + update `MonzoControllerTest`
-10. `TransactionSyncJob` + `TransactionSyncJobTest`
-11. API layer + `TransactionControllerTest`
-12. Integration tests
+1. DTO refactor: move `TokenResponse` → `client/monzo/dto/`; move `ConnectionStatus` → `api/monzo/dto/MonzoStatusResponse`; compile + test
+2. V7/V8 migrations + local verify
+3. `MonzoAccount` + `MonzoTransaction` entities
+4. `MonzoAccountRepository` + `MonzoTransactionRepository` (incl. native upsert)
+5. `ErrorCode` additions
+6. New `client/monzo/dto/` records + `MonzoClient` new methods + unit tests
+7. `AsyncConfig` + `TransactionSyncProperties` + properties
+8. `TransactionSyncService` + `TransactionSyncServiceTest`
+9. `MonzoConnectionCreatedEvent` + `TransactionSyncEventListener`
+10. Publish event in `MonzoController` + update `MonzoControllerTest`
+11. `TransactionSyncJob` + `TransactionSyncJobTest`
+12. API layer (`TransactionController`, `TransactionQueryService`, `api/transaction/dto/`) + `TransactionControllerTest`
+13. Integration tests
 
 ---
 
