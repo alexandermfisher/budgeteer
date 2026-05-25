@@ -1,7 +1,11 @@
 package dev.amf.budgeteer.integration;
 
+import dev.amf.budgeteer.domain.monzo.MonzoAccount;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
+import dev.amf.budgeteer.domain.monzo.MonzoTransaction;
+import dev.amf.budgeteer.repository.MonzoAccountRepository;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
+import dev.amf.budgeteer.repository.MonzoTransactionRepository;
 import dev.amf.budgeteer.domain.oauth.OAuthState;
 import dev.amf.budgeteer.repository.OAuthStateRepository;
 import dev.amf.budgeteer.domain.session.AppRefreshToken;
@@ -64,6 +68,12 @@ public class TestDataFactory {
 
     @Autowired
     private MonzoConnectionRepository monzoConnectionRepository;
+
+    @Autowired
+    private MonzoAccountRepository monzoAccountRepository;
+
+    @Autowired
+    private MonzoTransactionRepository monzoTransactionRepository;
 
     @Autowired
     private dev.amf.budgeteer.service.common.EncryptionService encryptionService;
@@ -346,6 +356,32 @@ public class TestDataFactory {
                 user, monzoUserId, encAccessToken, encRefreshToken, expiresAt
         );
         return monzoConnectionRepository.save(connection);
+    }
+
+    // ========================================================================
+    // Monzo Account + Transaction creation
+    // ========================================================================
+
+    public MonzoAccount createMonzoAccount(MonzoConnection connection, User user) {
+        return createMonzoAccount(connection, user, "acc_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16));
+    }
+
+    public MonzoAccount createMonzoAccount(MonzoConnection connection, User user, String accountId) {
+        MonzoAccount account = new MonzoAccount(
+                accountId, connection, user, "uk_retail", "Current Account", "GBP", false
+        );
+        return monzoAccountRepository.save(account);
+    }
+
+    public MonzoTransaction createMonzoTransaction(MonzoAccount account, User user) {
+        String txId = "tx_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        MonzoTransaction tx = new MonzoTransaction(
+                txId, account, user,
+                -1000, "GBP", "Test transaction",
+                null, null, null,
+                false, Instant.now(), null
+        );
+        return monzoTransactionRepository.save(tx);
     }
 
     // ========================================================================

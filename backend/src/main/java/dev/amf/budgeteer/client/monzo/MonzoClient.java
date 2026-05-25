@@ -1,9 +1,14 @@
 package dev.amf.budgeteer.client.monzo;
 
 import dev.amf.budgeteer.api.common.ErrorCode;
+import dev.amf.budgeteer.client.monzo.dto.MonzoAccountResponse;
+import dev.amf.budgeteer.client.monzo.dto.MonzoAccountsResponse;
+import dev.amf.budgeteer.client.monzo.dto.MonzoTransactionResponse;
+import dev.amf.budgeteer.client.monzo.dto.MonzoTransactionsResponse;
 import dev.amf.budgeteer.client.monzo.dto.TokenResponse;
 import dev.amf.budgeteer.config.MonzoProperties;
 import dev.amf.budgeteer.exception.ApiException;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatusCode;
@@ -13,8 +18,10 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -152,6 +159,83 @@ public class MonzoClient {
         } catch (RestClientResponseException e) {
             handleMonzoError(e, "whoami");
             throw new ApiException(ErrorCode.MONZO_API_ERROR, "Failed to get Monzo user ID: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Lists all Monzo accounts for the authenticated user.
+     *
+     * @param accessToken the access token
+     * @return list of accounts
+     * @throws ApiException if the call fails or token is revoked
+     */
+    public List<MonzoAccountResponse> getAccounts(String accessToken) {
+        log.debug("Fetching Monzo accounts");
+
+        try {
+            MonzoAccountsResponse response = restClient.get()
+                    .uri("/accounts")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .body(MonzoAccountsResponse.class);
+
+            if (response == null) {
+                throw new ApiException(ErrorCode.MONZO_API_ERROR, "Empty response from Monzo accounts endpoint");
+            }
+
+            log.debug("Fetched {} Monzo accounts", response.accounts().size());
+            return response.accounts();
+
+        } catch (RestClientResponseException e) {
+            handleMonzoError(e, "accounts");
+            throw new ApiException(ErrorCode.MONZO_API_ERROR, "Failed to fetch Monzo accounts: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Lists transactions for a Monzo account.
+     *
+     * @param accessToken the access token
+     * @param accountId   the Monzo account ID
+     * @param sinceId     cursor for pagination — returns transactions after this ID (null for first page)
+     * @param limit       maximum number of transactions to return
+     * @return list of transactions
+     * @throws ApiException if the call fails or token is revoked
+     */
+    public List<MonzoTransactionResponse> getTransactions(
+            String accessToken,
+            String accountId,
+            @Nullable String sinceId,
+            int limit
+    ) {
+        log.debug("Fetching Monzo transactions [accountId={}, sinceId={}, limit={}]", accountId, sinceId, limit);
+
+        try {
+            UriComponentsBuilder uri = UriComponentsBuilder.fromPath("/transactions")
+                    .queryParam("account_id", accountId)
+                    .queryParam("expand[]", "merchant")
+                    .queryParam("limit", limit);
+
+            if (sinceId != null) {
+                uri.queryParam("since_id", sinceId);
+            }
+
+            MonzoTransactionsResponse response = restClient.get()
+                    .uri(uri.build().toUriString())
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .body(MonzoTransactionsResponse.class);
+
+            if (response == null) {
+                throw new ApiException(ErrorCode.MONZO_API_ERROR, "Empty response from Monzo transactions endpoint");
+            }
+
+            log.debug("Fetched {} transactions for account {}", response.transactions().size(), accountId);
+            return response.transactions();
+
+        } catch (RestClientResponseException e) {
+            handleMonzoError(e, "transactions");
+            throw new ApiException(ErrorCode.MONZO_API_ERROR, "Failed to fetch Monzo transactions: " + e.getMessage(), e);
         }
     }
 
