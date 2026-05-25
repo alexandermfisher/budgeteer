@@ -228,10 +228,24 @@
 
     <build>
         <plugins>
+            <!-- Resolves dependency jar paths as Maven properties (e.g. ${org.mockito:mockito-core:jar})
+                 so Surefire can wire mockito-core as an explicit -javaagent, avoiding the
+                 "self-attaching" dynamic agent warning that will become an error in future JDKs. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>resolve-test-agent-paths</id>
+                        <goals><goal>properties</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
+                    <argLine>-javaagent:${org.mockito:mockito-core:jar}</argLine>
                     <!-- Include *IT.java integration tests alongside *Test.java -->
                     <includes>
                         <include>**/*Test.java</include>
