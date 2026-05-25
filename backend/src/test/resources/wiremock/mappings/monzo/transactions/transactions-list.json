@@ -1,0 +1,29 @@
+{
+  "name": "Monzo Transactions - Default List",
+  "request": {
+    "method": "GET",
+    "urlPath": "/transactions"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "transactions": [
+        {
+          "id": "tx_00009abcdefgh12345",
+          "amount": -500,
+          "currency": "GBP",
+          "description": "Test Transaction",
+          "merchant": null,
+          "notes": null,
+          "decline_reason": null,
+          "created": "2024-01-01T10:00:00Z",
+          "settled": "2024-01-02T00:00:00Z"
+        }
+      ]
+    }
+  },
+  "priority": 5
+}

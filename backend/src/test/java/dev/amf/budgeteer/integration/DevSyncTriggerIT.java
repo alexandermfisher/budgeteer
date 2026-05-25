@@ -1,26 +1,17 @@
 package dev.amf.budgeteer.integration;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.repository.MonzoAccountRepository;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.repository.MonzoTransactionRepository;
 import dev.amf.budgeteer.service.auth.SessionService;
-import dev.amf.budgeteer.service.common.CookieService;
 import io.restassured.RestAssured;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -32,11 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.is;
 
 @DisplayName("Dev Sync Trigger Integration Tests")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles({"integration-test", "dev"})
-class DevSyncTriggerIT extends AbstractPostgresIntegrationTest {
-
-    private static WireMockServer wm;
+class DevSyncTriggerIT extends AbstractMonzoWireMockIT {
 
     @LocalServerPort private int port;
 
@@ -44,31 +32,7 @@ class DevSyncTriggerIT extends AbstractPostgresIntegrationTest {
     @Autowired private MonzoAccountRepository accountRepository;
     @Autowired private MonzoTransactionRepository transactionRepository;
     @Autowired private SessionService sessionService;
-    @Autowired private CookieService cookieService;
     @Autowired private TestDataFactory testData;
-
-    @BeforeAll
-    static void startWireMock() {
-        wm = new WireMockServer(WireMockConfiguration.options().dynamicPort());
-        wm.start();
-        configureFor("localhost", wm.port());
-    }
-
-    @AfterAll
-    static void stopWireMock() {
-        if (wm != null) wm.stop();
-    }
-
-    @DynamicPropertySource
-    static void configureWireMockUrls(DynamicPropertyRegistry registry) {
-        if (wm == null) {
-            wm = new WireMockServer(WireMockConfiguration.options().dynamicPort());
-            wm.start();
-        }
-        String base = "http://localhost:" + wm.port();
-        registry.add("monzo.token-url", () -> base + "/oauth2/token");
-        registry.add("monzo.api-base-url", () -> base);
-    }
 
     @BeforeEach
     void setUp() {
@@ -76,7 +40,6 @@ class DevSyncTriggerIT extends AbstractPostgresIntegrationTest {
         transactionRepository.deleteAll();
         accountRepository.deleteAll();
         connectionRepository.deleteAll();
-        wm.resetAll();
     }
 
     @Test

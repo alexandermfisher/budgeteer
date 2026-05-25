@@ -1,0 +1,25 @@
+{
+  "name": "Monzo Accounts - Default List",
+  "request": {
+    "method": "GET",
+    "urlPath": "/accounts"
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "accounts": [
+        {
+          "id": "acc_00009abcdefgh12345",
+          "type": "uk_retail",
+          "description": "Current Account",
+          "currency": "GBP",
+          "closed": false
+        }
+      ]
+    }
+  },
+  "priority": 5
+}

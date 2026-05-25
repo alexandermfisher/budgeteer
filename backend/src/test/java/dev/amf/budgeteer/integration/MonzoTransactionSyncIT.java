@@ -1,7 +1,5 @@
 package dev.amf.budgeteer.integration;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import dev.amf.budgeteer.domain.monzo.MonzoAccount;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
@@ -9,16 +7,11 @@ import dev.amf.budgeteer.repository.MonzoAccountRepository;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.repository.MonzoTransactionRepository;
 import dev.amf.budgeteer.service.monzo.TransactionSyncService;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -28,11 +21,8 @@ import java.util.UUID;
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DisplayName("Transaction Sync Integration Tests")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class TransactionSyncIT extends AbstractPostgresIntegrationTest {
-
-    private static WireMockServer wm;
+@DisplayName("Monzo Transaction Sync Integration Tests")
+class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
 
     @Autowired private TransactionSyncService syncService;
     @Autowired private MonzoConnectionRepository connectionRepository;
@@ -40,35 +30,11 @@ class TransactionSyncIT extends AbstractPostgresIntegrationTest {
     @Autowired private MonzoTransactionRepository transactionRepository;
     @Autowired private TestDataFactory testData;
 
-    @BeforeAll
-    static void startWireMock() {
-        wm = new WireMockServer(WireMockConfiguration.options().dynamicPort());
-        wm.start();
-        configureFor("localhost", wm.port());
-    }
-
-    @AfterAll
-    static void stopWireMock() {
-        if (wm != null) wm.stop();
-    }
-
-    @DynamicPropertySource
-    static void configureWireMockUrls(DynamicPropertyRegistry registry) {
-        if (wm == null) {
-            wm = new WireMockServer(WireMockConfiguration.options().dynamicPort());
-            wm.start();
-        }
-        String base = "http://localhost:" + wm.port();
-        registry.add("monzo.token-url", () -> base + "/oauth2/token");
-        registry.add("monzo.api-base-url", () -> base);
-    }
-
     @BeforeEach
     void setUp() {
         transactionRepository.deleteAll();
         accountRepository.deleteAll();
         connectionRepository.deleteAll();
-        wm.resetAll();
     }
 
     @Nested
@@ -105,10 +71,10 @@ class TransactionSyncIT extends AbstractPostgresIntegrationTest {
             // Then
             List<MonzoAccount> accounts = accountRepository.findByConnectionId(connection.getId());
             assertThat(accounts).hasSize(1);
-            assertThat(accounts.get(0).getId()).isEqualTo("acc_001");
-            assertThat(accounts.get(0).isClosed()).isFalse();
-            assertThat(accounts.get(0).getLastTransactionId()).isEqualTo("tx_002");
-            assertThat(accounts.get(0).getLastSyncedAt()).isNotNull();
+            assertThat(accounts.getFirst().getId()).isEqualTo("acc_001");
+            assertThat(accounts.getFirst().isClosed()).isFalse();
+            assertThat(accounts.getFirst().getLastTransactionId()).isEqualTo("tx_002");
+            assertThat(accounts.getFirst().getLastSyncedAt()).isNotNull();
 
             assertThat(transactionRepository.findByAccountId("acc_001")).hasSize(2);
         }
@@ -231,7 +197,7 @@ class TransactionSyncIT extends AbstractPostgresIntegrationTest {
     private String buildTransactionPage(int count, String idPrefix, String baseTime) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < count; i++) {
-            if (sb.length() > 0) sb.append(",");
+            if (!sb.isEmpty()) sb.append(",");
             sb.append(String.format(
                     "{\"id\":\"%s%03d\",\"amount\":-100,\"currency\":\"GBP\"," +
                     "\"description\":\"Tx %d\",\"merchant\":null,\"notes\":null," +
