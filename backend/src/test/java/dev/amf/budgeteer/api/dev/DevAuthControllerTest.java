@@ -3,13 +3,11 @@ package dev.amf.budgeteer.api.dev;
 import dev.amf.budgeteer.api.common.GlobalExceptionHandler;
 import dev.amf.budgeteer.config.SecurityConfig;
 import dev.amf.budgeteer.domain.user.User;
-import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.service.auth.AuthService;
 import dev.amf.budgeteer.service.auth.DevAuthService;
 import dev.amf.budgeteer.service.auth.JweTokenService;
 import dev.amf.budgeteer.service.auth.SessionService;
 import dev.amf.budgeteer.service.common.CookieService;
-import dev.amf.budgeteer.service.monzo.TransactionSyncService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,12 +51,6 @@ class DevAuthControllerTest {
     @MockitoBean
     private CookieService cookieService;
 
-    @MockitoBean
-    private TransactionSyncService transactionSyncService;
-
-    @MockitoBean
-    private MonzoConnectionRepository monzoConnectionRepository;
-
     // Required by SecurityConfig and CurrentUserArgumentResolver
     @MockitoBean
     private JweTokenService jweTokenService;
@@ -75,7 +67,7 @@ class DevAuthControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /api/test/auth/quick-login")
+    @DisplayName("POST /api/dev/auth/quick-login")
     class QuickLogin {
 
         @Test
@@ -89,7 +81,7 @@ class DevAuthControllerTest {
                     .thenReturn(tokens);
 
             // When/Then
-            mockMvc.perform(post("/api/test/auth/quick-login")
+            mockMvc.perform(post("/api/dev/auth/quick-login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"email": "test@example.com"}
@@ -115,7 +107,7 @@ class DevAuthControllerTest {
                     .thenReturn(new SessionService.SessionTokens("a", "r"));
 
             // When/Then - email with uppercase should be normalized to lowercase
-            mockMvc.perform(post("/api/test/auth/quick-login")
+            mockMvc.perform(post("/api/dev/auth/quick-login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"email": "TEST@EXAMPLE.COM"}
@@ -128,7 +120,7 @@ class DevAuthControllerTest {
         @Test
         @DisplayName("should return 400 for missing email")
         void shouldReturn400ForMissingEmail() throws Exception {
-            mockMvc.perform(post("/api/test/auth/quick-login")
+            mockMvc.perform(post("/api/dev/auth/quick-login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isBadRequest())
@@ -138,7 +130,7 @@ class DevAuthControllerTest {
         @Test
         @DisplayName("should return 400 for invalid email format")
         void shouldReturn400ForInvalidEmail() throws Exception {
-            mockMvc.perform(post("/api/test/auth/quick-login")
+            mockMvc.perform(post("/api/dev/auth/quick-login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"email": "not-an-email"}
@@ -149,7 +141,7 @@ class DevAuthControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /api/test/auth/revoke-all")
+    @DisplayName("POST /api/dev/auth/revoke-all")
     class RevokeAll {
 
         @Test
@@ -159,7 +151,7 @@ class DevAuthControllerTest {
             when(devAuthService.revokeAllSessions()).thenReturn(5);
 
             // When/Then
-            mockMvc.perform(post("/api/test/auth/revoke-all"))
+            mockMvc.perform(post("/api/dev/auth/revoke-all"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.sessionsRevoked").value(5))
                     .andExpect(jsonPath("$.data.message").value("All sessions revoked. Everyone has been logged out."));
@@ -174,14 +166,14 @@ class DevAuthControllerTest {
             when(devAuthService.revokeAllSessions()).thenReturn(0);
 
             // When/Then
-            mockMvc.perform(post("/api/test/auth/revoke-all"))
+            mockMvc.perform(post("/api/dev/auth/revoke-all"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.sessionsRevoked").value(0));
         }
     }
 
     @Nested
-    @DisplayName("POST /api/test/auth/revoke-user")
+    @DisplayName("POST /api/dev/auth/revoke-user")
     class RevokeUser {
 
         @Test
@@ -191,7 +183,7 @@ class DevAuthControllerTest {
             when(devAuthService.revokeUserSessions("test@example.com")).thenReturn(2);
 
             // When/Then
-            mockMvc.perform(post("/api/test/auth/revoke-user")
+            mockMvc.perform(post("/api/dev/auth/revoke-user")
                             .param("email", "test@example.com"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.sessionsRevoked").value(2))
@@ -207,7 +199,7 @@ class DevAuthControllerTest {
             when(devAuthService.revokeUserSessions("unknown@example.com")).thenReturn(-1);
 
             // When/Then
-            mockMvc.perform(post("/api/test/auth/revoke-user")
+            mockMvc.perform(post("/api/dev/auth/revoke-user")
                             .param("email", "unknown@example.com"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.sessionsRevoked").value(0))
@@ -217,14 +209,14 @@ class DevAuthControllerTest {
         @Test
         @DisplayName("should return 400 when email parameter missing")
         void shouldReturn400WhenEmailMissing() throws Exception {
-            mockMvc.perform(post("/api/test/auth/revoke-user"))
+            mockMvc.perform(post("/api/dev/auth/revoke-user"))
                     .andExpect(status().isBadRequest());
         }
 
         @Test
         @DisplayName("should return 400 for invalid email format")
         void shouldReturn400ForInvalidEmailFormat() throws Exception {
-            mockMvc.perform(post("/api/test/auth/revoke-user")
+            mockMvc.perform(post("/api/dev/auth/revoke-user")
                             .param("email", "not-an-email"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
@@ -235,7 +227,7 @@ class DevAuthControllerTest {
         @Test
         @DisplayName("should return 400 for blank email")
         void shouldReturn400ForBlankEmail() throws Exception {
-            mockMvc.perform(post("/api/test/auth/revoke-user")
+            mockMvc.perform(post("/api/dev/auth/revoke-user")
                             .param("email", "   "))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));

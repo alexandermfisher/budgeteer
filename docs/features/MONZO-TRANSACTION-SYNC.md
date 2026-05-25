@@ -33,7 +33,7 @@
 - [x] `MonzoConnectionCreatedEvent` + `TransactionSyncEventListener` (async post-OAuth backfill)
 - [x] `TransactionSyncJob` — `@Scheduled` 60-minute delta sync
 - [x] Publish `MonzoConnectionCreatedEvent` in `MonzoController.handleCallback()`
-- [x] Dev retrigger endpoint: `POST /api/test/auth/sync/trigger`
+- [x] Dev retrigger endpoint: `POST /api/dev/monzo/backfill`
 - [x] `ErrorCode.MONZO_SYNC_ERROR` (502)
 - [x] DTO refactor: `TokenResponse` → `client/monzo/dto/`; `ConnectionStatus` → `api/monzo/dto/MonzoStatusResponse`
 - [x] 575 tests (unit + integration, all green)
@@ -301,7 +301,7 @@ Delta — JPA save() (simplicity)
 |------|--------|
 | `client/monzo/MonzoClient.java` | Add `getAccounts()`, `getTransactions()`; import `TokenResponse` from dto package |
 | `api/monzo/MonzoController.java` | Inject `ApplicationEventPublisher`; publish event post-callback; use `MonzoStatusResponse` |
-| `api/dev/DevAuthController.java` | Add `POST /api/test/auth/sync/trigger` (dev profile only) |
+| `api/dev/DevAuthController.java` | Add `POST /api/dev/monzo/backfill` (dev profile only) |
 | `api/common/ErrorCode.java` | Add `MONZO_SYNC_ERROR` (502) |
 | `application.properties` | Add `monzo.transaction-sync.*` properties |
 
@@ -326,7 +326,7 @@ bound to `TransactionSyncProperties`.
 
 ## 🛠️ Dev Retrigger: How It Works Without Redoing OAuth
 
-The dev endpoint (`POST /api/test/auth/sync/trigger`) lets you re-run a full backfill
+The dev endpoint (`POST /api/dev/monzo/backfill`) lets you re-run a full backfill
 without going through the real Monzo OAuth flow again. Here is why that is possible.
 
 ### The Key Insight: OAuth Tokens Persist in the Database
@@ -361,7 +361,7 @@ The **backfill does not need OAuth**. It only needs:
 │                                                                  │
 │ 1. Truncate monzo_accounts + monzo_transactions (optional)      │
 │    OR just call the trigger — upsert is idempotent              │
-│ 2. POST /api/test/auth/sync/trigger (with session cookie)       │
+│ 2. POST /api/dev/monzo/backfill (with session cookie)       │
 │ 3. Endpoint looks up your active MonzoConnection by userId      │
 │ 4. Calls transactionSyncService.backfill(connectionId)          │
 │ 5. backfill() loads the stored tokens, decrypts, calls Monzo    │
@@ -470,7 +470,7 @@ GET /transactions?account_id=acc_xxx&expand[]=merchant&limit=100[&since_id=tx_xx
 | Class | Tests | What It Covers |
 |-------|-------|----------------|
 | `TransactionSyncIT` | 4 | Full backfill: accounts + transactions in DB; closed account skipped; pagination (105 rows across 2 pages); cursor updated |
-| `DevSyncTriggerIT` | 2 | `POST /api/test/auth/sync/trigger` → backfill fires → rows inserted; 401 when unauthenticated |
+| `DevSyncTriggerIT` | 2 | `POST /api/dev/monzo/backfill` → backfill fires → rows inserted; 401 when unauthenticated |
 
 ---
 

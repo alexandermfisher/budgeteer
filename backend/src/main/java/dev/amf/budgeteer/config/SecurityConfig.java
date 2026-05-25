@@ -79,7 +79,7 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/metrics/**").authenticated()
                 .requestMatchers("/actuator/prometheus").authenticated()
                 .requestMatchers("/actuator/**").authenticated()
-                .requestMatchers("/api/test/**").permitAll()
+                .requestMatchers("/api/dev/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll()

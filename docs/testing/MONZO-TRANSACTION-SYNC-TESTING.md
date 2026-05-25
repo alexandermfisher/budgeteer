@@ -135,7 +135,7 @@ When you completed Monzo OAuth, the app stored your access and refresh tokens **
 - A row exists in `monzo_connections` with `disconnected_at IS NULL`
 - The token is still valid (or can be refreshed)
 
-The dev trigger endpoint (`POST /api/test/auth/sync/trigger`) simply:
+The dev trigger endpoint (`POST /api/dev/monzo/backfill`) simply:
 1. Finds your active connection by `userId`
 2. Calls `transactionSyncService.backfill(connectionId)` directly
 3. Returns 200 when backfill completes
@@ -156,7 +156,7 @@ Response time will reflect however many transactions you have (typically 2–20 
 ### Using curl
 
 ```bash
-curl -s -X POST http://localhost:8080/api/test/auth/sync/trigger \
+curl -s -X POST http://localhost:8080/api/dev/monzo/backfill \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" | jq .
 ```
 
@@ -330,7 +330,7 @@ The cursor transaction should be the **most recent** transaction for that accoun
 Re-trigger backfill without resetting the database:
 
 ```bash
-curl -s -X POST http://localhost:8080/api/test/auth/sync/trigger \
+curl -s -X POST http://localhost:8080/api/dev/monzo/backfill \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" | jq .
 ```
 
@@ -415,7 +415,7 @@ INFO  MonzoTokenRefreshService - Token refreshed successfully [connectionId=...]
 Quick-login as a user who has never completed OAuth:
 
 ```bash
-curl -s -X POST http://localhost:8080/api/test/auth/quick-login \
+curl -s -X POST http://localhost:8080/api/dev/auth/quick-login \
   -H "Content-Type: application/json" \
   -d '{"email": "no-monzo@example.com"}' \
   -c /tmp/no-monzo-cookies.txt | jq .data.accessToken
@@ -424,7 +424,7 @@ curl -s -X POST http://localhost:8080/api/test/auth/quick-login \
 Now trigger sync as that user (no Monzo connection):
 
 ```bash
-curl -s -X POST http://localhost:8080/api/test/auth/sync/trigger \
+curl -s -X POST http://localhost:8080/api/dev/monzo/backfill \
   -H "Authorization: Bearer NO_MONZO_USER_TOKEN" | jq .
 ```
 
@@ -448,7 +448,7 @@ HTTP status: `404`
 ## ❌ 10. Error: Trigger Unauthenticated
 
 ```bash
-curl -s -X POST http://localhost:8080/api/test/auth/sync/trigger | jq .
+curl -s -X POST http://localhost:8080/api/dev/monzo/backfill | jq .
 ```
 
 **Expected:**
@@ -672,7 +672,7 @@ TRUNCATE monzo_transactions, monzo_accounts, monzo_connections CASCADE;
 After clearing, use the dev trigger to re-populate without re-doing OAuth (as long as the connection row still exists):
 
 ```bash
-curl -s -X POST http://localhost:8080/api/test/auth/sync/trigger \
+curl -s -X POST http://localhost:8080/api/dev/monzo/backfill \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN" | jq .
 ```
 

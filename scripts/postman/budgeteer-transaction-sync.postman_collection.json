@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "budgeteer-transaction-sync-collection",
 		"name": "Budgeteer — Transaction Sync",
-		"description": "Manual testing collection for Phase 4: Monzo Transaction Sync.\n\n## Recommended Order\n\n1. **Setup** — Quick Login + verify Monzo is connected\n2. **Inspect DB** — confirm tables are empty\n3. **Trigger Sync** — use dev trigger to run backfill without re-doing OAuth\n4. **Verify Results** — check accounts and transactions were created\n5. **Delta Sync** — trigger delta and confirm only new rows are added\n6. **Edge Cases** — unauthenticated, no connection, etc.\n\n## Prerequisites\n- App running with `dev` profile (`./scripts/dev.sh start`)\n- Monzo OAuth already completed (you have an active connection)\n- Import `budgeteer-local.postman_environment.json` and select it\n- Run `⚡ Quick Login` first to set auth cookies\n\n## What This Tests\n- POST /api/test/auth/sync/trigger (backfill)\n- GET /api/monzo/status (tokenStatus field)\n- Database state via curl-accessible psql",
+		"description": "Manual testing collection for Phase 4: Monzo Transaction Sync.\n\n## Recommended Order\n\n1. **Setup** — Quick Login + verify Monzo is connected\n2. **Inspect DB** — confirm tables are empty\n3. **Trigger Sync** — use dev trigger to run backfill without re-doing OAuth\n4. **Verify Results** — check accounts and transactions were created\n5. **Delta Sync** — trigger delta and confirm only new rows are added\n6. **Edge Cases** — unauthenticated, no connection, etc.\n\n## Prerequisites\n- App running with `dev` profile (`./scripts/dev.sh start`)\n- Monzo OAuth already completed (you have an active connection)\n- Import `budgeteer-local.postman_environment.json` and select it\n- Run `⚡ Quick Login` first to set auth cookies\n\n## What This Tests\n- POST /api/dev/monzo/backfill (backfill)\n- GET /api/monzo/status (tokenStatus field)\n- Database state via curl-accessible psql",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -39,9 +39,9 @@
 							"raw": "{\n    \"email\": \"{{user_email}}\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/test/auth/quick-login",
+							"raw": "{{base_url}}/api/dev/auth/quick-login",
 							"host": ["{{base_url}}"],
-							"path": ["api", "test", "auth", "quick-login"]
+							"path": ["api", "dev", "auth", "quick-login"]
 						},
 						"description": "Log in without a magic link. Saves access_token, refresh_token, and user_id to environment.\n\n⚠️ Dev profile only."
 					},
@@ -225,9 +225,9 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/test/auth/sync/trigger",
+							"raw": "{{base_url}}/api/dev/monzo/backfill",
 							"host": ["{{base_url}}"],
-							"path": ["api", "test", "auth", "sync", "trigger"]
+							"path": ["api", "dev", "monzo", "backfill"]
 						},
 						"description": "Triggers a full backfill for the authenticated user's active Monzo connection.\n\n**How it works without re-doing OAuth:**\n1. Your Monzo tokens are stored encrypted in `monzo_connections`\n2. The `MonzoTokenRefreshJob` keeps them alive automatically\n3. This endpoint finds your active connection by `userId` and calls `backfill()` directly\n4. `backfill()` decrypts the token, calls `GET /accounts` then `GET /transactions` per account\n5. All data is upserted into `monzo_accounts` and `monzo_transactions`\n\n**Note:** Unlike post-OAuth backfill (which is async), this endpoint runs **synchronously** — the response waits for full completion.\n\n**Expected response:**\n```json\n{\"success\": true, \"data\": null}\n```\n\nAfter success, check:\n- `monzo_accounts` has rows with your real account IDs\n- `monzo_transactions` has your real transactions\n- `last_transaction_id` is set on each account (cursor for next delta)\n- `last_synced_at` is set\n\n⚠️ Dev profile only."
 					},
@@ -274,9 +274,9 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/test/auth/sync/trigger",
+							"raw": "{{base_url}}/api/dev/monzo/backfill",
 							"host": ["{{base_url}}"],
-							"path": ["api", "test", "auth", "sync", "trigger"]
+							"path": ["api", "dev", "monzo", "backfill"]
 						},
 						"description": "Expected when the authenticated user has no active Monzo connection.\n\n**Setup:** Quick-login as a different email (e.g. `nomonzo@example.com`) before running this.\n\nExpected:\n```json\n{\n  \"success\": false,\n  \"error\": {\n    \"code\": \"RESOURCE_NOT_FOUND\",\n    \"message\": \"No active Monzo connection found for user ...\"\n  }\n}\n```"
 					},
@@ -307,9 +307,9 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/test/auth/sync/trigger",
+							"raw": "{{base_url}}/api/dev/monzo/backfill",
 							"host": ["{{base_url}}"],
-							"path": ["api", "test", "auth", "sync", "trigger"]
+							"path": ["api", "dev", "monzo", "backfill"]
 						},
 						"description": "Verifies the endpoint requires authentication.\n\nNo auth header or cookie sent — should return 401."
 					},
@@ -395,9 +395,9 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/test/auth/sync/trigger",
+							"raw": "{{base_url}}/api/dev/monzo/backfill",
 							"host": ["{{base_url}}"],
-							"path": ["api", "test", "auth", "sync", "trigger"]
+							"path": ["api", "dev", "monzo", "backfill"]
 						},
 						"description": "Run backfill a second time without resetting DB.\n\n**What to verify:**\n- Row counts in `monzo_accounts` and `monzo_transactions` are IDENTICAL to after the first run\n- `last_synced_at` on accounts updates (expected — we always record sync time)\n- `last_transaction_id` cursor does NOT change (same latest transaction)\n- No duplicate transactions\n\nThis proves the native upsert (`INSERT ... ON CONFLICT DO UPDATE`) is working correctly."
 					},
@@ -483,9 +483,9 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/test/auth/sync/trigger",
+							"raw": "{{base_url}}/api/dev/monzo/backfill",
 							"host": ["{{base_url}}"],
-							"path": ["api", "test", "auth", "sync", "trigger"]
+							"path": ["api", "dev", "monzo", "backfill"]
 						},
 						"description": "Same trigger, but using cookie auth (no explicit Bearer token).\n\nAfter Quick Login, Postman holds the `access_token` and `refresh_token` HttpOnly cookies automatically.\nThis verifies the endpoint works with both auth methods."
 					},

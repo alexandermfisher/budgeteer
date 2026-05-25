@@ -190,7 +190,7 @@
 							"raw": "{\n    \"email\": \"{{user_email}}\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/test/auth/quick-login",
+							"raw": "{{base_url}}/api/dev/auth/quick-login",
 							"host": [
 								"{{base_url}}"
 							],
@@ -239,7 +239,7 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/test/auth/revoke-all",
+							"raw": "{{base_url}}/api/dev/auth/revoke-all",
 							"host": [
 								"{{base_url}}"
 							],
@@ -284,7 +284,7 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/test/auth/revoke-user?email={{user_email}}",
+							"raw": "{{base_url}}/api/dev/auth/revoke-user?email={{user_email}}",
 							"host": [
 								"{{base_url}}"
 							],

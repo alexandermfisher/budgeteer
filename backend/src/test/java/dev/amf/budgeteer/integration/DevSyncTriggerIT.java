@@ -80,7 +80,7 @@ class DevSyncTriggerIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /api/test/auth/sync/trigger triggers backfill and inserts rows")
+    @DisplayName("POST /api/dev/monzo/backfill triggers backfill and inserts rows")
     void triggerSyncInsertsRows() throws Exception {
         // Given — a user with an active connection and a valid session cookie
         User user = testData.createVerifiedUser();
@@ -110,7 +110,7 @@ class DevSyncTriggerIT extends AbstractPostgresIntegrationTest {
         // When
         given()
             .cookie("access_token", tokens.accessToken())
-            .post("/api/test/auth/sync/trigger")
+            .post("/api/dev/monzo/backfill")
             .then()
             .statusCode(200);
 
@@ -120,10 +120,10 @@ class DevSyncTriggerIT extends AbstractPostgresIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /api/test/auth/sync/trigger returns 401 when unauthenticated")
+    @DisplayName("POST /api/dev/monzo/backfill returns 401 when unauthenticated")
     void requiresAuthentication() {
         given()
-            .post("/api/test/auth/sync/trigger")
+            .post("/api/dev/monzo/backfill")
             .then()
             .statusCode(401);
     }
