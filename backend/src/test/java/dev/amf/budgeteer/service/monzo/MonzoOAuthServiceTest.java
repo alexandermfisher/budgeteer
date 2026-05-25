@@ -1,6 +1,7 @@
 package dev.amf.budgeteer.service.monzo;
 
 import dev.amf.budgeteer.client.monzo.MonzoClient;
+import dev.amf.budgeteer.client.monzo.dto.TokenResponse;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.config.MonzoProperties;
 import dev.amf.budgeteer.domain.oauth.OAuthState;
@@ -209,7 +210,7 @@ class MonzoOAuthServiceTest {
         void shouldExchangeCodeForTokens() {
             // Given
             Instant expiresAt = Instant.now().plusSeconds(3600);
-            MonzoClient.TokenResponse clientResponse = new MonzoClient.TokenResponse(
+            TokenResponse clientResponse = new TokenResponse(
                     "access-token-xyz",
                     "refresh-token-abc",
                     expiresAt

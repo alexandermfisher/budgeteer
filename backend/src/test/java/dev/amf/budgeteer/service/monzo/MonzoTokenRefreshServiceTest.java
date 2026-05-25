@@ -2,6 +2,7 @@ package dev.amf.budgeteer.service.monzo;
 
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.client.monzo.MonzoClient;
+import dev.amf.budgeteer.client.monzo.dto.TokenResponse;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
@@ -89,7 +90,7 @@ class MonzoTokenRefreshServiceTest {
             String newRefreshTokenEnc = "encrypted_new_refresh_token";
             Instant newExpiresAt = Instant.now().plus(6, ChronoUnit.HOURS);
 
-            MonzoClient.TokenResponse response = new MonzoClient.TokenResponse(
+            TokenResponse response = new TokenResponse(
                     newAccessTokenPlain, newRefreshTokenPlain, newExpiresAt
             );
 
@@ -121,7 +122,7 @@ class MonzoTokenRefreshServiceTest {
             String rotatedRefreshToken = "rotated_refresh_token";
             String rotatedRefreshTokenEnc = "encrypted_rotated_refresh_token";
 
-            MonzoClient.TokenResponse response = new MonzoClient.TokenResponse(
+            TokenResponse response = new TokenResponse(
                     "new_access", rotatedRefreshToken, Instant.now().plus(6, ChronoUnit.HOURS)
             );
 
@@ -144,7 +145,7 @@ class MonzoTokenRefreshServiceTest {
         @DisplayName("should use fallback expiry when Monzo does not return expires_in")
         void shouldUseFallbackExpiryWhenMonzoDoesNotReturnExpiry() {
             // Given - expiresAt is null
-            MonzoClient.TokenResponse response = new MonzoClient.TokenResponse(
+            TokenResponse response = new TokenResponse(
                     "new_access", "new_refresh", null
             );
 

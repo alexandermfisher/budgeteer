@@ -4,6 +4,7 @@ import dev.amf.budgeteer.api.common.ApiResponse;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.api.monzo.dto.MonzoConnectInitResponse;
 import dev.amf.budgeteer.api.monzo.dto.MonzoConnectionResponse;
+import dev.amf.budgeteer.api.monzo.dto.MonzoStatusResponse;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
@@ -270,28 +271,12 @@ public class MonzoController {
      * @return connection status
      */
     @GetMapping("/status")
-    public ResponseEntity<ApiResponse<ConnectionStatus>> getStatus(@CurrentUser User user) {
+    public ResponseEntity<ApiResponse<MonzoStatusResponse>> getStatus(@CurrentUser User user) {
         boolean hasConnection = connectionService.hasActiveConnection(user.getId());
         long connectionCount = connectionService.countActiveConnections(user.getId());
         MonzoConnectionService.TokenStatus tokenStatus = connectionService.getTokenStatus(user.getId());
 
-        ConnectionStatus status = new ConnectionStatus(hasConnection, connectionCount, tokenStatus);
+        MonzoStatusResponse status = new MonzoStatusResponse(hasConnection, connectionCount, tokenStatus);
         return ResponseEntity.ok(ApiResponse.of(status));
-    }
-
-    // ============ Response Records ============
-
-    /**
-     * Connection status response including token health.
-     *
-     * @param connected       whether the user has at least one active Monzo connection
-     * @param connectionCount number of active connections
-     * @param tokenStatus     health of the OAuth tokens
-     */
-    public record ConnectionStatus(
-            boolean connected,
-            long connectionCount,
-            MonzoConnectionService.TokenStatus tokenStatus
-    ) {
     }
 }

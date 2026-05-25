@@ -1,9 +1,9 @@
 package dev.amf.budgeteer.client.monzo;
 
 import dev.amf.budgeteer.api.common.ErrorCode;
+import dev.amf.budgeteer.client.monzo.dto.TokenResponse;
 import dev.amf.budgeteer.config.MonzoProperties;
 import dev.amf.budgeteer.exception.ApiException;
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatusCode;
@@ -213,19 +213,4 @@ public class MonzoClient {
         log.error("Monzo API error for {}: {} - {}", endpoint, status.value(), e.getResponseBodyAsString());
     }
 
-    // ============ Response Records ============
-
-    /**
-     * Token response from Monzo OAuth.
-     *
-     * @param accessToken  the access token
-     * @param refreshToken the refresh token (may be null)
-     * @param expiresAt    when the access token expires
-     */
-    public record TokenResponse(
-            String accessToken,
-            @Nullable String refreshToken,
-            @Nullable Instant expiresAt
-    ) {
-    }
 }

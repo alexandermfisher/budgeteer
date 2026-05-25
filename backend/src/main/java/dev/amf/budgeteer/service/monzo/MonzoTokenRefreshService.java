@@ -2,6 +2,7 @@ package dev.amf.budgeteer.service.monzo;
 
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.client.monzo.MonzoClient;
+import dev.amf.budgeteer.client.monzo.dto.TokenResponse;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
@@ -106,7 +107,7 @@ public class MonzoTokenRefreshService {
         String plainRefreshToken = encryptionService.decrypt(connection.getRefreshTokenEncrypted());
 
         try {
-            MonzoClient.TokenResponse response = monzoClient.refreshTokens(plainRefreshToken);
+            TokenResponse response = monzoClient.refreshTokens(plainRefreshToken);
 
             String newAccessTokenEncrypted = encryptionService.encrypt(response.accessToken());
             // MonzoClient already falls back to the old refresh token if Monzo does not rotate it
