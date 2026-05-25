@@ -1,6 +1,6 @@
 # Phase 4: Transaction Sync
 
-> **Priority:** P2 | **Estimate:** 2–3 days | **Status:** In Progress | **Branch:** `feature/transaction-sync`
+> **Priority:** P2 | **Estimate:** 2–3 days | **Status:** Complete | **Branch:** `feature/transaction-sync`
 
 ## Goal
 
@@ -22,21 +22,21 @@ Domain modelling (mapping to a unified `transactions` table that covers Lloyds, 
 
 ## Scope
 
-- [ ] DTO refactor: move `TokenResponse` out of `MonzoClient` → `client/monzo/dto/`; move `ConnectionStatus` out of `MonzoController` → `api/monzo/dto/MonzoStatusResponse`
-- [ ] V7 migration: `monzo_accounts`
-- [ ] V8 migration: `monzo_transactions`
-- [ ] `MonzoAccount` + `MonzoTransaction` JPA entities
-- [ ] `MonzoAccountRepository` + `MonzoTransactionRepository` (incl. native upsert)
-- [ ] `client/monzo/dto/` — new Monzo API response records
-- [ ] `MonzoClient` — add `getAccounts()` and `getTransactions()`
-- [ ] `AsyncConfig` — `@EnableAsync` + `backfillTaskExecutor` thread pool
-- [ ] `MonzoConnectionCreatedEvent` + `TransactionSyncEventListener` (async post-OAuth backfill)
-- [ ] `TransactionSyncService` — `backfill()` and `deltaSync()`
-- [ ] `TransactionSyncJob` — `@Scheduled` 60-minute delta sync
-- [ ] Publish `MonzoConnectionCreatedEvent` in `MonzoController.handleCallback()`
-- [ ] Dev retrigger endpoint: `POST /api/dev/sync/trigger` (dev profile only)
-- [ ] `ErrorCode` addition: `MONZO_SYNC_ERROR` (502)
-- [ ] Unit + integration tests
+- [x] DTO refactor: move `TokenResponse` out of `MonzoClient` → `client/monzo/dto/`; move `ConnectionStatus` out of `MonzoController` → `api/monzo/dto/MonzoStatusResponse`
+- [x] V7 migration: `monzo_accounts`
+- [x] V8 migration: `monzo_transactions`
+- [x] `MonzoAccount` + `MonzoTransaction` JPA entities
+- [x] `MonzoAccountRepository` + `MonzoTransactionRepository` (incl. native upsert)
+- [x] `client/monzo/dto/` — new Monzo API response records
+- [x] `MonzoClient` — add `getAccounts()` and `getTransactions()`
+- [x] `AsyncConfig` — `@EnableAsync` + `backfillTaskExecutor` thread pool
+- [x] `MonzoConnectionCreatedEvent` + `TransactionSyncEventListener` (async post-OAuth backfill)
+- [x] `TransactionSyncService` — `backfill()` and `deltaSync()`
+- [x] `TransactionSyncJob` — `@Scheduled` 60-minute delta sync
+- [x] Publish `MonzoConnectionCreatedEvent` in `MonzoController.handleCallback()`
+- [x] Dev retrigger endpoint: `POST /api/test/auth/sync/trigger` (dev profile only)
+- [x] `ErrorCode` addition: `MONZO_SYNC_ERROR` (502)
+- [x] Unit + integration tests
 
 ---
 

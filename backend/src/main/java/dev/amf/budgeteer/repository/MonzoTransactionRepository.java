@@ -1,6 +1,7 @@
 package dev.amf.budgeteer.repository;
 
 import dev.amf.budgeteer.domain.monzo.MonzoTransaction;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -47,12 +48,12 @@ public interface MonzoTransactionRepository extends JpaRepository<MonzoTransacti
             @Param("userId") UUID userId,
             @Param("amount") int amount,
             @Param("currency") String currency,
-            @Param("description") String description,
-            @Param("merchantName") String merchantName,
-            @Param("merchantCategory") String merchantCategory,
-            @Param("notes") String notes,
+            @Nullable @Param("description") String description,
+            @Nullable @Param("merchantName") String merchantName,
+            @Nullable @Param("merchantCategory") String merchantCategory,
+            @Nullable @Param("notes") String notes,
             @Param("isDeclined") boolean isDeclined,
             @Param("monzoCreatedAt") Instant monzoCreatedAt,
-            @Param("monzoSettledAt") Instant monzoSettledAt
+            @Nullable @Param("monzoSettledAt") Instant monzoSettledAt
     );
 }

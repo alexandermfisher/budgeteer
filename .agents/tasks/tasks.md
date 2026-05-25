@@ -8,9 +8,7 @@
 
 ## 🚀 In Progress
 
-| # | Task | Priority | Estimate | Plan |
-|---|------|----------|----------|------|
-| 4 | 📊 Phase 4: Transaction Sync | 🟡 P2 | 2–3 days | [plan](transaction-sync/plan.md) |
+*Nothing in progress*
 
 ---
 
@@ -66,6 +64,7 @@
 ## ✅ Done
 
 ### May 2026
+- [x] Phase 4: Transaction Sync — raw Monzo sync (accounts + transactions), backfill post-OAuth, 60-min delta job, 575 tests
 - [x] Security Headers & Hardening — HSTS, CSP, CORS, error suppression; fixed `server.error.*` prefix bug; educational doc at `.agents/notes/security-headers-explained.md`
 
 ### April 2026
@@ -110,4 +109,4 @@
 
 ---
 
-*Last updated: 2026-05-09 — Transaction Sync in progress*
+*Last updated: 2026-05-25 — Transaction Sync complete*
