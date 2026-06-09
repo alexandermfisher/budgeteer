@@ -39,6 +39,10 @@ class MonzoConnectionRepositoryIT extends AbstractPostgresIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        // Global queries like findActiveWithExpiredTokens scan the whole table,
+        // so wipe any rows committed by earlier IT classes (e.g. async backfill
+        // in MonzoOAuthFlowIT) before seeding this test's data.
+        monzoConnectionRepository.deleteAll();
         testUser = testData.createVerifiedUser();
         otherUser = testData.createVerifiedUser();
     }
