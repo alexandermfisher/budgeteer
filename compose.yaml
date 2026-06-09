@@ -3,15 +3,25 @@ services:
     image: postgres:18-alpine
     container_name: budgeteer-postgres
     environment:
-      POSTGRES_DB: budgeteer
-      POSTGRES_USER: budgeteer
-      POSTGRES_PASSWORD: budgeteer
+      POSTGRES_DB: ${DB_NAME:?DB_NAME not set in .env}
+      POSTGRES_USER: ${DB_USER:?DB_USER not set in .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD not set in .env}
+    # Audit-friendly logging: every connection and disconnection is recorded,
+    # so any future incident has a clear trail (who connected, when, from where).
+    command:
+      - postgres
+      - -c
+      - log_connections=on
+      - -c
+      - log_disconnections=on
+      - -c
+      - log_hostname=on
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"   # localhost only — never expose Postgres to the network
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "budgeteer"]
+      test: ["CMD", "pg_isready", "-U", "${DB_USER}"]
       interval: 10s
       timeout: 5s
       retries: 5
