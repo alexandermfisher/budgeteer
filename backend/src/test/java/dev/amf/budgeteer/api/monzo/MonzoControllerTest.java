@@ -14,6 +14,7 @@ import dev.amf.budgeteer.service.common.CookieService;
 import dev.amf.budgeteer.service.auth.JweTokenService;
 import dev.amf.budgeteer.service.monzo.MonzoConnectionService;
 import dev.amf.budgeteer.service.monzo.MonzoOAuthService;
+import dev.amf.budgeteer.service.monzo.TransactionSyncService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -57,6 +58,9 @@ class MonzoControllerTest {
 
     @MockitoBean
     private MonzoConnectionService connectionService;
+
+    @MockitoBean
+    private TransactionSyncService syncService;
 
     // Required by SecurityConfig
     @MockitoBean
@@ -193,6 +197,7 @@ class MonzoControllerTest {
             verify(oauthService).getMonzoUserId("access-token");
             verify(connectionService).createConnection(
                     eq(userId), eq(monzoUserId), eq("access-token"), eq("refresh-token"), any());
+            verify(syncService).backfill(connection.getId());
         }
 
         @Test
