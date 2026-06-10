@@ -89,6 +89,7 @@ public class TransactionSyncService {
      * before the 5-minute SCA window closes. Retries if permissions aren't ready yet.
      */
     @Async
+    @Transactional
     public void backfillAsync(UUID connectionId) {
         int maxRetries = 8;
         int initialDelayMs = 2000;
