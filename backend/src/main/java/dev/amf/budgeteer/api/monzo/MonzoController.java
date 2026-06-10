@@ -183,19 +183,11 @@ public class MonzoController {
         log.info("Successfully connected Monzo account for user {} [connectionId={}]",
                 user.getId(), connection.getId());
 
-        log.info("Starting synchronous transaction backfill within SCA window [connectionId={}]",
+        log.info("Triggering async transaction backfill within SCA window [connectionId={}]",
                 connection.getId());
-        try {
-            syncService.backfill(connection.getId());
-            log.info("Backfill completed within OAuth callback [connectionId={}]", connection.getId());
-        } catch (Exception e) {
-            log.error("Backfill failed during OAuth callback [connectionId={}]",
-                    connection.getId(), e);
-            throw e;
-        }
+        syncService.backfillAsync(connection.getId());
 
-        // Return JSON response (frontend can redirect based on this)
-        // In the future, could redirect to a frontend URL
+        // Return immediately — backfill happens async with retries in background
         return ResponseEntity.ok(ApiResponse.of(MonzoConnectionResponse.from(connection)));
     }
 

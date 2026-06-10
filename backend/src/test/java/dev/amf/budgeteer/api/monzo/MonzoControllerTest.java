@@ -197,7 +197,7 @@ class MonzoControllerTest {
             verify(oauthService).getMonzoUserId("access-token");
             verify(connectionService).createConnection(
                     eq(userId), eq(monzoUserId), eq("access-token"), eq("refresh-token"), any());
-            verify(syncService).backfill(connection.getId());
+            verify(syncService).backfillAsync(connection.getId());
         }
 
         @Test

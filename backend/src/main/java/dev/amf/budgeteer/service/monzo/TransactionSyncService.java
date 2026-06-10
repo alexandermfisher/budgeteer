@@ -14,6 +14,7 @@ import dev.amf.budgeteer.repository.MonzoTransactionRepository;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -80,6 +81,40 @@ public class TransactionSyncService {
         }
 
         log.info("Backfill complete [connectionId={}, accounts={}]", connectionId, accountResponses.size());
+    }
+
+    /**
+     * Async backfill with retries within the SCA window.
+     * Called immediately after OAuth callback to fetch full transaction history
+     * before the 5-minute SCA window closes. Retries if permissions aren't ready yet.
+     */
+    @Async
+    public void backfillAsync(UUID connectionId) {
+        int maxRetries = 5;
+        int retryDelayMs = 1000;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                log.info("Backfill attempt {}/{} [connectionId={}]", attempt, maxRetries, connectionId);
+                backfill(connectionId);
+                return;
+            } catch (ApiException e) {
+                if (e.getErrorCode() == ErrorCode.MONZO_API_ERROR && attempt < maxRetries) {
+                    log.warn("Backfill failed with API error (permissions may not be ready yet) [connectionId={}, attempt={}/{}]",
+                            connectionId, attempt, maxRetries);
+                    try {
+                        Thread.sleep(retryDelayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        log.error("Backfill retry interrupted [connectionId={}]", connectionId, ie);
+                        return;
+                    }
+                } else {
+                    log.error("Backfill failed on final attempt [connectionId={}]", connectionId, e);
+                    return;
+                }
+            }
+        }
     }
 
     /**
