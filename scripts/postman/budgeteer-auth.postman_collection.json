@@ -196,7 +196,7 @@
 							],
 							"path": [
 								"api",
-								"test",
+								"dev",
 								"auth",
 								"quick-login"
 							]
@@ -245,7 +245,7 @@
 							],
 							"path": [
 								"api",
-								"test",
+								"dev",
 								"auth",
 								"revoke-all"
 							]
@@ -290,7 +290,7 @@
 							],
 							"path": [
 								"api",
-								"test",
+								"dev",
 								"auth",
 								"revoke-user"
 							],
