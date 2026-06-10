@@ -6,7 +6,6 @@ import dev.amf.budgeteer.client.monzo.dto.MonzoAccountResponse;
 import dev.amf.budgeteer.client.monzo.dto.MonzoTransactionResponse;
 import dev.amf.budgeteer.domain.monzo.MonzoAccount;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
-import dev.amf.budgeteer.domain.monzo.MonzoTransaction;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.repository.MonzoAccountRepository;
@@ -155,8 +154,12 @@ public class TransactionSyncService {
     }
 
     private void upsertTransaction(MonzoTransactionResponse tx, MonzoAccount account) {
-        @Nullable Instant settledAt = tx.settled() != null ? Instant.parse(tx.settled()) : null;
-        Instant createdAt = Instant.parse(tx.created());
+        Instant settledAt = (tx.settled() != null && !tx.settled().isBlank())
+                ? Instant.parse(tx.settled())
+                : null;
+        Instant createdAt = (tx.created() != null && !tx.created().isBlank())
+                ? Instant.parse(tx.created())
+                : Instant.now();
 
         transactionRepository.upsert(
                 tx.id(),
