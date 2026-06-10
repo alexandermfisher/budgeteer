@@ -90,8 +90,18 @@ public class TransactionSyncService {
      */
     @Async
     public void backfillAsync(UUID connectionId) {
-        int maxRetries = 5;
-        int retryDelayMs = 1000;
+        int maxRetries = 8;
+        int initialDelayMs = 2000;
+        int retryDelayMs = 2000;
+
+        // Wait for user to confirm on their phone before first attempt
+        try {
+            Thread.sleep(initialDelayMs);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            log.error("Backfill startup delay interrupted [connectionId={}]", connectionId);
+            return;
+        }
 
         for (int attempt = 1; attempt <= maxRetries; attempt++) {
             try {
