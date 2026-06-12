@@ -68,6 +68,10 @@ public class TransactionSyncService {
     /**
      * Full backfill for a connection — fetches all accounts then paginates through all transactions.
      * Designed to run within Monzo's SCA window immediately after OAuth completes.
+     *
+     * <p>Backfill is resumable: if a previous attempt reached NEEDS_REAUTH the account's
+     * {@code backfillProgressAt} and {@code backfillProgressCursor} are used as the starting
+     * point so no already-fetched data is re-requested.
      */
     @Transactional
     public void backfill(UUID connectionId) {
@@ -92,7 +96,9 @@ public class TransactionSyncService {
             }
 
             String latestTxId = backfillAccount(accessToken, account);
-            account.recordSyncComplete(latestTxId);
+            if (account.getBackfillStatus() == MonzoAccount.BackfillStatus.COMPLETED) {
+                account.recordSyncComplete(latestTxId);
+            }
             accountRepository.save(account);
         }
 
@@ -202,41 +208,80 @@ public class TransactionSyncService {
 
     /**
      * Backfills an account's full history by walking ≤350-day windows backwards from now until
-     * reaching the account's Monzo-reported creation date (or {@link #ABSOLUTE_BACKFILL_FLOOR}
-     * as a fallback). Monzo rejects {@code since}+{@code before} ranges greater than 365 days,
-     * so chunking is mandatory.
+     * reaching the account's Monzo-reported creation date (or {@link #ABSOLUTE_BACKFILL_FLOOR}).
      *
-     * <p>Returns the ID of the newest transaction seen across all windows (the cursor to use
-     * for subsequent delta syncs), or null if the account had no transactions.
+     * <p>Progress is persisted per page and per window so that:
+     * <ul>
+     *   <li>If Monzo returns {@code 403 verification_required} mid-pagination, the account is
+     *       marked {@link MonzoAccount.BackfillStatus#NEEDS_REAUTH} and the exact page cursor
+     *       is saved. Re-OAuth resumes from that cursor within the same window.</li>
+     *   <li>If a previous backfill left the account in NEEDS_REAUTH, this call continues from
+     *       {@code backfillProgressAt} / {@code backfillProgressCursor}.</li>
+     * </ul>
+     *
+     * @return the ID of the newest transaction seen, or null if none
      */
     @Nullable
     private String backfillAccount(String accessToken, MonzoAccount account) {
         Instant floor = resolveBackfillFloor(account);
-        Instant windowEnd = Instant.now();
+
+        // Resume from persisted window position, or start at now for a fresh backfill.
+        Instant windowEnd = account.getBackfillProgressAt() != null
+                ? account.getBackfillProgressAt()
+                : Instant.now();
+
+        // Resume mid-window cursor if present (from a previous NEEDS_REAUTH interruption).
+        String resumeCursor = account.getBackfillProgressCursor();
+
         String newestTxId = null;
         int windowCount = 0;
 
-        while (windowEnd.isAfter(floor)) {
-            Instant windowStart = windowEnd.minus(BACKFILL_WINDOW);
-            if (windowStart.isBefore(floor)) {
-                windowStart = floor;
+        account.setBackfillStatus(MonzoAccount.BackfillStatus.IN_PROGRESS);
+        accountRepository.save(account);
+
+        try {
+            while (windowEnd.isAfter(floor)) {
+                Instant windowStart = windowEnd.minus(BACKFILL_WINDOW);
+                if (windowStart.isBefore(floor)) {
+                    windowStart = floor;
+                }
+
+                String latestInWindow = paginateWindow(
+                        accessToken, account, windowStart.toString(), windowEnd.toString(), resumeCursor
+                );
+
+                // Only the first (most recent) non-empty window gives us the delta-sync cursor.
+                if (newestTxId == null && latestInWindow != null) {
+                    newestTxId = latestInWindow;
+                }
+
+                // Window fully drained — advance to the next one and clear the mid-window cursor.
+                account.setBackfillProgressAt(windowStart);
+                account.setBackfillProgressCursor(null);
+                accountRepository.save(account);
+
+                resumeCursor = null;
+                windowCount++;
+                windowEnd = windowStart;
             }
 
-            String latestInWindow = paginateTransactions(
-                    accessToken, account, windowStart.toString(), windowEnd.toString(), null
-            );
+            account.setBackfillStatus(MonzoAccount.BackfillStatus.COMPLETED);
+            accountRepository.save(account);
+            log.info("Backfill COMPLETED [accountId={}, floor={}, windows={}]",
+                    account.getId(), floor, windowCount);
 
-            // First non-empty window we process is the most recent — its last tx is the overall newest.
-            if (newestTxId == null && latestInWindow != null) {
-                newestTxId = latestInWindow;
+        } catch (ApiException e) {
+            if (e.getErrorCode() == ErrorCode.MONZO_VERIFICATION_REQUIRED) {
+                // SCA window expired — progress is already persisted per-page inside paginateWindow.
+                account.setBackfillStatus(MonzoAccount.BackfillStatus.NEEDS_REAUTH);
+                accountRepository.save(account);
+                log.info("Backfill paused — SCA verification required [accountId={}, progressAt={}, cursor={}]",
+                        account.getId(), account.getBackfillProgressAt(), account.getBackfillProgressCursor());
+            } else {
+                throw e;
             }
-
-            windowCount++;
-            windowEnd = windowStart;
         }
 
-        log.info("Backfill complete [accountId={}, floor={}, windows={}, newestTxId={}]",
-                account.getId(), floor, windowCount, newestTxId);
         return newestTxId;
     }
 
@@ -254,27 +299,23 @@ public class TransactionSyncService {
     }
 
     /**
-     * Pages through transactions for an account within an optional time window and upserts each page.
+     * Pages through all transactions within a time window and upserts each page.
+     * Persists {@code backfillProgressCursor} on the account after each full page so
+     * that a mid-window interruption (e.g. SCA expiry) can resume without re-fetching.
      *
-     * <p>Used in two modes:
-     * <ul>
-     *   <li><b>Backfill:</b> {@code since} + {@code before} bound a ≤350-day window;
-     *       {@code sinceId} is null on entry. Pagination uses the cursor for subsequent pages.</li>
-     *   <li><b>Delta sync:</b> {@code sinceId} only; {@code since}/{@code before} are null.</li>
-     * </ul>
-     *
-     * @return the ID of the last transaction seen in this call, or null if none
+     * @param resumeCursor a mid-window cursor to resume from, or null to start from the window start
+     * @return the ID of the last transaction seen, or null if none
      */
     @Nullable
-    private String paginateTransactions(
+    private String paginateWindow(
             String accessToken,
             MonzoAccount account,
-            @Nullable String since,
-            @Nullable String before,
-            @Nullable String sinceId
+            String since,
+            String before,
+            @Nullable String resumeCursor
     ) {
-        String windowSince = since;
-        String cursor = sinceId;
+        String windowSince = resumeCursor != null ? null : since;
+        String cursor = resumeCursor;
         String latestTxId = null;
         int total = 0;
 
@@ -293,10 +334,52 @@ public class TransactionSyncService {
             if (page.size() < PAGE_SIZE) {
                 break;
             }
+
             cursor = page.get(page.size() - 1).id();
-            // Once we have a cursor, drop `since` — the cursor encodes a precise position
-            // and combining the two can cause Monzo to return overlapping/inconsistent pages.
+            account.setBackfillProgressCursor(cursor);
+            accountRepository.save(account);
+            // Once we have a cursor, drop `since` to avoid overlapping/inconsistent pages.
             windowSince = null;
+        }
+
+        log.debug("Synced {} transactions for account {} [since={}, before={}]",
+                total, account.getId(), since, before);
+        return latestTxId;
+    }
+
+    /**
+     * Pages through transactions for delta sync (no windowing — cursor only).
+     *
+     * @return the ID of the last transaction seen, or null if none
+     */
+    @Nullable
+    private String paginateTransactions(
+            String accessToken,
+            MonzoAccount account,
+            @Nullable String since,
+            @Nullable String before,
+            @Nullable String sinceId
+    ) {
+        String cursor = sinceId;
+        String latestTxId = null;
+        int total = 0;
+
+        while (true) {
+            List<MonzoTransactionResponse> page = monzoClient.getTransactions(
+                    accessToken, account.getId(), since, before, cursor, PAGE_SIZE
+            );
+
+            for (MonzoTransactionResponse tx : page) {
+                upsertTransaction(tx, account);
+                latestTxId = tx.id();
+            }
+
+            total += page.size();
+
+            if (page.size() < PAGE_SIZE) {
+                break;
+            }
+            cursor = page.get(page.size() - 1).id();
         }
 
         log.debug("Synced {} transactions for account {} [since={}, before={}]",

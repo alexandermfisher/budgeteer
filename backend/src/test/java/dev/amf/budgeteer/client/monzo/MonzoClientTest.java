@@ -16,6 +16,7 @@ import org.springframework.web.client.RestClient;
 import java.util.List;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -204,6 +205,36 @@ class MonzoClientTest {
                     .isInstanceOf(ApiException.class)
                     .satisfies(ex -> assertThat(((ApiException) ex).getErrorCode())
                             .isEqualTo(ErrorCode.MONZO_CONNECTION_REVOKED));
+        }
+
+        @Test
+        @DisplayName("403 verification_required maps to MONZO_VERIFICATION_REQUIRED")
+        void verificationRequiredMapsToCorrectCode() {
+            wm.stubFor(get(urlPathEqualTo("/transactions"))
+                    .willReturn(aResponse()
+                            .withStatus(403)
+                            .withHeader("Content-Type", "application/json")
+                            .withBody("{\"code\":\"forbidden.verification_required\",\"message\":\"Re-authenticate\"}")));
+
+            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", null, null, null, 100))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(ex -> assertThat(((ApiException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.MONZO_VERIFICATION_REQUIRED));
+        }
+
+        @Test
+        @DisplayName("generic 403 (no verification_required code) maps to MONZO_API_ERROR")
+        void generic403MapsToApiError() {
+            wm.stubFor(get(urlPathEqualTo("/transactions"))
+                    .willReturn(aResponse()
+                            .withStatus(403)
+                            .withHeader("Content-Type", "application/json")
+                            .withBody("{\"code\":\"forbidden\",\"message\":\"Access denied\"}")));
+
+            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", null, null, null, 100))
+                    .isInstanceOf(ApiException.class)
+                    .satisfies(ex -> assertThat(((ApiException) ex).getErrorCode())
+                            .isEqualTo(ErrorCode.MONZO_API_ERROR));
         }
     }
 }

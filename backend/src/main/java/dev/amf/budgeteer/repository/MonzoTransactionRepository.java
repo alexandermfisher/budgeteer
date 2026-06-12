@@ -21,6 +21,10 @@ public interface MonzoTransactionRepository extends JpaRepository<MonzoTransacti
     @Query("SELECT t FROM MonzoTransaction t WHERE t.user.id = :userId ORDER BY t.monzoCreatedAt DESC")
     List<MonzoTransaction> findByUserId(@Param("userId") UUID userId);
 
+    @Modifying
+    @Query("DELETE FROM MonzoTransaction t WHERE t.account.id = :accountId")
+    void deleteByAccountId(@Param("accountId") String accountId);
+
     /**
      * Native upsert for backfill — handles re-runs and pending→settled transitions
      * without SELECT+UPDATE per row.

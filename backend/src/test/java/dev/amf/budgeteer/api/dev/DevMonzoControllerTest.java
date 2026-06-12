@@ -3,10 +3,13 @@ package dev.amf.budgeteer.api.dev;
 import dev.amf.budgeteer.api.common.GlobalExceptionHandler;
 import dev.amf.budgeteer.config.SecurityConfig;
 import dev.amf.budgeteer.config.WebMvcConfig;
+import dev.amf.budgeteer.domain.monzo.MonzoAccount;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.api.common.ErrorCode;
+import dev.amf.budgeteer.repository.MonzoAccountRepository;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
+import dev.amf.budgeteer.repository.MonzoTransactionRepository;
 import dev.amf.budgeteer.security.CurrentUserArgumentResolver;
 import dev.amf.budgeteer.security.JweAuthenticationFilter.JweAuthentication;
 import dev.amf.budgeteer.service.auth.AuthService;
@@ -50,6 +53,12 @@ class DevMonzoControllerTest {
 
     @MockitoBean
     private MonzoConnectionRepository connectionRepository;
+
+    @MockitoBean
+    private MonzoAccountRepository accountRepository;
+
+    @MockitoBean
+    private MonzoTransactionRepository transactionRepository;
 
     // Required by SecurityConfig → JweAuthenticationFilter and CurrentUserArgumentResolver
     @MockitoBean
@@ -107,6 +116,51 @@ class DevMonzoControllerTest {
         void shouldReturn401WhenNotAuthenticated() throws Exception {
             mockMvc.perform(post("/api/dev/monzo/backfill"))
                     .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /api/dev/monzo/reset-backfill/{accountId}")
+    class ResetBackfill {
+
+        @Test
+        @DisplayName("resets backfill state and deletes transactions")
+        void resetsBackfillState() throws Exception {
+            MonzoAccount account = mock(MonzoAccount.class);
+            when(account.getUserId()).thenReturn(userId);
+            when(accountRepository.findById("acc_001")).thenReturn(java.util.Optional.of(account));
+            when(accountRepository.save(any())).thenReturn(account);
+
+            mockMvc.perform(post("/api/dev/monzo/reset-backfill/acc_001").with(authenticatedAs(userId)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true));
+
+            verify(transactionRepository).deleteByAccountId("acc_001");
+            verify(account).setBackfillStatus(null);
+            verify(account).setBackfillProgressAt(null);
+            verify(account).setBackfillProgressCursor(null);
+        }
+
+        @Test
+        @DisplayName("returns 404 when account not found")
+        void returns404WhenNotFound() throws Exception {
+            when(accountRepository.findById("acc_missing")).thenReturn(java.util.Optional.empty());
+
+            mockMvc.perform(post("/api/dev/monzo/reset-backfill/acc_missing").with(authenticatedAs(userId)))
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
+        }
+
+        @Test
+        @DisplayName("returns 403 when account belongs to a different user")
+        void returns403WhenWrongUser() throws Exception {
+            MonzoAccount account = mock(MonzoAccount.class);
+            when(account.getUserId()).thenReturn(UUID.randomUUID()); // different user
+            when(accountRepository.findById("acc_001")).thenReturn(java.util.Optional.of(account));
+
+            mockMvc.perform(post("/api/dev/monzo/reset-backfill/acc_001").with(authenticatedAs(userId)))
+                    .andExpect(status().isForbidden())
+                    .andExpect(jsonPath("$.error.code").value("ACCESS_DENIED"));
         }
     }
 

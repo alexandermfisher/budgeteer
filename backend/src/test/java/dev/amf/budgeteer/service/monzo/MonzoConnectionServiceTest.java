@@ -4,6 +4,7 @@ import dev.amf.budgeteer.config.MonzoTokenRefreshProperties;
 import dev.amf.budgeteer.service.common.EncryptionService;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
+import dev.amf.budgeteer.repository.MonzoAccountRepository;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.repository.UserRepository;
@@ -41,6 +42,9 @@ class MonzoConnectionServiceTest {
 
     @Mock
     private MonzoConnectionRepository connectionRepository;
+
+    @Mock
+    private MonzoAccountRepository accountRepository;
 
     @Mock
     private UserRepository userRepository;
@@ -82,6 +86,7 @@ class MonzoConnectionServiceTest {
 
         service = new MonzoConnectionService(
                 connectionRepository,
+                accountRepository,
                 userRepository,
                 encryptionService,
                 tokenRefreshService,

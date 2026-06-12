@@ -5,6 +5,7 @@ import dev.amf.budgeteer.service.monzo.MonzoConnectionService;
 public record MonzoStatusResponse(
         boolean connected,
         long connectionCount,
-        MonzoConnectionService.TokenStatus tokenStatus
+        MonzoConnectionService.TokenStatus tokenStatus,
+        MonzoConnectionService.BackfillStatus backfillStatus
 ) {
 }

@@ -57,6 +57,20 @@ public class MonzoAccount {
     @Column(name = "monzo_created_at")
     private Instant monzoCreatedAt;
 
+    @Nullable
+    @Column(name = "backfill_status", length = 32)
+    private String backfillStatus;
+
+    /** Upper bound of the next window to process; decreases as windows complete. Null = start from now. */
+    @Nullable
+    @Column(name = "backfill_progress_at")
+    private Instant backfillProgressAt;
+
+    /** Cursor (tx id) within the current in-flight window; persisted per page so mid-window 403s can resume. */
+    @Nullable
+    @Column(name = "backfill_progress_cursor", length = 255)
+    private String backfillProgressCursor;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -135,6 +149,39 @@ public class MonzoAccount {
     public Instant getUpdatedAt() { return updatedAt; }
 
     public void setClosed(boolean closed) { this.closed = closed; }
+
+    @Nullable
+    public BackfillStatus getBackfillStatus() {
+        return backfillStatus == null ? null : BackfillStatus.valueOf(backfillStatus);
+    }
+
+    public void setBackfillStatus(@Nullable BackfillStatus status) {
+        this.backfillStatus = status == null ? null : status.name();
+    }
+
+    @Nullable
+    public Instant getBackfillProgressAt() { return backfillProgressAt; }
+
+    public void setBackfillProgressAt(@Nullable Instant backfillProgressAt) {
+        this.backfillProgressAt = backfillProgressAt;
+    }
+
+    @Nullable
+    public String getBackfillProgressCursor() { return backfillProgressCursor; }
+
+    public void setBackfillProgressCursor(@Nullable String backfillProgressCursor) {
+        this.backfillProgressCursor = backfillProgressCursor;
+    }
+
+    /** Lifecycle state for the initial historical backfill. */
+    public enum BackfillStatus {
+        /** Backfill is actively running. */
+        IN_PROGRESS,
+        /** All historical windows successfully fetched down to account creation. */
+        COMPLETED,
+        /** Monzo returned verification_required (SCA expired) — re-OAuth will resume from progress_at. */
+        NEEDS_REAUTH
+    }
 
     @Override
     public String toString() {

@@ -282,8 +282,9 @@ public class MonzoController {
         boolean hasConnection = connectionService.hasActiveConnection(user.getId());
         long connectionCount = connectionService.countActiveConnections(user.getId());
         MonzoConnectionService.TokenStatus tokenStatus = connectionService.getTokenStatus(user.getId());
+        MonzoConnectionService.BackfillStatus backfillStatus = connectionService.getBackfillStatus(user.getId());
 
-        MonzoStatusResponse status = new MonzoStatusResponse(hasConnection, connectionCount, tokenStatus);
+        MonzoStatusResponse status = new MonzoStatusResponse(hasConnection, connectionCount, tokenStatus, backfillStatus);
         return ResponseEntity.ok(ApiResponse.of(status));
     }
 }

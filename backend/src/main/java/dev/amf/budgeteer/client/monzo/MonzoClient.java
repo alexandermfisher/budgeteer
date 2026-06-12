@@ -298,6 +298,12 @@ public class MonzoClient {
         }
 
         if (status.value() == 403) {
+            String body = e.getResponseBodyAsString();
+            if (body.contains("forbidden.verification_required")) {
+                log.warn("Monzo API returned 403 verification_required for {} - SCA window has expired", endpoint);
+                throw new ApiException(ErrorCode.MONZO_VERIFICATION_REQUIRED,
+                        "Monzo requires re-authentication to access older transactions.");
+            }
             log.warn("Monzo API returned 403 for {} - insufficient permissions", endpoint);
             throw new ApiException(ErrorCode.MONZO_API_ERROR,
                     "Monzo API access denied. You may need to re-authorize.");

@@ -1,11 +1,13 @@
 package dev.amf.budgeteer.service.monzo;
 
+import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.client.monzo.MonzoClient;
 import dev.amf.budgeteer.client.monzo.dto.MonzoAccountResponse;
 import dev.amf.budgeteer.client.monzo.dto.MonzoTransactionResponse;
 import dev.amf.budgeteer.domain.monzo.MonzoAccount;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
+import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.repository.MonzoAccountRepository;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.repository.MonzoTransactionRepository;
@@ -14,12 +16,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -179,6 +183,125 @@ class TransactionSyncServiceTest {
             service.deltaSync("acc_001");
 
             verify(monzoClient).getTransactions(ACCESS_TOKEN, "acc_001", null, null, null, 100);
+        }
+    }
+
+    @Nested
+    @DisplayName("backfill — resumability")
+    class BackfillResumability {
+
+        @Test
+        @DisplayName("verification_required mid-window marks account NEEDS_REAUTH and does not rethrow")
+        void verificationRequiredMarksNeedsReauth() {
+            when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+            when(connectionService.getDecryptedAccessToken(connectionId, userId)).thenReturn(ACCESS_TOKEN);
+
+            MonzoAccountResponse ar = new MonzoAccountResponse(
+                    "acc_001", "uk_retail", null, "GBP", false, "2024-01-01T00:00:00Z");
+            when(monzoClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
+
+            MonzoAccount account = mockAccount("acc_001");
+            when(accountRepository.findById("acc_001")).thenReturn(Optional.empty());
+            when(accountRepository.save(any())).thenReturn(account);
+
+            // First window throws verification_required
+            when(monzoClient.getTransactions(eq(ACCESS_TOKEN), eq("acc_001"),
+                    anyString(), anyString(), isNull(), eq(100)))
+                    .thenThrow(new ApiException(ErrorCode.MONZO_VERIFICATION_REQUIRED, "SCA expired"));
+
+            // Should not throw
+            service.backfill(connectionId);
+
+            ArgumentCaptor<MonzoAccount.BackfillStatus> statusCaptor =
+                    ArgumentCaptor.forClass(MonzoAccount.BackfillStatus.class);
+            verify(account, atLeastOnce()).setBackfillStatus(statusCaptor.capture());
+            assertThat(statusCaptor.getAllValues()).contains(MonzoAccount.BackfillStatus.NEEDS_REAUTH);
+        }
+
+        @Test
+        @DisplayName("reaching the account floor marks account COMPLETED")
+        void reachingFloorMarksCompleted() {
+            when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+            when(connectionService.getDecryptedAccessToken(connectionId, userId)).thenReturn(ACCESS_TOKEN);
+
+            // Account opened recently — one short window gets us to the floor
+            MonzoAccountResponse ar = new MonzoAccountResponse(
+                    "acc_001", "uk_retail", null, "GBP", false, "2025-12-01T00:00:00Z");
+            when(monzoClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
+
+            MonzoAccount account = mockAccount("acc_001");
+            when(account.getMonzoCreatedAt()).thenReturn(Instant.parse("2025-12-01T00:00:00Z"));
+            when(accountRepository.findById("acc_001")).thenReturn(Optional.empty());
+            when(accountRepository.save(any())).thenReturn(account);
+
+            // All windows return empty
+            when(monzoClient.getTransactions(any(), any(), any(), any(), any(), anyInt()))
+                    .thenReturn(List.of());
+
+            service.backfill(connectionId);
+
+            ArgumentCaptor<MonzoAccount.BackfillStatus> statusCaptor =
+                    ArgumentCaptor.forClass(MonzoAccount.BackfillStatus.class);
+            verify(account, atLeastOnce()).setBackfillStatus(statusCaptor.capture());
+            assertThat(statusCaptor.getAllValues()).contains(MonzoAccount.BackfillStatus.COMPLETED);
+        }
+
+        @Test
+        @DisplayName("resumes from backfillProgressAt — does not re-fetch later windows")
+        void resumesFromProgressAt() {
+            when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+            when(connectionService.getDecryptedAccessToken(connectionId, userId)).thenReturn(ACCESS_TOKEN);
+
+            Instant progressAt = Instant.parse("2025-12-01T00:00:00Z");
+
+            MonzoAccountResponse ar = new MonzoAccountResponse(
+                    "acc_001", "uk_retail", null, "GBP", false, "2025-10-01T00:00:00Z");
+            when(monzoClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
+
+            MonzoAccount account = mockAccount("acc_001");
+            when(account.getMonzoCreatedAt()).thenReturn(Instant.parse("2025-10-01T00:00:00Z"));
+            when(account.getBackfillProgressAt()).thenReturn(progressAt);
+            when(account.getBackfillProgressCursor()).thenReturn(null);
+            when(accountRepository.findById("acc_001")).thenReturn(Optional.empty());
+            when(accountRepository.save(any())).thenReturn(account);
+            when(monzoClient.getTransactions(any(), any(), any(), any(), any(), anyInt()))
+                    .thenReturn(List.of());
+
+            service.backfill(connectionId);
+
+            // The `before` on the first call must not exceed progressAt (we resume from there)
+            verify(monzoClient, atLeastOnce()).getTransactions(
+                    eq(ACCESS_TOKEN), eq("acc_001"), any(), eq(progressAt.toString()), isNull(), eq(100));
+        }
+
+        @Test
+        @DisplayName("mid-window resume uses backfillProgressCursor as since_id")
+        void midWindowResumeUsesCursor() {
+            when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+            when(connectionService.getDecryptedAccessToken(connectionId, userId)).thenReturn(ACCESS_TOKEN);
+
+            Instant progressAt = Instant.parse("2026-01-01T00:00:00Z");
+            String savedCursor = "tx_previously_saved";
+
+            MonzoAccountResponse ar = new MonzoAccountResponse(
+                    "acc_001", "uk_retail", null, "GBP", false, "2025-12-01T00:00:00Z");
+            when(monzoClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
+
+            MonzoAccount account = mockAccount("acc_001");
+            when(account.getMonzoCreatedAt()).thenReturn(Instant.parse("2025-12-01T00:00:00Z"));
+            when(account.getBackfillProgressAt()).thenReturn(progressAt);
+            when(account.getBackfillProgressCursor()).thenReturn(savedCursor);
+            when(accountRepository.findById("acc_001")).thenReturn(Optional.empty());
+            when(accountRepository.save(any())).thenReturn(account);
+            when(monzoClient.getTransactions(any(), any(), any(), any(), any(), anyInt()))
+                    .thenReturn(List.of());
+
+            service.backfill(connectionId);
+
+            // The first call within the resumed window must use the saved cursor, not null
+            verify(monzoClient, atLeastOnce()).getTransactions(
+                    eq(ACCESS_TOKEN), eq("acc_001"), isNull(), eq(progressAt.toString()),
+                    eq(savedCursor), eq(100));
         }
     }
 

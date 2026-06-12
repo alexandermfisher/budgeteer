@@ -1,5 +1,6 @@
 package dev.amf.budgeteer.integration;
 
+import com.github.tomakehurst.wiremock.http.Fault;
 import dev.amf.budgeteer.domain.monzo.MonzoAccount;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
@@ -190,6 +191,47 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
         }
     }
 
+    @Nested
+    @DisplayName("backfill() — resumability")
+    class BackfillResumability {
+
+        @Test
+        @DisplayName("verification_required marks NEEDS_REAUTH and persists partial progress")
+        void verificationRequiredMarksNeedsReauth() {
+            User user = testData.createVerifiedUser();
+            MonzoConnection connection = createConnectionWithRealTokens(user);
+
+            stubAccountsResponse("""
+                    {"accounts":[
+                      {"id":"acc_001","type":"uk_retail","description":"Current","currency":"GBP",
+                       "closed":false,"created":"2025-01-01T00:00:00Z"}
+                    ]}
+                    """);
+
+            // First windowed request succeeds with one page of results
+            stubFirstWindowThenVerificationRequired("acc_001", """
+                    {"transactions":[
+                      {"id":"tx_001","amount":-500,"currency":"GBP","description":"Coffee",
+                       "merchant":null,"notes":null,"decline_reason":null,
+                       "created":"2025-10-01T10:00:00Z","settled":"2025-10-02T00:00:00Z"}
+                    ]}
+                    """);
+
+            syncService.backfill(connection.getId());
+
+            // The account should be marked NEEDS_REAUTH (not COMPLETED)
+            MonzoAccount account = accountRepository.findById("acc_001").orElseThrow();
+            assertThat(account.getBackfillStatus())
+                    .isEqualTo(MonzoAccount.BackfillStatus.NEEDS_REAUTH);
+
+            // The one transaction from the first successful window is persisted
+            assertThat(transactionRepository.findByAccountId("acc_001")).hasSize(1);
+
+            // backfillProgressAt is set (so re-OAuth can resume from there)
+            assertThat(account.getBackfillProgressAt()).isNotNull();
+        }
+    }
+
     // ============ Helpers ============
 
     private MonzoConnection createConnectionWithRealTokens(User user) {
@@ -230,6 +272,32 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
                 .withQueryParam("since", matching(".+"))
                 .withQueryParam("before", matching(".+"))
                 .willReturn(okJson("{\"transactions\":[]}")));
+    }
+
+    /**
+     * Like {@link #stubFirstWindowThenEmpty} but subsequent window requests return 403
+     * verification_required, simulating SCA window expiry mid-backfill.
+     */
+    private void stubFirstWindowThenVerificationRequired(String accountId, String json) {
+        String scenario = "backfill-sca-" + accountId;
+        wm.stubFor(get(urlPathEqualTo("/transactions"))
+                .inScenario(scenario)
+                .whenScenarioStateIs(com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED)
+                .withQueryParam("account_id", equalTo(accountId))
+                .withQueryParam("expand[]", equalTo("merchant"))
+                .withQueryParam("since", matching(".+"))
+                .withQueryParam("before", matching(".+"))
+                .willSetStateTo("first-window-served")
+                .willReturn(okJson(json)));
+        wm.stubFor(get(urlPathEqualTo("/transactions"))
+                .inScenario(scenario)
+                .whenScenarioStateIs("first-window-served")
+                .withQueryParam("account_id", equalTo(accountId))
+                .withQueryParam("expand[]", equalTo("merchant"))
+                .willReturn(aResponse()
+                        .withStatus(403)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("{\"code\":\"forbidden.verification_required\",\"message\":\"SCA required\"}")));
     }
 
     /** Stub for a cursor-based page (used both for backfill pagination and delta sync). */

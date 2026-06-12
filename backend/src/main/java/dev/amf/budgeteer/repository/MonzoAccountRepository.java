@@ -19,6 +19,12 @@ public interface MonzoAccountRepository extends JpaRepository<MonzoAccount, Stri
     List<MonzoAccount> findByUserId(@Param("userId") UUID userId);
 
     /**
+     * Returns all non-closed accounts for a user — used for backfill status aggregation.
+     */
+    @Query("SELECT a FROM MonzoAccount a WHERE a.user.id = :userId AND a.closed = false")
+    List<MonzoAccount> findActiveByUserId(@Param("userId") UUID userId);
+
+    /**
      * Returns all non-closed accounts across all connections — used by the delta sync job.
      */
     @Query("SELECT a FROM MonzoAccount a WHERE a.closed = false")

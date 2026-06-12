@@ -1,7 +1,9 @@
 package dev.amf.budgeteer.service.monzo;
 
 import dev.amf.budgeteer.config.MonzoTokenRefreshProperties;
+import dev.amf.budgeteer.domain.monzo.MonzoAccount;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
+import dev.amf.budgeteer.repository.MonzoAccountRepository;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.repository.UserRepository;
@@ -38,6 +40,7 @@ public class MonzoConnectionService {
     private static final Logger log = LoggerFactory.getLogger(MonzoConnectionService.class);
 
     private final MonzoConnectionRepository connectionRepository;
+    private final MonzoAccountRepository accountRepository;
     private final UserRepository userRepository;
     private final EncryptionService encryptionService;
     private final MonzoTokenRefreshService tokenRefreshService;
@@ -47,12 +50,14 @@ public class MonzoConnectionService {
 
     public MonzoConnectionService(
             MonzoConnectionRepository connectionRepository,
+            MonzoAccountRepository accountRepository,
             UserRepository userRepository,
             EncryptionService encryptionService,
             MonzoTokenRefreshService tokenRefreshService,
             MonzoTokenRefreshProperties properties
     ) {
         this.connectionRepository = connectionRepository;
+        this.accountRepository = accountRepository;
         this.userRepository = userRepository;
         this.encryptionService = encryptionService;
         this.tokenRefreshService = tokenRefreshService;
@@ -333,6 +338,41 @@ public class MonzoConnectionService {
         return anyExpiringSoon ? TokenStatus.EXPIRING_SOON : TokenStatus.ACTIVE;
     }
 
+    /**
+     * Returns the aggregate backfill status across the user's non-closed accounts.
+     *
+     * <p>Priority order (worst-case wins):
+     * <ul>
+     *   <li>{@link BackfillStatus#NOT_STARTED} — no accounts, or no account has started backfill</li>
+     *   <li>{@link BackfillStatus#NEEDS_REAUTH} — at least one account needs re-authentication</li>
+     *   <li>{@link BackfillStatus#IN_PROGRESS} — at least one account is actively backfilling</li>
+     *   <li>{@link BackfillStatus#COMPLETED} — all accounts have completed backfill</li>
+     * </ul>
+     *
+     * @param userId the user ID
+     * @return the aggregate backfill status
+     */
+    @Transactional(readOnly = true)
+    public BackfillStatus getBackfillStatus(UUID userId) {
+        List<MonzoAccount> accounts = accountRepository.findActiveByUserId(userId);
+        if (accounts.isEmpty()) {
+            return BackfillStatus.NOT_STARTED;
+        }
+        boolean anyNeedsReauth = accounts.stream()
+                .anyMatch(a -> a.getBackfillStatus() == MonzoAccount.BackfillStatus.NEEDS_REAUTH);
+        if (anyNeedsReauth) return BackfillStatus.NEEDS_REAUTH;
+
+        boolean anyInProgress = accounts.stream()
+                .anyMatch(a -> a.getBackfillStatus() == MonzoAccount.BackfillStatus.IN_PROGRESS);
+        if (anyInProgress) return BackfillStatus.IN_PROGRESS;
+
+        boolean allCompleted = accounts.stream()
+                .allMatch(a -> a.getBackfillStatus() == MonzoAccount.BackfillStatus.COMPLETED);
+        if (allCompleted) return BackfillStatus.COMPLETED;
+
+        return BackfillStatus.NOT_STARTED;
+    }
+
     // =========================================================================
     // Private helpers
     // =========================================================================
@@ -380,6 +420,23 @@ public class MonzoConnectionService {
         EXPIRING_SOON,
         /** No active connections — user must re-run the Monzo OAuth flow. */
         RECONNECT_REQUIRED
+    }
+
+    /**
+     * Aggregate backfill status across a user's non-closed Monzo accounts.
+     *
+     * <p>Returned by {@link MonzoConnectionService#getBackfillStatus(UUID)} and
+     * exposed via the {@code GET /api/monzo/status} endpoint.
+     */
+    public enum BackfillStatus {
+        /** No accounts exist, or no account has started backfill. */
+        NOT_STARTED,
+        /** At least one account is actively backfilling. */
+        IN_PROGRESS,
+        /** At least one account hit an SCA expiry — re-OAuth will resume from the saved checkpoint. */
+        NEEDS_REAUTH,
+        /** All non-closed accounts have been fully backfilled. */
+        COMPLETED
     }
 
     /**
