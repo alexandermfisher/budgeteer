@@ -195,9 +195,15 @@ public class MonzoClient {
     /**
      * Lists transactions for a Monzo account.
      *
+     * <p>Monzo enforces a maximum 365-day range when both {@code since} and {@code before} are
+     * supplied — backfills must therefore be chunked into ≤1-year windows. Within a window, use
+     * {@code sinceId} (a cursor) to paginate forward. Delta syncs pass {@code sinceId} only.
+     *
      * @param accessToken the access token
      * @param accountId   the Monzo account ID
-     * @param sinceId     cursor for pagination — returns transactions after this ID (null for first page)
+     * @param since       RFC3339 timestamp lower bound — returns transactions on/after this instant (nullable)
+     * @param before      RFC3339 timestamp upper bound — returns transactions strictly before this instant (nullable)
+     * @param sinceId     cursor for pagination — returns transactions after this ID (nullable)
      * @param limit       maximum number of transactions to return
      * @return list of transactions
      * @throws ApiException if the call fails or token is revoked
@@ -205,10 +211,13 @@ public class MonzoClient {
     public List<MonzoTransactionResponse> getTransactions(
             String accessToken,
             String accountId,
+            @Nullable String since,
+            @Nullable String before,
             @Nullable String sinceId,
             int limit
     ) {
-        log.debug("Fetching Monzo transactions [accountId={}, sinceId={}, limit={}]", accountId, sinceId, limit);
+        log.debug("Fetching Monzo transactions [accountId={}, since={}, before={}, sinceId={}, limit={}]",
+                accountId, since, before, sinceId, limit);
 
         try {
             UriComponentsBuilder uri = UriComponentsBuilder.fromPath("/transactions")
@@ -216,6 +225,12 @@ public class MonzoClient {
                     .queryParam("expand[]", "merchant")
                     .queryParam("limit", limit);
 
+            if (since != null) {
+                uri.queryParam("since", since);
+            }
+            if (before != null) {
+                uri.queryParam("before", before);
+            }
             if (sinceId != null) {
                 uri.queryParam("since_id", sinceId);
             }

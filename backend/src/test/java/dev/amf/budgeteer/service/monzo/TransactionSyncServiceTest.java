@@ -72,9 +72,9 @@ class TransactionSyncServiceTest {
             when(connectionService.getDecryptedAccessToken(connectionId, userId)).thenReturn(ACCESS_TOKEN);
 
             MonzoAccountResponse openAccount = new MonzoAccountResponse(
-                    "acc_open", "uk_retail", "Current", "GBP", false);
+                    "acc_open", "uk_retail", "Current", "GBP", false, "2024-01-01T00:00:00Z");
             MonzoAccountResponse closedAccount = new MonzoAccountResponse(
-                    "acc_closed", "uk_retail", "Old Account", "GBP", true);
+                    "acc_closed", "uk_retail", "Old Account", "GBP", true, "2020-01-01T00:00:00Z");
 
             when(monzoClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(openAccount, closedAccount));
 
@@ -84,16 +84,22 @@ class TransactionSyncServiceTest {
             when(accountRepository.findById("acc_closed")).thenReturn(Optional.empty());
             when(accountRepository.save(any())).thenReturn(savedOpenAccount, savedClosedAccount, savedOpenAccount);
 
+            // Backfill walks back through ~12 ≤350-day windows from now → 2015-01-01.
+            // The first window (most recent) returns our test tx; all older windows return empty.
             MonzoTransactionResponse tx = makeTx("tx_001");
-            when(monzoClient.getTransactions(ACCESS_TOKEN, "acc_open", null, 100))
-                    .thenReturn(List.of(tx));
+            when(monzoClient.getTransactions(
+                    eq(ACCESS_TOKEN), eq("acc_open"), anyString(), anyString(), isNull(), eq(100)))
+                    .thenReturn(List.of(tx), List.of());
 
             // When
             service.backfill(connectionId);
 
-            // Then
-            verify(monzoClient, times(1)).getTransactions(any(), eq("acc_open"), any(), anyInt());
-            verify(monzoClient, never()).getTransactions(any(), eq("acc_closed"), any(), anyInt());
+            // Then — every backfill call must include both `since` AND `before` (windowed range),
+            // and `sinceId` must start null for each window.
+            verify(monzoClient, atLeastOnce())
+                    .getTransactions(eq(ACCESS_TOKEN), eq("acc_open"), anyString(), anyString(), isNull(), eq(100));
+            verify(monzoClient, never())
+                    .getTransactions(any(), eq("acc_closed"), any(), any(), any(), anyInt());
             verify(transactionRepository, times(1)).upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
         }
 
@@ -103,27 +109,37 @@ class TransactionSyncServiceTest {
             when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
             when(connectionService.getDecryptedAccessToken(connectionId, userId)).thenReturn(ACCESS_TOKEN);
 
-            MonzoAccountResponse account = new MonzoAccountResponse("acc_001", "uk_retail", null, "GBP", false);
+            MonzoAccountResponse account = new MonzoAccountResponse(
+                    "acc_001", "uk_retail", null, "GBP", false, "2024-01-01T00:00:00Z");
             when(monzoClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(account));
 
             MonzoAccount savedAccount = mockAccount("acc_001");
             when(accountRepository.findById("acc_001")).thenReturn(Optional.empty());
             when(accountRepository.save(any())).thenReturn(savedAccount);
 
-            // First page: 100 items
+            // First page: 100 items (full window — triggers cursor pagination)
             List<MonzoTransactionResponse> firstPage = makeNTransactions(100, "tx_page1_");
-            // Second page: 5 items (last page)
+            // Second page: 5 items (last page within same window)
             List<MonzoTransactionResponse> secondPage = makeNTransactions(5, "tx_page2_");
 
-            when(monzoClient.getTransactions(ACCESS_TOKEN, "acc_001", null, 100))
-                    .thenReturn(firstPage);
-            when(monzoClient.getTransactions(ACCESS_TOKEN, "acc_001", "tx_page1_099", 100))
+            // First window: returns 100 (forces cursor pagination). All older windows: empty.
+            // We distinguish by sinceId — start-of-window calls have sinceId=null.
+            when(monzoClient.getTransactions(
+                    eq(ACCESS_TOKEN), eq("acc_001"), anyString(), anyString(), isNull(), eq(100)))
+                    .thenReturn(firstPage, List.of());
+
+            // Cursor follow-up within the first window: sinceId set, since dropped to null.
+            when(monzoClient.getTransactions(
+                    eq(ACCESS_TOKEN), eq("acc_001"), isNull(), anyString(), eq("tx_page1_099"), eq(100)))
                     .thenReturn(secondPage);
 
             service.backfill(connectionId);
 
-            verify(monzoClient, times(2)).getTransactions(any(), any(), any(), anyInt());
-            verify(transactionRepository, times(105)).upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+            // All 105 transactions upserted, cursor follow-up happened exactly once.
+            verify(transactionRepository, times(105))
+                    .upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+            verify(monzoClient, times(1))
+                    .getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), isNull(), anyString(), eq("tx_page1_099"), eq(100));
         }
     }
 
@@ -140,12 +156,12 @@ class TransactionSyncServiceTest {
             when(connectionService.getDecryptedAccessToken(any(), any())).thenReturn(ACCESS_TOKEN);
 
             MonzoTransactionResponse tx = makeTx("tx_new");
-            when(monzoClient.getTransactions(ACCESS_TOKEN, "acc_001", "tx_existing_cursor", 100))
+            when(monzoClient.getTransactions(ACCESS_TOKEN, "acc_001", null, null, "tx_existing_cursor", 100))
                     .thenReturn(List.of(tx));
 
             service.deltaSync("acc_001");
 
-            verify(monzoClient).getTransactions(ACCESS_TOKEN, "acc_001", "tx_existing_cursor", 100);
+            verify(monzoClient).getTransactions(ACCESS_TOKEN, "acc_001", null, null, "tx_existing_cursor", 100);
             verify(transactionRepository, times(1)).upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
         }
 
@@ -157,12 +173,12 @@ class TransactionSyncServiceTest {
             when(accountRepository.findById("acc_001")).thenReturn(Optional.of(account));
             when(connectionService.getDecryptedAccessToken(any(), any())).thenReturn(ACCESS_TOKEN);
 
-            when(monzoClient.getTransactions(ACCESS_TOKEN, "acc_001", null, 100))
+            when(monzoClient.getTransactions(ACCESS_TOKEN, "acc_001", null, null, null, 100))
                     .thenReturn(List.of());
 
             service.deltaSync("acc_001");
 
-            verify(monzoClient).getTransactions(ACCESS_TOKEN, "acc_001", null, 100);
+            verify(monzoClient).getTransactions(ACCESS_TOKEN, "acc_001", null, null, null, 100);
         }
     }
 

@@ -42,7 +42,7 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
     class Backfill {
 
         @Test
-        @DisplayName("happy path — creates accounts and transactions in DB")
+        @DisplayName("happy path — windowed backfill persists transactions and sets cursor")
         void createsAccountsAndTransactions() {
             // Given
             User user = testData.createVerifiedUser();
@@ -53,7 +53,11 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
                       {"id":"acc_001","type":"uk_retail","description":"Current","currency":"GBP","closed":false}
                     ]}
                     """);
-            stubTransactionsResponse("acc_001", null, """
+
+            // Default for the FIRST (most recent) window: returns two txs.
+            // Older windows return empty. We distinguish via WireMock scenarios so the
+            // first request hits the seeded data and subsequent ones return empty.
+            stubFirstWindowThenEmpty("acc_001", """
                     {"transactions":[
                       {"id":"tx_001","amount":-500,"currency":"GBP","description":"Coffee",
                        "merchant":{"name":"Starbucks","category":"eating_out"},
@@ -68,15 +72,24 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
             // When
             syncService.backfill(connection.getId());
 
-            // Then
+            // Then — exactly 2 unique transactions persisted, cursor = newest tx
             List<MonzoAccount> accounts = accountRepository.findByConnectionId(connection.getId());
             assertThat(accounts).hasSize(1);
             assertThat(accounts.getFirst().getId()).isEqualTo("acc_001");
             assertThat(accounts.getFirst().isClosed()).isFalse();
             assertThat(accounts.getFirst().getLastTransactionId()).isEqualTo("tx_002");
             assertThat(accounts.getFirst().getLastSyncedAt()).isNotNull();
-
             assertThat(transactionRepository.findByAccountId("acc_001")).hasSize(2);
+
+            // Every backfill request must carry both `since` and `before` (windowed) —
+            // proves we honour Monzo's 365-day max range. There should be multiple windows
+            // (the backfill walks back to 2015), and zero un-windowed requests.
+            wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
+                    .withQueryParam("account_id", equalTo("acc_001"))
+                    .withoutQueryParam("since"));
+            wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
+                    .withQueryParam("account_id", equalTo("acc_001"))
+                    .withoutQueryParam("before"));
         }
 
         @Test
@@ -99,7 +112,7 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
         }
 
         @Test
-        @DisplayName("pagination — fetches all pages until page < 100")
+        @DisplayName("pagination within a window — cursor follow-up triggered when page is full")
         void paginatesCorrectly() {
             User user = testData.createVerifiedUser();
             MonzoConnection connection = createConnectionWithRealTokens(user);
@@ -110,20 +123,27 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
                     ]}
                     """);
 
-            // First page: 100 transactions
+            // First window returns 100 transactions → forces a cursor follow-up.
+            // Older windows return empty so the test stays deterministic across calendar drift.
             String firstPage = buildTransactionPage(100, "tx_p1_", "2024-01-01T10:00:00Z");
-            stubTransactionsResponse("acc_001", null, "{\"transactions\":[" + firstPage + "]}");
+            stubFirstWindowThenEmpty("acc_001", "{\"transactions\":[" + firstPage + "]}");
 
-            // Second page: 5 transactions (last page)
+            // Cursor follow-up within first window returns the remaining 5 (last page).
             String secondPage = buildTransactionPage(5, "tx_p2_", "2024-01-02T10:00:00Z");
-            stubTransactionsResponse("acc_001", "tx_p1_099", "{\"transactions\":[" + secondPage + "]}");
+            stubCursorPage("acc_001", "tx_p1_099", "{\"transactions\":[" + secondPage + "]}");
 
             syncService.backfill(connection.getId());
 
+            // 100 (first page) + 5 (cursor follow-up) = 105 unique transactions persisted.
             assertThat(transactionRepository.findByAccountId("acc_001")).hasSize(105);
-            // Cursor should be the last ID from page 2
+
+            // The newest tx — last from the cursor follow-up — becomes the stored cursor.
             MonzoAccount account = accountRepository.findById("acc_001").orElseThrow();
             assertThat(account.getLastTransactionId()).isEqualTo("tx_p2_004");
+
+            // Cursor follow-up fires exactly once (within the first non-empty window).
+            wm.verify(1, getRequestedFor(urlPathEqualTo("/transactions"))
+                    .withQueryParam("since_id", equalTo("tx_p1_099")));
         }
     }
 
@@ -140,9 +160,9 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
             MonzoAccount account = testData.createMonzoAccount(connection, user, "acc_delta");
             testData.createMonzoTransaction(account, user); // seed tx (not tx_seed ID)
 
-            // Simulate the account having a cursor set from a previous sync
-            // We do this by running a small backfill first with a controlled stub
-            stubTransactionsResponse("acc_delta", null,
+            // Simulate the account having a cursor set from a previous sync.
+            // First deltaSync run — account has no cursor, so the request goes out with no anchor or cursor.
+            stubDeltaFirstRun("acc_delta",
                     "{\"transactions\":[{\"id\":\"tx_seed\",\"amount\":-100,\"currency\":\"GBP\"," +
                     "\"description\":\"seed\",\"merchant\":null,\"notes\":null,\"decline_reason\":null," +
                     "\"created\":\"2024-01-01T00:00:00Z\",\"settled\":null}]}");
@@ -150,7 +170,7 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
             wm.resetAll();
 
             // Now delta sync with the cursor
-            stubTransactionsResponse("acc_delta", "tx_seed", """
+            stubCursorPage("acc_delta", "tx_seed", """
                     {"transactions":[
                       {"id":"tx_new_001","amount":-200,"currency":"GBP","description":"New","merchant":null,
                        "notes":null,"decline_reason":null,"created":"2024-01-03T10:00:00Z","settled":null}
@@ -184,14 +204,49 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
                 .willReturn(okJson(json)));
     }
 
-    private void stubTransactionsResponse(String accountId, String sinceId, String json) {
-        var builder = get(urlPathEqualTo("/transactions"))
+    /**
+     * Stub the first windowed backfill request (matched by absence of {@code since_id}, i.e. the
+     * start of a window) to return {@code json} once, then empty for all subsequent windows.
+     * Uses a WireMock scenario so the response progresses through the state machine.
+     */
+    private void stubFirstWindowThenEmpty(String accountId, String json) {
+        String scenario = "backfill-" + accountId;
+        // First windowed request → returns the seeded data
+        wm.stubFor(get(urlPathEqualTo("/transactions"))
+                .inScenario(scenario)
+                .whenScenarioStateIs(com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED)
                 .withQueryParam("account_id", equalTo(accountId))
-                .withQueryParam("expand[]", equalTo("merchant"));
-        if (sinceId != null) {
-            builder = builder.withQueryParam("since_id", equalTo(sinceId));
-        }
-        wm.stubFor(builder.willReturn(okJson(json)));
+                .withQueryParam("expand[]", equalTo("merchant"))
+                .withQueryParam("since", matching(".+"))
+                .withQueryParam("before", matching(".+"))
+                .willSetStateTo("first-window-served")
+                .willReturn(okJson(json)));
+        // All later windowed requests → empty
+        wm.stubFor(get(urlPathEqualTo("/transactions"))
+                .inScenario(scenario)
+                .whenScenarioStateIs("first-window-served")
+                .withQueryParam("account_id", equalTo(accountId))
+                .withQueryParam("expand[]", equalTo("merchant"))
+                .withQueryParam("since", matching(".+"))
+                .withQueryParam("before", matching(".+"))
+                .willReturn(okJson("{\"transactions\":[]}")));
+    }
+
+    /** Stub for a cursor-based page (used both for backfill pagination and delta sync). */
+    private void stubCursorPage(String accountId, String sinceId, String json) {
+        wm.stubFor(get(urlPathEqualTo("/transactions"))
+                .withQueryParam("account_id", equalTo(accountId))
+                .withQueryParam("expand[]", equalTo("merchant"))
+                .withQueryParam("since_id", equalTo(sinceId))
+                .willReturn(okJson(json)));
+    }
+
+    /** Stub for a delta sync where the account has no cursor yet — no anchor, no cursor. */
+    private void stubDeltaFirstRun(String accountId, String json) {
+        wm.stubFor(get(urlPathEqualTo("/transactions"))
+                .withQueryParam("account_id", equalTo(accountId))
+                .withQueryParam("expand[]", equalTo("merchant"))
+                .willReturn(okJson(json)));
     }
 
     private String buildTransactionPage(int count, String idPrefix, String baseTime) {

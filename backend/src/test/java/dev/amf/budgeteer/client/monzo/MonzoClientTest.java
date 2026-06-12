@@ -96,8 +96,8 @@ class MonzoClientTest {
     class GetTransactions {
 
         @Test
-        @DisplayName("first page — no sinceId, always includes expand[]=merchant")
-        void firstPageNoSinceId() {
+        @DisplayName("no anchor and no cursor — only base params on URL")
+        void noAnchorNoCursor() {
             wm.stubFor(get(urlPathEqualTo("/transactions"))
                     .withQueryParam("account_id", equalTo("acc_001"))
                     .withQueryParam("expand[]", equalTo("merchant"))
@@ -116,7 +116,7 @@ class MonzoClientTest {
                             }
                             """)));
 
-            List<MonzoTransactionResponse> result = client.getTransactions(ACCESS_TOKEN, "acc_001", null, 100);
+            List<MonzoTransactionResponse> result = client.getTransactions(ACCESS_TOKEN, "acc_001", null, null, null, 100);
 
             assertThat(result).hasSize(1);
             MonzoTransactionResponse tx = result.get(0);
@@ -127,10 +127,46 @@ class MonzoClientTest {
             assertThat(tx.merchant().name()).isEqualTo("Starbucks");
             assertThat(tx.merchant().category()).isEqualTo("eating_out");
             assertThat(tx.declineReason()).isNull();
+
+            wm.verify(getRequestedFor(urlPathEqualTo("/transactions"))
+                    .withQueryParam("account_id", equalTo("acc_001")));
+            wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
+                    .withQueryParam("since", matching(".*")));
+            wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
+                    .withQueryParam("before", matching(".*")));
+            wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
+                    .withQueryParam("since_id", matching(".*")));
         }
 
         @Test
-        @DisplayName("subsequent page — sinceId included in request")
+        @DisplayName("with since + before window — both included on URL, no since_id")
+        void withSinceAndBeforeWindow() {
+            wm.stubFor(get(urlPathEqualTo("/transactions"))
+                    .withQueryParam("account_id", equalTo("acc_001"))
+                    .withQueryParam("since", equalTo("2024-01-01T00:00:00Z"))
+                    .withQueryParam("before", equalTo("2024-12-16T00:00:00Z"))
+                    .withQueryParam("expand[]", equalTo("merchant"))
+                    .withQueryParam("limit", equalTo("100"))
+                    .willReturn(okJson("""
+                            {"transactions":[
+                              {"id":"tx_old","amount":-100,"currency":"GBP","description":"Old","merchant":null,
+                               "notes":null,"decline_reason":null,
+                               "created":"2024-06-01T09:00:00Z","settled":"2024-06-02T09:00:00Z"}
+                            ]}
+                            """)));
+
+            List<MonzoTransactionResponse> result = client.getTransactions(
+                    ACCESS_TOKEN, "acc_001", "2024-01-01T00:00:00Z", "2024-12-16T00:00:00Z", null, 100);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).id()).isEqualTo("tx_old");
+
+            wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
+                    .withQueryParam("since_id", matching(".*")));
+        }
+
+        @Test
+        @DisplayName("with sinceId (cursor) — includes since_id but not since/before")
         void withSinceId() {
             wm.stubFor(get(urlPathEqualTo("/transactions"))
                     .withQueryParam("account_id", equalTo("acc_001"))
@@ -145,12 +181,17 @@ class MonzoClientTest {
                             ]}
                             """)));
 
-            List<MonzoTransactionResponse> result = client.getTransactions(ACCESS_TOKEN, "acc_001", "tx_100", 100);
+            List<MonzoTransactionResponse> result = client.getTransactions(ACCESS_TOKEN, "acc_001", null, null, "tx_100", 100);
 
             assertThat(result).hasSize(1);
             assertThat(result.get(0).id()).isEqualTo("tx_101");
             assertThat(result.get(0).merchant()).isNull();
             assertThat(result.get(0).settled()).isNull();
+
+            wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
+                    .withQueryParam("since", matching(".*")));
+            wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
+                    .withQueryParam("before", matching(".*")));
         }
 
         @Test
@@ -159,7 +200,7 @@ class MonzoClientTest {
             wm.stubFor(get(urlPathEqualTo("/transactions"))
                     .willReturn(unauthorized()));
 
-            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", null, 100))
+            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", null, null, null, 100))
                     .isInstanceOf(ApiException.class)
                     .satisfies(ex -> assertThat(((ApiException) ex).getErrorCode())
                             .isEqualTo(ErrorCode.MONZO_CONNECTION_REVOKED));

@@ -8,19 +8,22 @@ public record MonzoAccountResponse(
         String type,
         @Nullable String description,
         String currency,
-        boolean closed
+        boolean closed,
+        @Nullable String created
 ) {
     public MonzoAccountResponse(
             @JsonProperty("id") String id,
             @JsonProperty("type") String type,
             @JsonProperty("description") @Nullable String description,
             @JsonProperty("currency") String currency,
-            @JsonProperty("closed") boolean closed
+            @JsonProperty("closed") boolean closed,
+            @JsonProperty("created") @Nullable String created
     ) {
         this.id = id;
         this.type = type;
         this.description = description;
         this.currency = currency;
         this.closed = closed;
+        this.created = created;
     }
 }

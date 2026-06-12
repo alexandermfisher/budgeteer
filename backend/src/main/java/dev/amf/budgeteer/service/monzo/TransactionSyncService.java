@@ -18,6 +18,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,21 @@ public class TransactionSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(TransactionSyncService.class);
     private static final int PAGE_SIZE = 100;
+
+    /**
+     * Absolute floor for backfill — Monzo was founded in 2015, so anything earlier is guaranteed
+     * empty. Used as a fallback when the per-account creation date is unknown.
+     *
+     * <p>Note: the 5-minute SCA window after OAuth grants access to all transactions; outside that
+     * window Monzo caps responses to the last 90 days regardless of this floor.
+     */
+    private static final Instant ABSOLUTE_BACKFILL_FLOOR = Instant.parse("2015-01-01T00:00:00Z");
+
+    /**
+     * Duration of each backfill window. Monzo enforces a 365-day maximum per request when both
+     * {@code since} and {@code before} are supplied; 350 days leaves comfortable headroom.
+     */
+    private static final Duration BACKFILL_WINDOW = Duration.ofDays(350);
 
     private final MonzoClient monzoClient;
     private final MonzoConnectionService connectionService;
@@ -75,7 +91,7 @@ public class TransactionSyncService {
                 continue;
             }
 
-            String latestTxId = paginateTransactions(accessToken, account, null);
+            String latestTxId = backfillAccount(accessToken, account);
             account.recordSyncComplete(latestTxId);
             accountRepository.save(account);
         }
@@ -143,7 +159,7 @@ public class TransactionSyncService {
 
         String accessToken = connectionService.getDecryptedAccessToken(connectionId, userId);
 
-        String latestTxId = paginateTransactions(accessToken, account, account.getLastTransactionId());
+        String latestTxId = paginateTransactions(accessToken, account, null, null, account.getLastTransactionId());
         account.recordSyncComplete(latestTxId);
         accountRepository.save(account);
 
@@ -153,33 +169,118 @@ public class TransactionSyncService {
     // ============ Private Methods ============
 
     private MonzoAccount upsertAccount(MonzoAccountResponse ar, MonzoConnection connection, User user) {
+        Instant monzoCreatedAt = parseMonzoCreatedAt(ar);
         Optional<MonzoAccount> existing = accountRepository.findById(ar.id());
         if (existing.isPresent()) {
             MonzoAccount account = existing.get();
             account.setClosed(ar.closed());
+            // Backfill the created-at on existing rows the first time we see it.
+            if (account.getMonzoCreatedAt() == null && monzoCreatedAt != null) {
+                account.setMonzoCreatedAt(monzoCreatedAt);
+            }
             return accountRepository.save(account);
         }
         MonzoAccount account = new MonzoAccount(
                 ar.id(), connection, user, ar.type(), ar.description(), ar.currency(), ar.closed()
         );
+        account.setMonzoCreatedAt(monzoCreatedAt);
         return accountRepository.save(account);
     }
 
+    @Nullable
+    private Instant parseMonzoCreatedAt(MonzoAccountResponse ar) {
+        if (ar.created() == null || ar.created().isBlank()) {
+            return null;
+        }
+        try {
+            return Instant.parse(ar.created());
+        } catch (Exception e) {
+            log.warn("Could not parse Monzo account created timestamp '{}' for {}", ar.created(), ar.id());
+            return null;
+        }
+    }
+
     /**
-     * Pages through transactions for an account and upserts each page.
+     * Backfills an account's full history by walking ≤350-day windows backwards from now until
+     * reaching the account's Monzo-reported creation date (or {@link #ABSOLUTE_BACKFILL_FLOOR}
+     * as a fallback). Monzo rejects {@code since}+{@code before} ranges greater than 365 days,
+     * so chunking is mandatory.
      *
-     * @param sinceId cursor — null for full history, non-null for delta
-     * @return the ID of the last transaction seen, or null if no transactions
+     * <p>Returns the ID of the newest transaction seen across all windows (the cursor to use
+     * for subsequent delta syncs), or null if the account had no transactions.
      */
     @Nullable
-    private String paginateTransactions(String accessToken, MonzoAccount account, @Nullable String sinceId) {
+    private String backfillAccount(String accessToken, MonzoAccount account) {
+        Instant floor = resolveBackfillFloor(account);
+        Instant windowEnd = Instant.now();
+        String newestTxId = null;
+        int windowCount = 0;
+
+        while (windowEnd.isAfter(floor)) {
+            Instant windowStart = windowEnd.minus(BACKFILL_WINDOW);
+            if (windowStart.isBefore(floor)) {
+                windowStart = floor;
+            }
+
+            String latestInWindow = paginateTransactions(
+                    accessToken, account, windowStart.toString(), windowEnd.toString(), null
+            );
+
+            // First non-empty window we process is the most recent — its last tx is the overall newest.
+            if (newestTxId == null && latestInWindow != null) {
+                newestTxId = latestInWindow;
+            }
+
+            windowCount++;
+            windowEnd = windowStart;
+        }
+
+        log.info("Backfill complete [accountId={}, floor={}, windows={}, newestTxId={}]",
+                account.getId(), floor, windowCount, newestTxId);
+        return newestTxId;
+    }
+
+    /**
+     * Lower bound for the backfill window walk. Prefer the account's Monzo-reported creation
+     * date so we don't probe windows from before the account existed. Falls back to the
+     * absolute floor if Monzo didn't supply (or we failed to parse) a creation timestamp.
+     */
+    private Instant resolveBackfillFloor(MonzoAccount account) {
+        Instant created = account.getMonzoCreatedAt();
+        if (created == null) {
+            return ABSOLUTE_BACKFILL_FLOOR;
+        }
+        return created.isBefore(ABSOLUTE_BACKFILL_FLOOR) ? ABSOLUTE_BACKFILL_FLOOR : created;
+    }
+
+    /**
+     * Pages through transactions for an account within an optional time window and upserts each page.
+     *
+     * <p>Used in two modes:
+     * <ul>
+     *   <li><b>Backfill:</b> {@code since} + {@code before} bound a ≤350-day window;
+     *       {@code sinceId} is null on entry. Pagination uses the cursor for subsequent pages.</li>
+     *   <li><b>Delta sync:</b> {@code sinceId} only; {@code since}/{@code before} are null.</li>
+     * </ul>
+     *
+     * @return the ID of the last transaction seen in this call, or null if none
+     */
+    @Nullable
+    private String paginateTransactions(
+            String accessToken,
+            MonzoAccount account,
+            @Nullable String since,
+            @Nullable String before,
+            @Nullable String sinceId
+    ) {
+        String windowSince = since;
         String cursor = sinceId;
         String latestTxId = null;
         int total = 0;
 
         while (true) {
             List<MonzoTransactionResponse> page = monzoClient.getTransactions(
-                    accessToken, account.getId(), cursor, PAGE_SIZE
+                    accessToken, account.getId(), windowSince, before, cursor, PAGE_SIZE
             );
 
             for (MonzoTransactionResponse tx : page) {
@@ -193,9 +294,13 @@ public class TransactionSyncService {
                 break;
             }
             cursor = page.get(page.size() - 1).id();
+            // Once we have a cursor, drop `since` — the cursor encodes a precise position
+            // and combining the two can cause Monzo to return overlapping/inconsistent pages.
+            windowSince = null;
         }
 
-        log.debug("Synced {} transactions for account {}", total, account.getId());
+        log.debug("Synced {} transactions for account {} [since={}, before={}]",
+                total, account.getId(), since, before);
         return latestTxId;
     }
 

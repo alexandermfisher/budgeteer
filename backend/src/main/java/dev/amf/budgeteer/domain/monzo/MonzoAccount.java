@@ -52,6 +52,11 @@ public class MonzoAccount {
     @Column(name = "closed", nullable = false)
     private boolean closed;
 
+    /** Account creation timestamp as reported by Monzo — used as the lower bound for backfill. */
+    @Nullable
+    @Column(name = "monzo_created_at")
+    private Instant monzoCreatedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -119,6 +124,11 @@ public class MonzoAccount {
     public String getLastTransactionId() { return lastTransactionId; }
 
     public boolean isClosed() { return closed; }
+
+    @Nullable
+    public Instant getMonzoCreatedAt() { return monzoCreatedAt; }
+
+    public void setMonzoCreatedAt(@Nullable Instant monzoCreatedAt) { this.monzoCreatedAt = monzoCreatedAt; }
 
     public Instant getCreatedAt() { return createdAt; }
 
