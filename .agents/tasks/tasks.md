@@ -16,6 +16,7 @@
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
+| 6 | 🏗️ Multi-Module Maven Restructure | 🔴 P1 | 1d | [plan](multi-module-refactor/plan.md) |
 | 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](webhooks/plan.md) |
 
 ---
@@ -26,6 +27,9 @@
 
 | Feature | Priority | Effort | Notes |
 |---------|----------|--------|-------|
+| 🔀 OAuth Abstraction & Source Migration | P1 | 2–3d | Extract `OAuthStateService` → `budgeteer-common`, move Monzo code → `monzo-client`, implement TrueLayer OAuth in `truelayer-client`. Subtasks: (1) extract + migrate code, (2) [event-driven post-sync](oauth-callback-events/plan.md) — `BackfillCompletedEvent` / `BackfillPausedEvent` + listeners for email, domain mapping, webhook registration. Phase: after multi-module restructure |
+| 🏦 TrueLayer Integration (Lloyds/HSBC/Barclays) | P2 | 3–4d | [plan](truelayer-integration/plan.md) — Add BankAdapter abstraction, TrueLayerClient, support multi-bank via single API. Phase: after OAuth abstraction |
+| 🔌 REST Client Refactoring & Config Consolidation | P2 | 1.5–2d | [plan](rest-client-refactoring/plan.md) — Eliminate config sprawl, create `BankRestClient` base class, organize under `config/clients/` & `config/properties/`. Foundation for TrueLayer. Phase: after transaction sync + webhooks |
 | 🔄 MonzoClient Resilience | P3 | 0.5d | Connection pooling, timeouts, retries, circuit breaker |
 | 🔐 WebAuthn/Passkey Authentication | P2 | 2d | Touch ID / biometric login for fast re-auth |
 | Monitoring Infrastructure | P3 | 0.5d | Prometheus/Grafana on NUC |
@@ -62,6 +66,9 @@
 ---
 
 ## ✅ Done
+
+### June 2026
+- [x] Transaction Sync Hardening — per-window commits (survive Ctrl+C/SCA), fix Monzo `since_id+before` infinite loop, progress API (`GET /api/monzo/sync/progress`), readable logs, Postman updated
 
 ### May 2026
 - [x] Phase 4: Transaction Sync — raw Monzo sync (accounts + transactions), backfill post-OAuth, 60-min delta job, 575 tests
@@ -109,4 +116,4 @@
 
 ---
 
-*Last updated: 2026-05-25 — Transaction Sync complete*
+*Last updated: 2026-06-16 — Transaction sync hardening merged; multi-module restructure queued; events folded into OAuth abstraction subtasks*

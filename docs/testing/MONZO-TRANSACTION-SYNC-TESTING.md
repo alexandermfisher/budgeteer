@@ -1,7 +1,12 @@
 # Monzo Transaction Sync — Manual Testing Guide
 
-> Step-by-step guide for verifying the Phase 4 Transaction Sync feature end-to-end.
-> Covers the post-OAuth backfill flow, the dev trigger, delta sync, and idempotency.
+> End-to-end verification of the transaction sync feature: initial OAuth backfill, windowed historical sync, SCA expiry + resume, delta sync, idempotency, and the dev endpoints.
+
+This is the single source of truth for testing transaction sync. The feature has several mechanics that interact, so the scenarios are grouped:
+
+- **Path A — New-user first OAuth** (the canonical clean-slate flow)
+- **Path B — Windowed historical sync with SCA expiry + resume**
+- **Path C — Operational concerns** (delta sync, idempotency, error cases)
 
 ---
 
@@ -9,688 +14,775 @@
 
 | # | Scenario | Status |
 |---|----------|--------|
-| 1 | [Prerequisites — app running, OAuth done](#1-prerequisites) | ⏳ |
-| 2 | [Inspect baseline DB state](#2-baseline-db-state) | ⏳ |
-| 3 | [Trigger full backfill via dev endpoint](#3-trigger-backfill-via-dev-endpoint) | ⏳ |
-| 4 | [Verify accounts were created](#4-verify-accounts) | ⏳ |
-| 5 | [Verify transactions were created](#5-verify-transactions) | ⏳ |
-| 6 | [Verify sync cursor is set](#6-verify-sync-cursor) | ⏳ |
-| 7 | [Idempotency — run backfill twice, row count unchanged](#7-idempotency) | ⏳ |
-| 8 | [Verify logs show backfill activity](#8-verify-logs) | ⏳ |
-| 9 | [Error: trigger without a Monzo connection](#9-error-no-connection) | ⏳ |
-| 10 | [Error: trigger unauthenticated](#10-error-unauthenticated) | ⏳ |
-| 11 | [Post-OAuth backfill flow (async)](#11-post-oauth-async-backfill) | ⏳ |
+| **Path A — New user first OAuth** | | |
+| 1 | [Prerequisites — env, DB persistence, healthcheck](#1-prerequisites) | ⏳ |
+| 2 | [Clean slate — wipe DB, create fresh user](#2-clean-slate) | ⏳ |
+| 3 | [First OAuth — initiate and approve](#3-first-oauth) | ⏳ |
+| 4 | [Verify backfill triggered + accounts created](#4-verify-backfill-triggered) | ⏳ |
+| 5 | [Verify transactions persisted with `monzo_created_at`](#5-verify-transactions) | ⏳ |
+| 6 | [Verify status endpoint shape](#6-verify-status-endpoint) | ⏳ |
+| **Path B — Windowed sync + SCA resume** | | |
+| 7 | [Backfill walks ≤350-day windows back to account creation](#7-windowed-backfill) | ⏳ |
+| 8 | [SCA expiry → NEEDS_REAUTH checkpoint persisted](#8-sca-expiry-checkpoint) | ⏳ |
+| 9 | [App restart — checkpoint survives](#9-restart-survival) | ⏳ |
+| 10 | [Re-OAuth resumes from saved checkpoint](#10-re-oauth-resume) | ⏳ |
+| 11 | [Reaching the floor marks COMPLETED](#11-backfill-completed) | ⏳ |
+| **Path C — Operational** | | |
+| 12 | [Idempotency — re-run backfill, no duplicates](#12-idempotency) | ⏳ |
+| 13 | [Delta sync uses `last_transaction_id` cursor](#13-delta-sync) | ⏳ |
+| 14 | [Dev endpoints — manual backfill + reset](#14-dev-endpoints) | ⏳ |
+| 15 | [Error cases — no connection, unauthenticated, wrong user](#15-error-cases) | ⏳ |
 
 ---
 
+# Path A — New User First OAuth
+
 ## 🛠️ 1. Prerequisites
 
-### Start the Application
+### Disable DB clean-on-startup
+
+The dev profile has `app.database.clean-on-startup=true` (`application-dev.properties:48`), which Flyway-cleans on every restart. **The resume scenarios in Path B require state to survive an app restart** — disable it for the full session:
 
 ```bash
-# Recommended — starts PostgreSQL and Spring Boot with dev profile
-./scripts/dev.sh start
-
-# Or manually
-docker compose up -d
-cd backend && mvn spring-boot:run -Dspring-boot.run.profiles=dev
+export APP_DATABASE_CLEAN_ON_STARTUP=false
 ```
 
-### Verify the App is Running
+You can leave this off all the time during dev — it just means you control wipes manually via SQL.
+
+### Start the app
 
 ```bash
-curl http://localhost:8080/api/health/ready
+cd /Users/alexanderfisher/development/budgeteer
+docker compose up -d              # postgres
+cd backend && mvn spring-boot:run
 ```
 
-Expected:
+### Healthcheck
+
+```bash
+curl -s http://localhost:8080/api/health/ready | jq .
+```
+
+Expect:
 ```json
-{"success":true,"data":{"status":"UP","database":{"status":"UP"}}}
+{ "success": true, "data": { "status": "UP", "database": { "status": "UP" } } }
 ```
 
-### Check the Transaction Sync Tables Exist
+### Confirm all Flyway migrations ran
 
 ```bash
-docker exec -it budgeteer-postgres psql -U budgeteer -d budgeteer -c "\dt monzo_*"
+docker exec -it budgeteer-postgres psql -U budgeteer -d budgeteer -c \
+  "SELECT version, description, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 4;"
 ```
 
-Expected output (all four tables present):
-```
-              List of relations
- Schema |        Name        | Type  |  Owner
---------+--------------------+-------+----------
- public | monzo_accounts     | table | budgeteer
- public | monzo_connections  | table | budgeteer
- public | monzo_transactions | table | budgeteer
-```
+Expect to see rows for:
+- `V10 | add monzo account backfill state | t`
+- `V9 | add monzo account created | t`
+- `V8 | create monzo transactions | t`
+- `V7 | create monzo accounts | t`
 
-If `monzo_accounts` or `monzo_transactions` are missing, Flyway migrations V7/V8 didn't run — check app startup logs.
+### Confirm the schema is current
 
-### Ensure Monzo OAuth is Complete
-
-```bash
-curl -s http://localhost:8080/api/monzo/status \
-  -H "Authorization: Bearer YOUR_TOKEN" | jq .
+```sql
+\d monzo_accounts
 ```
 
-Expected:
-```json
-{"success":true,"data":{"connected":true,"connectionCount":1,"tokenStatus":"VALID"}}
-```
-
-If `connected: false` — complete the OAuth flow first:
-1. `POST /api/monzo/connect` → get auth URL
-2. Open URL in browser → approve in Monzo app
-3. Monzo redirects back → connection created
-
-### Import Postman Collection
-
-1. Open Postman
-2. Import `scripts/postman/budgeteer-transaction-sync.postman_collection.json`
-3. Import `scripts/postman/budgeteer-local.postman_environment.json` (if not already imported)
-4. Select **Budgeteer Local** environment
-5. Run **0. Setup → ⚡ Quick Login** to authenticate
+Expect columns including: `monzo_created_at`, `backfill_status`, `backfill_progress_at`, `backfill_progress_cursor`.
 
 ✅ **Scenario 1 Complete**
 
 ---
 
-## 🗃️ 2. Baseline DB State
+## 🧹 2. Clean Slate
 
-Connect to the database (keep this terminal open throughout testing):
+This is the "new user signing up for the first time" path. We wipe **everything** Monzo-related and create a brand-new user.
 
-```bash
-docker exec -it budgeteer-postgres psql -U budgeteer -d budgeteer
-```
-
-Run this to see counts before sync:
+### Wipe all Monzo data
 
 ```sql
-SELECT
-    'monzo_accounts'     AS table_name, COUNT(*) AS row_count FROM monzo_accounts
+TRUNCATE monzo_transactions, monzo_accounts, monzo_connections, oauth_states CASCADE;
+```
+
+### Create a fresh test user
+
+The dev profile exposes `POST /api/dev/auth/quick-login` which creates the user if it doesn't exist and returns tokens directly (no magic link needed):
+
+```bash
+curl -s -X POST http://localhost:8080/api/dev/auth/quick-login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "monzo-test@example.com"}' \
+  -c /tmp/budgeteer-cookies.txt | jq .
+```
+
+Save the access token:
+
+```bash
+export ACCESS_TOKEN=$(curl -s -X POST http://localhost:8080/api/dev/auth/quick-login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "monzo-test@example.com"}' | jq -r .data.accessToken)
+echo "Token: $ACCESS_TOKEN"
+```
+
+### Baseline DB state
+
+```sql
+SELECT 'monzo_connections' AS table_name, COUNT(*) FROM monzo_connections
 UNION ALL
-SELECT
-    'monzo_transactions' AS table_name, COUNT(*) AS row_count FROM monzo_transactions;
+SELECT 'monzo_accounts',     COUNT(*) FROM monzo_accounts
+UNION ALL
+SELECT 'monzo_transactions', COUNT(*) FROM monzo_transactions;
 ```
 
-Expected before any sync:
-```
-     table_name      | row_count
----------------------+-----------
- monzo_accounts      |         0
- monzo_transactions  |         0
+Expect zeros across the board.
+
+### Verify status endpoint — pre-OAuth
+
+```bash
+curl -s -H "Authorization: Bearer $ACCESS_TOKEN" http://localhost:8080/api/monzo/status | jq .
 ```
 
-📝 Note down these numbers — you'll compare against them after sync.
+Expect:
+```json
+{
+  "success": true,
+  "data": {
+    "connected": false,
+    "connectionCount": 0,
+    "tokenStatus": "RECONNECT_REQUIRED",
+    "backfillStatus": "NOT_STARTED"
+  }
+}
+```
+
+This is what a brand-new user sees: not connected, no backfill yet.
 
 ✅ **Scenario 2 Complete**
 
 ---
 
-## 🔄 3. Trigger Backfill via Dev Endpoint
+## 🔓 3. First OAuth
 
-### Why This Works Without Re-doing OAuth
-
-When you completed Monzo OAuth, the app stored your access and refresh tokens **encrypted** in the `monzo_connections` table. The `MonzoTokenRefreshJob` keeps these tokens alive (refreshes before expiry). So at any point you can call backfill as long as:
-
-- A row exists in `monzo_connections` with `disconnected_at IS NULL`
-- The token is still valid (or can be refreshed)
-
-The dev trigger endpoint (`POST /api/dev/monzo/backfill`) simply:
-1. Finds your active connection by `userId`
-2. Calls `transactionSyncService.backfill(connectionId)` directly
-3. Returns 200 when backfill completes
-
-No new OAuth needed. The tokens are already there.
-
-### Using Postman
-
-Run **2. Trigger Backfill → 🔄 Trigger Full Backfill (Dev Only)**
-
-Expected:
-```json
-{"success":true,"data":null}
-```
-
-Response time will reflect however many transactions you have (typically 2–20 seconds for a real account with years of history).
-
-### Using curl
-
-```bash
-curl -s -X POST http://localhost:8080/api/dev/monzo/backfill \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" | jq .
-```
-
-### Watching Logs While It Runs
-
-In the Spring Boot console, you should see:
+In your browser (logged in as the same user — the access token cookie is set):
 
 ```
-INFO  TransactionSyncService - Starting backfill [connectionId=...]
-INFO  TransactionSyncService - Found 2 account(s) for connection ...
-INFO  TransactionSyncService - Syncing account acc_xxxxxxx (type=uk_retail)
-INFO  TransactionSyncService - Page 1: 100 transactions [accountId=acc_xxxxxxx]
-INFO  TransactionSyncService - Page 2: 47 transactions [accountId=acc_xxxxxxx]
-INFO  TransactionSyncService - Sync complete [accountId=acc_xxxxxxx, transactions=147, lastTxId=tx_yyy]
-INFO  TransactionSyncService - Backfill complete [connectionId=..., accounts=2]
+http://localhost:8080/api/monzo/connect
 ```
 
-If a closed account is skipped:
-```
-INFO  TransactionSyncService - Skipping closed account acc_zzz
-```
+This redirects to Monzo. Approve in the Monzo app on your phone **within 5 minutes**.
+
+> 📱 **SCA Window:** Monzo only grants access to full transaction history within ~5 minutes of OAuth approval. After that, only the last 90 days are accessible. That's why backfill must run immediately, asynchronously, on the OAuth callback.
+
+After approval, the browser is redirected back to `/api/monzo/callback?code=...`, and the server:
+1. Exchanges the code for tokens (logged at INFO)
+2. Encrypts the tokens and stores them in `monzo_connections`
+3. Calls `syncService.backfillAsync(connection.getId())` (returns immediately — backfill runs on the `taskExecutor-N` thread)
+4. Returns the connection response to the browser
 
 ✅ **Scenario 3 Complete**
 
 ---
 
-## ✅ 4. Verify Accounts
+## 🔍 4. Verify Backfill Triggered
 
-After backfill, check `monzo_accounts`:
+### Watch the logs
 
-```sql
-SELECT
-    id,
-    account_type,
-    currency,
-    description,
-    closed,
-    last_synced_at,
-    last_transaction_id
-FROM monzo_accounts
-ORDER BY created_at;
+Within ~2 seconds of OAuth approval, expect:
+
+```
+INFO  ... Successfully connected Monzo account for user ... [connectionId=...]
+INFO  ... Triggering async transaction backfill within SCA window [connectionId=...]
+INFO  [taskExecutor-N] ... Backfill attempt 1/8 [connectionId=...]
+INFO  [taskExecutor-N] ... Starting backfill [connectionId=..., userId=...]
+DEBUG [taskExecutor-N] ... Fetching Monzo accounts
+DEBUG [taskExecutor-N] ... Fetched N Monzo accounts
+DEBUG [taskExecutor-N] ... Fetching Monzo transactions [accountId=..., since=..., before=..., sinceId=null, limit=100]
 ```
 
-**What to look for:**
+Note the HTTP response to the browser returns first (within milliseconds), while the backfill runs in the background on the async thread.
+
+### Inspect accounts
+
+```sql
+SELECT id,
+       account_type,
+       currency,
+       description,
+       closed,
+       monzo_created_at,
+       backfill_status
+FROM monzo_accounts;
+```
 
 | Column | Expected |
 |--------|----------|
 | `id` | Real Monzo account ID (e.g. `acc_0000xxxxxxxx`) |
 | `account_type` | `uk_retail`, `uk_retail_joint`, or `uk_prepaid` |
 | `currency` | `GBP` |
-| `closed` | `false` for active accounts; `true` for old accounts |
-| `last_synced_at` | Timestamp from this sync (not null) |
-| `last_transaction_id` | Latest transaction ID — used as cursor for delta sync |
+| `closed` | `false` for active accounts; `true` for old ones |
+| `monzo_created_at` | When the Monzo account was opened (used as backfill floor) |
+| `backfill_status` | `IN_PROGRESS` (during) → `COMPLETED` or `NEEDS_REAUTH` (after) |
 
-**Verify connection FK is correct:**
+### Verify connection + FK integrity
 
 ```sql
 SELECT
-    a.id          AS account_id,
-    a.account_type,
+    u.email,
+    c.id AS connection_id,
     c.monzo_user_id,
-    u.email
-FROM monzo_accounts a
-JOIN monzo_connections c ON a.connection_id = c.id
-JOIN users u ON a.user_id = u.id;
+    c.token_expires_at,
+    COUNT(a.id) AS accounts
+FROM users u
+JOIN monzo_connections c ON c.user_id = u.id
+LEFT JOIN monzo_accounts a ON a.connection_id = c.id
+WHERE c.disconnected_at IS NULL
+GROUP BY u.email, c.id, c.monzo_user_id, c.token_expires_at;
 ```
 
 ✅ **Scenario 4 Complete**
 
 ---
 
-## ✅ 5. Verify Transactions
+## 💳 5. Verify Transactions
+
+### Watch the transaction count grow
+
+In a separate psql session (refresh every few seconds while backfill runs):
 
 ```sql
-SELECT
-    id,
-    account_id,
-    amount,
-    currency,
-    description,
-    merchant_name,
-    merchant_category,
-    is_declined,
-    monzo_created_at,
-    monzo_settled_at
+SELECT COUNT(*) AS total,
+       MIN(monzo_created_at) AS oldest_tx,
+       MAX(monzo_created_at) AS newest_tx
+FROM monzo_transactions;
+```
+
+`total` grows as pages are fetched; `oldest_tx` decreases as the backfill walks back through windows.
+
+### Sample of recent transactions
+
+```sql
+SELECT id,
+       account_id,
+       amount,
+       ROUND(amount::numeric / 100, 2) AS amount_gbp,
+       currency,
+       description,
+       merchant_name,
+       merchant_category,
+       is_declined,
+       monzo_created_at,
+       CASE WHEN monzo_settled_at IS NULL THEN '⏳ pending' ELSE '✅ settled' END AS status
 FROM monzo_transactions
 ORDER BY monzo_created_at DESC
 LIMIT 10;
 ```
 
-**What to look for:**
-
 | Column | Expected |
 |--------|----------|
-| `id` | Real Monzo transaction ID (e.g. `tx_0000xxxxxxxx`) |
-| `amount` | Integer pence, negative = debit (e.g. `-500` = £5.00 debit) |
-| `currency` | `GBP` |
-| `description` | Raw Monzo description |
-| `merchant_name` | Populated for card payments (e.g. `Starbucks`); null for bank transfers |
-| `merchant_category` | Monzo category slug (e.g. `eating_out`, `transport`) |
-| `is_declined` | `false` for successful; `true` for declined transactions |
-| `monzo_created_at` | When Monzo processed it |
-| `monzo_settled_at` | Null if pending; timestamp when settled |
+| `id` | Real tx ID (e.g. `tx_0000xxxxxxxx`) |
+| `amount` | Integer pence, negative = debit |
+| `merchant_name` | Populated for card payments; null for transfers |
+| `merchant_category` | Monzo category slug (e.g. `groceries`, `transport`) |
+| `monzo_created_at` | When Monzo recorded the tx (NOT our local insert time) |
+| `monzo_settled_at` | Null = pending; otherwise the settled timestamp |
 
-**Count by account:**
+### Per-month breakdown — see the historical reach
 
 ```sql
-SELECT
-    a.id          AS account_id,
-    a.account_type,
-    COUNT(t.id)   AS transaction_count,
-    MIN(t.monzo_created_at) AS oldest_transaction,
-    MAX(t.monzo_created_at) AS newest_transaction
-FROM monzo_accounts a
-LEFT JOIN monzo_transactions t ON t.account_id = a.id
-GROUP BY a.id, a.account_type
-ORDER BY a.account_type;
-```
-
-**Verify a pending transaction (if you have any):**
-
-```sql
-SELECT id, description, amount, monzo_created_at, monzo_settled_at
+SELECT date_trunc('month', monzo_created_at)::date AS month, COUNT(*)
 FROM monzo_transactions
-WHERE monzo_settled_at IS NULL
-LIMIT 5;
+GROUP BY month
+ORDER BY month DESC;
 ```
+
+You should see **continuous coverage** from now back to whatever point the SCA window allowed (or back to `monzo_created_at` if fully completed). **No gaps within fetched windows** — the cursor-per-page persistence fixes that.
 
 ✅ **Scenario 5 Complete**
 
 ---
 
-## ✅ 6. Verify Sync Cursor
+## 📡 6. Verify Status Endpoint
 
-The `last_transaction_id` column on `monzo_accounts` is the delta sync cursor — it tells the next sync where to start from.
-
-```sql
-SELECT
-    id,
-    last_transaction_id,
-    last_synced_at
-FROM monzo_accounts
-WHERE closed = false;
+```bash
+curl -s -H "Authorization: Bearer $ACCESS_TOKEN" http://localhost:8080/api/monzo/status | jq .
 ```
 
-**Expected:**
-- `last_transaction_id`: the ID of the most recent transaction fetched (`tx_0000...`)
-- `last_synced_at`: timestamp of when this sync completed
-
-**Confirm the cursor points to the latest transaction:**
-
-```sql
-SELECT
-    a.id              AS account_id,
-    a.last_transaction_id,
-    t.monzo_created_at AS cursor_tx_created_at,
-    t.description     AS cursor_tx_description
-FROM monzo_accounts a
-JOIN monzo_transactions t ON t.id = a.last_transaction_id
-WHERE a.closed = false;
+Expect (during backfill):
+```json
+{
+  "data": {
+    "connected": true,
+    "connectionCount": 1,
+    "tokenStatus": "ACTIVE",
+    "backfillStatus": "IN_PROGRESS"
+  }
+}
 ```
 
-The cursor transaction should be the **most recent** transaction for that account.
+| Field | Possible values |
+|-------|-----------------|
+| `tokenStatus` | `ACTIVE` / `EXPIRING_SOON` / `RECONNECT_REQUIRED` |
+| `backfillStatus` | `NOT_STARTED` / `IN_PROGRESS` / `NEEDS_REAUTH` / `COMPLETED` |
+
+Re-run the curl a few seconds later — `backfillStatus` should transition to one of `COMPLETED` (if backfill finished before SCA expired) or `NEEDS_REAUTH` (if SCA expired mid-backfill).
 
 ✅ **Scenario 6 Complete**
 
 ---
 
-## 🔁 7. Idempotency
+# Path B — Windowed Sync + SCA Resume
 
-Re-trigger backfill without resetting the database:
+## 📦 7. Windowed Backfill
 
-```bash
-curl -s -X POST http://localhost:8080/api/dev/monzo/backfill \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" | jq .
+The backfill doesn't make a single huge API call — it walks **≤350-day windows** backwards from now to the account creation date. Monzo enforces a 365-day max time range per request, so chunking is mandatory.
+
+Watch the logs while backfill runs. Each window looks like:
+
+```
+DEBUG ... Fetching Monzo transactions [accountId=..., since=<windowStart>, before=<windowEnd>, sinceId=null, limit=100]
+DEBUG ... Fetched 100 transactions for account ...
+DEBUG ... Fetching Monzo transactions [accountId=..., since=null, before=<windowEnd>, sinceId=<tx_xxx>, limit=100]
+... (cursor-paginates until <100 returned)
+DEBUG ... Fetching Monzo transactions [accountId=..., since=<earlierWindowStart>, before=<earlierWindowEnd>, sinceId=null, ...]
 ```
 
-Or use Postman: **4. Idempotency → 🔄 Re-trigger Backfill**
+Key observations:
+- Each window has `since` AND `before` set
+- First request of a window has `sinceId=null`
+- Subsequent pages within the window have `sinceId=<cursor>` and `since=null` (the cursor is more precise than the timestamp)
+- New windows start with `sinceId=null` again
 
-Now re-run the count query:
+### How many windows to expect
 
 ```sql
-SELECT
-    'monzo_accounts'     AS table_name, COUNT(*) AS row_count FROM monzo_accounts
-UNION ALL
-SELECT
-    'monzo_transactions' AS table_name, COUNT(*) AS row_count FROM monzo_transactions;
+SELECT id, monzo_created_at, backfill_progress_at, backfill_status FROM monzo_accounts;
 ```
 
-**Expected:** Row counts are **identical** to after the first run. No duplicates.
-
-**Verify upsert updated mutable fields only:**
-
-```sql
-SELECT
-    id,
-    amount,
-    monzo_settled_at,
-    updated_at,
-    created_at
-FROM monzo_transactions
-ORDER BY updated_at DESC
-LIMIT 5;
-```
-
-For transactions that were already settled: `updated_at` will reflect the second run, but the data itself is unchanged. For any pending transactions that have since settled, `monzo_settled_at` will now be populated.
+If `monzo_created_at` is 4 years ago, you'd see roughly `ceil(4 * 365 / 350) ≈ 5` windows. Each one is fetched until it returns <100 transactions (or hits SCA expiry).
 
 ✅ **Scenario 7 Complete**
 
 ---
 
-## 📋 8. Verify Logs
+## ⏸️ 8. SCA Expiry Checkpoint
 
-The sync emits structured log lines. Search the Spring Boot console for:
-
-```
-# Backfill started
-INFO  TransactionSyncService - Starting backfill [connectionId=...]
-
-# Each account processed
-INFO  TransactionSyncService - Syncing account acc_xxx (type=uk_retail)
-
-# Pagination — each page
-INFO  TransactionSyncService - Page 1: 100 transactions [accountId=acc_xxx]
-INFO  TransactionSyncService - Page 2: 5 transactions [accountId=acc_xxx]
-
-# Sync complete for account (cursor updated)
-INFO  TransactionSyncService - Sync complete [accountId=acc_xxx, transactions=105, lastTxId=tx_yyy]
-
-# Closed account skip
-INFO  TransactionSyncService - Skipping closed account acc_zzz
-
-# Full backfill done
-INFO  TransactionSyncService - Backfill complete [connectionId=..., accounts=2]
-```
-
-**For the async post-OAuth path** (normal flow, not the dev trigger), you'll see the backfill log lines on a `backfill-N` thread:
+If your Monzo account has more than ~12 months of history, the SCA window will close before backfill finishes. Watch for:
 
 ```
-INFO  [backfill-1] TransactionSyncService - Starting backfill ...
+WARN  ... Monzo API returned 403 verification_required for transactions - SCA window has expired
+INFO  ... Backfill paused — SCA verification required [accountId=..., progressAt=..., cursor=...]
 ```
 
-**Token usage:** The sync calls `GET /accounts` and `GET /transactions` using the stored encrypted token. Watch for token refresh activity if the token was near expiry:
+> **Important:** the previous "8 retries with 2s delay storm" should NOT happen. `MONZO_VERIFICATION_REQUIRED` falls outside the `MONZO_API_ERROR` retry guard, and `backfillAccount` catches it cleanly on the first occurrence.
 
+### Inspect the checkpoint
+
+```sql
+SELECT id,
+       backfill_status,
+       backfill_progress_at,
+       backfill_progress_cursor,
+       last_transaction_id,
+       monzo_created_at,
+       (SELECT COUNT(*) FROM monzo_transactions WHERE account_id = monzo_accounts.id) AS txs,
+       (SELECT MIN(monzo_created_at) FROM monzo_transactions WHERE account_id = monzo_accounts.id) AS oldest_tx
+FROM monzo_accounts;
 ```
-INFO  MonzoTokenRefreshService - Refreshing token for connection ...
-INFO  MonzoTokenRefreshService - Token refreshed successfully [connectionId=...]
+
+Expect:
+- `backfill_status` = `NEEDS_REAUTH`
+- `backfill_progress_at` is non-null — the **windowEnd of the next window to resume from**. Should equal the `oldest_tx` (give or take a tx) you've fetched so far.
+- `backfill_progress_cursor` is non-null IF the SCA-expiring window was interrupted mid-pagination; null if it interrupted at a clean window boundary. **Both are valid checkpoints.**
+- `last_transaction_id` is **set** — the newest tx ID from the first (most recent) window. This is the delta-sync cursor. Saved as soon as window 1 completed on the fresh attempt.
+- `txs` > 0 — the transactions fetched up to the SCA expiry are persisted.
+
+### Status endpoint reflects it
+
+```bash
+curl -s -H "Authorization: Bearer $ACCESS_TOKEN" http://localhost:8080/api/monzo/status | jq .data.backfillStatus
+# "NEEDS_REAUTH"
 ```
 
 ✅ **Scenario 8 Complete**
 
 ---
 
-## ❌ 9. Error: Trigger Without a Monzo Connection
+## 🔄 9. Restart Survival
 
-Quick-login as a user who has never completed OAuth:
-
-```bash
-curl -s -X POST http://localhost:8080/api/dev/auth/quick-login \
-  -H "Content-Type: application/json" \
-  -d '{"email": "no-monzo@example.com"}' \
-  -c /tmp/no-monzo-cookies.txt | jq .data.accessToken
-```
-
-Now trigger sync as that user (no Monzo connection):
+The whole point of persisting the checkpoint to the DB is that it survives a process restart. Verify:
 
 ```bash
-curl -s -X POST http://localhost:8080/api/dev/monzo/backfill \
-  -H "Authorization: Bearer NO_MONZO_USER_TOKEN" | jq .
+# Ctrl-C the running app, then
+mvn spring-boot:run
 ```
 
-**Expected:**
-```json
-{
-  "success": false,
-  "error": {
-    "code": "RESOURCE_NOT_FOUND",
-    "message": "No active Monzo connection found for user ..."
-  }
-}
-```
+While the app is restarting:
+- Confirm `APP_DATABASE_CLEAN_ON_STARTUP=false` is still exported (else Flyway will wipe everything on startup).
+- Look for `INFO o.f.core.internal.command.DbMigrate : Current version of schema "public": 10` (no clean log line).
 
-HTTP status: `404`
+Once the app is back up, re-run the SQL from §8. **Identical state.**
 
 ✅ **Scenario 9 Complete**
 
 ---
 
-## ❌ 10. Error: Trigger Unauthenticated
+## 🔓 10. Re-OAuth Resume
 
-```bash
-curl -s -X POST http://localhost:8080/api/dev/monzo/backfill | jq .
+The cleanest case: user sees "Reconnect to import older history" CTA, clicks it, and backfill resumes from where it stopped.
+
+### Initiate fresh OAuth
+
+```
+http://localhost:8080/api/monzo/connect
 ```
 
-**Expected:**
-```json
-{
-  "success": false,
-  "error": {
-    "code": "NOT_AUTHENTICATED",
-    "message": "Authentication required"
-  }
-}
+Approve in the Monzo app within 5 min.
+
+### Watch the logs
+
+Expect the first transaction request to use the saved checkpoint, **not** start from `now()`:
+
+```
+DEBUG ... Fetching Monzo transactions [accountId=..., since=<...>, before=<backfill_progress_at value>, sinceId=<saved cursor or null>, limit=100]
 ```
 
-HTTP status: `401`
+- The `before` parameter should match the `backfill_progress_at` you saw in §8.
+- If `backfill_progress_cursor` was non-null, `sinceId` should equal it (and `since` will be `null`).
+- If `backfill_progress_cursor` was null, `since` will be `<progressAt - 350d>` and `sinceId` null.
+
+### Track progress in psql (while backfill runs)
+
+```sql
+SELECT backfill_status,
+       backfill_progress_at,
+       (SELECT COUNT(*) FROM monzo_transactions) AS txs,
+       (SELECT MIN(monzo_created_at) FROM monzo_transactions) AS oldest_tx
+FROM monzo_accounts;
+```
+
+`backfill_progress_at` **decreases** as older windows complete. `oldest_tx` decreases in lockstep.
+
+Eventually one of two things happens:
+- It reaches `monzo_created_at` → `backfill_status='COMPLETED'` (next scenario)
+- SCA expires again → `backfill_status='NEEDS_REAUTH'` (repeat from §10 if you have a lot of history)
 
 ✅ **Scenario 10 Complete**
 
 ---
 
-## 🔗 11. Post-OAuth Async Backfill Flow
+## ✅ 11. Backfill COMPLETED
 
-This scenario verifies the **normal** production flow (not the dev trigger) — where backfill fires automatically when OAuth completes.
-
-### What Happens
-
-```
-Browser → POST /api/monzo/connect → get auth URL
-Browser → open URL → approve in Monzo app
-Monzo   → GET /api/monzo/callback?code=...
-Server  → exchange code for tokens → create MonzoConnection
-Server  → publish MonzoConnectionCreatedEvent (async)
-                      └─ backfill-1 thread picks it up
-                      └─ TransactionSyncEventListener.onConnectionCreated()
-                      └─ syncService.backfill(connectionId)
-HTTP response returns immediately (connection created)
-Backfill runs in background on backfill-1 thread
-```
-
-### How to Test
-
-1. **Delete all sync data and the connection:**
+Repeat §10 as many times as needed. Eventually:
 
 ```sql
-TRUNCATE monzo_transactions, monzo_accounts, monzo_connections CASCADE;
+SELECT backfill_status,
+       backfill_progress_at,
+       backfill_progress_cursor,
+       monzo_created_at
+FROM monzo_accounts;
 ```
 
-2. **Initiate OAuth:**
+Expect:
+- `backfill_status = 'COMPLETED'`
+- `backfill_progress_at` at or below `monzo_created_at`
+- `backfill_progress_cursor` is null
 
 ```bash
-curl -s -X POST http://localhost:8080/api/monzo/connect \
-  -H "Authorization: Bearer YOUR_TOKEN" | jq .data.authorizationUrl
+curl -s -H "Authorization: Bearer $ACCESS_TOKEN" http://localhost:8080/api/monzo/status | jq .data.backfillStatus
+# "COMPLETED"
 ```
 
-3. **Open the auth URL in a browser and approve in the Monzo app.**
-
-4. **Watch the logs immediately after approval:**
-
-The OAuth callback returns almost instantly. Within 1–2 seconds you should see:
-
-```
-INFO  [http-nio-...] MonzoController       - Monzo OAuth callback received
-INFO  [http-nio-...] MonzoController       - Connection created [userId=...]
-INFO  [backfill-1]   TransactionSyncEventListener - Backfill triggered [connectionId=...]
-INFO  [backfill-1]   TransactionSyncService - Starting backfill [connectionId=...]
-```
-
-Note that `http-nio-...` thread returned the HTTP response while `backfill-1` is still running in the background.
-
-5. **Verify DB after backfill finishes:**
+### Verify the full historical reach
 
 ```sql
-SELECT COUNT(*) FROM monzo_accounts;
-SELECT COUNT(*) FROM monzo_transactions;
+SELECT MIN(monzo_created_at) AS first_ever_tx,
+       MAX(monzo_created_at) AS most_recent_tx,
+       COUNT(*) AS total_transactions
+FROM monzo_transactions;
 ```
 
-### The 5-Minute SCA Window
-
-Monzo only grants access to full transaction history within ~5 minutes of OAuth approval (the SCA window). After that, only the last 90 days are accessible. This is why backfill must be triggered immediately and asynchronously — the HTTP response can't wait for potentially thousands of transactions to sync.
-
-The `@Async("backfillTaskExecutor")` annotation ensures the backfill runs on a separate thread pool (`backfill-1`, `backfill-2`, etc.) so the OAuth response returns in milliseconds.
+`first_ever_tx` should be close to your Monzo account creation date — i.e. your very first Monzo transaction.
 
 ✅ **Scenario 11 Complete**
 
 ---
 
-## 🗃️ Full DB Verification Queries
+# Path C — Operational
+
+## 🔁 12. Idempotency
+
+Re-running backfill on a completed account should be a no-op. Trigger via the dev endpoint (cheaper than re-OAuth):
 
 ```bash
-docker exec -it budgeteer-postgres psql -U budgeteer -d budgeteer
+curl -s -X POST http://localhost:8080/api/dev/monzo/backfill \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq .
 ```
 
-### All Transaction Sync Data at a Glance
+```sql
+SELECT COUNT(*) FROM monzo_transactions;
+```
+
+Identical count to before. The `while (windowEnd > floor)` guard in `backfillAccount` exits immediately when starting at or below the floor.
+
+If you trigger backfill against an account that's still `IN_PROGRESS` (unusual but possible), upserts handle deduplication via `ON CONFLICT (id) DO UPDATE`.
+
+✅ **Scenario 12 Complete**
+
+---
+
+## 🆕 13. Delta Sync
+
+Delta sync fetches only transactions newer than the stored cursor (`last_transaction_id`).
+
+There's no public endpoint to trigger delta sync manually — it's invoked by `MonzoTransactionDeltaSyncJob` (currently the only caller is internal scheduled work / future cron). For testing the logic in isolation, the integration test `MonzoTransactionSyncIT.usesCursorForDelta` covers it.
+
+If you make a new transaction in Monzo while testing:
+- Once that tx is settled (or visible via Monzo's API), the next delta sync would pick it up using `since_id=<last_transaction_id>`.
+- The new tx's ID becomes the new `last_transaction_id`.
+
+To verify the cursor itself:
 
 ```sql
-SELECT
-    u.email,
-    c.id                     AS connection_id,
-    c.monzo_user_id,
-    c.token_expires_at,
-    COUNT(DISTINCT a.id)     AS accounts,
-    COUNT(t.id)              AS transactions
+SELECT id,
+       last_transaction_id,
+       last_synced_at
+FROM monzo_accounts WHERE closed = false;
+
+-- Confirm it points to a real tx
+SELECT a.id AS account_id,
+       a.last_transaction_id,
+       t.monzo_created_at AS cursor_tx_created_at,
+       t.description       AS cursor_tx_description
+FROM monzo_accounts a
+JOIN monzo_transactions t ON t.id = a.last_transaction_id
+WHERE a.closed = false;
+```
+
+The cursor transaction should be the most recent tx for that account.
+
+✅ **Scenario 13 Complete**
+
+---
+
+## 🧰 14. Dev Endpoints
+
+### `POST /api/dev/monzo/backfill` — manually trigger backfill
+
+Useful for re-running without OAuth (tokens persist in `monzo_connections`):
+
+```bash
+curl -s -X POST http://localhost:8080/api/dev/monzo/backfill \
+  -H "Authorization: Bearer $ACCESS_TOKEN" | jq .
+```
+
+Expect `{"success": true, "data": null}`. Note: this runs **synchronously** (HTTP response waits for completion). Not the same as the async-on-OAuth path.
+
+### `POST /api/dev/monzo/reset-backfill/{accountId}` — clear state for re-testing
+
+```bash
+# Get the account ID
+ACCOUNT_ID=$(docker exec budgeteer-postgres psql -U budgeteer -d budgeteer -At -c \
+  "SELECT id FROM monzo_accounts LIMIT 1;")
+
+curl -s -X POST \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  http://localhost:8080/api/dev/monzo/reset-backfill/$ACCOUNT_ID | jq .
+```
+
+Verify the reset:
+
+```sql
+SELECT backfill_status,
+       backfill_progress_at,
+       backfill_progress_cursor,
+       (SELECT COUNT(*) FROM monzo_transactions WHERE account_id = monzo_accounts.id) AS txs
+FROM monzo_accounts WHERE id = '<ACCOUNT_ID>';
+```
+
+Expect all three `backfill_*` columns NULL and `txs = 0`. The account row itself and the connection remain — you can re-trigger backfill via the dev endpoint above without re-doing OAuth.
+
+✅ **Scenario 14 Complete**
+
+---
+
+## ❌ 15. Error Cases
+
+### 15a — Backfill without a Monzo connection
+
+Create a second user that hasn't done OAuth:
+
+```bash
+NO_MONZO_TOKEN=$(curl -s -X POST http://localhost:8080/api/dev/auth/quick-login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "no-monzo@example.com"}' | jq -r .data.accessToken)
+
+curl -i -X POST http://localhost:8080/api/dev/monzo/backfill \
+  -H "Authorization: Bearer $NO_MONZO_TOKEN"
+```
+
+Expect `HTTP/1.1 404` with `{"error":{"code":"RESOURCE_NOT_FOUND",...}}`.
+
+### 15b — Reset wrong user's account
+
+Try to reset User A's account using User B's token:
+
+```bash
+curl -i -X POST \
+  -H "Authorization: Bearer $NO_MONZO_TOKEN" \
+  http://localhost:8080/api/dev/monzo/reset-backfill/$ACCOUNT_ID
+```
+
+Expect `HTTP/1.1 403` with `{"error":{"code":"ACCESS_DENIED",...}}`.
+
+### 15c — Reset unknown account
+
+```bash
+curl -i -X POST -H "Authorization: Bearer $ACCESS_TOKEN" \
+  http://localhost:8080/api/dev/monzo/reset-backfill/acc_does_not_exist
+```
+
+Expect `HTTP/1.1 404`.
+
+### 15d — Unauthenticated
+
+```bash
+curl -i -X POST http://localhost:8080/api/dev/monzo/backfill
+curl -i -X POST http://localhost:8080/api/dev/monzo/reset-backfill/anything
+```
+
+Both: `HTTP/1.1 401`.
+
+✅ **Scenario 15 Complete**
+
+---
+
+## 🗃️ Reference SQL Queries
+
+### One-glance system state
+
+```sql
+SELECT u.email,
+       c.id            AS connection_id,
+       c.monzo_user_id,
+       c.token_expires_at,
+       COUNT(DISTINCT a.id) AS accounts,
+       COUNT(t.id)          AS transactions
 FROM users u
 JOIN monzo_connections c ON c.user_id = u.id
-LEFT JOIN monzo_accounts a ON a.connection_id = c.id
+LEFT JOIN monzo_accounts     a ON a.connection_id = c.id
 LEFT JOIN monzo_transactions t ON t.account_id = a.id
 WHERE c.disconnected_at IS NULL
 GROUP BY u.email, c.id, c.monzo_user_id, c.token_expires_at;
 ```
 
-### Account Sync State
+### Per-account sync state
 
 ```sql
-SELECT
-    id,
-    account_type,
-    currency,
-    description,
-    closed,
-    last_transaction_id,
-    last_synced_at,
-    CASE
-        WHEN closed THEN '🔒 CLOSED'
-        WHEN last_synced_at IS NULL THEN '⏳ NEVER SYNCED'
-        ELSE '✅ SYNCED'
-    END AS sync_status
+SELECT id,
+       account_type,
+       currency,
+       closed,
+       monzo_created_at,
+       backfill_status,
+       backfill_progress_at,
+       backfill_progress_cursor,
+       last_transaction_id,
+       last_synced_at,
+       CASE
+           WHEN closed                                THEN '🔒 closed'
+           WHEN backfill_status = 'COMPLETED'         THEN '✅ complete'
+           WHEN backfill_status = 'NEEDS_REAUTH'      THEN '⚠️ needs reauth'
+           WHEN backfill_status = 'IN_PROGRESS'       THEN '⏳ syncing'
+           ELSE                                            '⏸️ not started'
+       END AS state
 FROM monzo_accounts
-ORDER BY account_type;
+ORDER BY closed, account_type;
 ```
 
-### Recent Transactions (Most Recent 20)
+### Verify tokens are encrypted
 
 ```sql
-SELECT
-    t.id,
-    t.account_id,
-    t.amount                                AS amount_pence,
-    ROUND(t.amount::numeric / 100, 2)       AS amount_gbp,
-    t.description,
-    t.merchant_name,
-    t.merchant_category,
-    t.is_declined,
-    t.monzo_created_at,
-    CASE WHEN t.monzo_settled_at IS NULL THEN '⏳ PENDING' ELSE '✅ SETTLED' END AS status
+SELECT id,
+       LEFT(access_token_enc, 40) || '...' AS preview,
+       CASE
+           WHEN access_token_enc LIKE 'eyJ%' THEN '⚠️ PLAINTEXT JWT!'
+           ELSE                                    '✅ encrypted'
+       END AS encryption_check
+FROM monzo_connections
+WHERE disconnected_at IS NULL;
+```
+
+### FK integrity check (should return 0 rows)
+
+```sql
+SELECT t.id AS transaction_id, t.account_id, t.user_id
 FROM monzo_transactions t
-ORDER BY t.monzo_created_at DESC
-LIMIT 20;
+LEFT JOIN monzo_accounts a ON t.account_id = a.id
+LEFT JOIN users u          ON t.user_id    = u.id
+WHERE a.id IS NULL OR u.id IS NULL
+LIMIT 5;
 ```
 
-### Pending Transactions
+### Spending breakdown (sanity check on data quality)
 
 ```sql
-SELECT id, account_id, amount, description, monzo_created_at
-FROM monzo_transactions
-WHERE monzo_settled_at IS NULL
-ORDER BY monzo_created_at DESC;
-```
-
-### Category Breakdown
-
-```sql
-SELECT
-    COALESCE(merchant_category, 'transfer/other') AS category,
-    COUNT(*)                                       AS count,
-    SUM(amount)                                    AS total_pence,
-    ROUND(SUM(amount)::numeric / 100, 2)           AS total_gbp
+SELECT COALESCE(merchant_category, 'transfer/other') AS category,
+       COUNT(*)                                       AS count,
+       SUM(amount)                                    AS total_pence,
+       ROUND(SUM(amount)::numeric / 100, 2)           AS total_gbp
 FROM monzo_transactions
 WHERE amount < 0
 GROUP BY COALESCE(merchant_category, 'transfer/other')
 ORDER BY total_pence;
 ```
 
-### Verify Encryption (Tokens Should Not Be Readable)
-
-```sql
-SELECT
-    id,
-    LEFT(access_token_enc, 40) || '...'  AS token_preview,
-    CASE
-        WHEN access_token_enc LIKE 'eyJ%'  THEN '⚠️  PLAINTEXT JWT!'
-        WHEN access_token_enc LIKE '%{%'   THEN '⚠️  MIGHT BE PLAINTEXT!'
-        ELSE '✅ Encrypted'
-    END AS encryption_check
-FROM monzo_connections
-WHERE disconnected_at IS NULL;
-```
-
-### Verify FK Integrity
-
-```sql
-SELECT
-    t.id       AS transaction_id,
-    t.account_id,
-    t.user_id,
-    a.id       AS account_exists,
-    u.email    AS user_email
-FROM monzo_transactions t
-LEFT JOIN monzo_accounts a ON t.account_id = a.id
-LEFT JOIN users u ON t.user_id = u.id
-WHERE a.id IS NULL OR u.id IS NULL
-LIMIT 5;
--- Expected: 0 rows (all FKs valid)
-```
-
 ---
 
-## 🧹 Reset for Fresh Testing
+## 🧹 Reset utilities
 
-To clear all sync data and re-test from scratch (without losing your Monzo connection):
+### Wipe Monzo data but keep the connection (re-test backfill without re-OAuth)
 
 ```sql
--- Clear only sync data — connection and tokens remain
 TRUNCATE monzo_transactions, monzo_accounts CASCADE;
 ```
 
-To clear everything including the connection (requires full re-OAuth):
+Then either re-trigger via dev endpoint, OR re-OAuth to get a fresh SCA window for the windowed backfill.
+
+### Wipe everything (full re-OAuth required)
 
 ```sql
-TRUNCATE monzo_transactions, monzo_accounts, monzo_connections CASCADE;
+TRUNCATE monzo_transactions, monzo_accounts, monzo_connections, oauth_states CASCADE;
 ```
 
-After clearing, use the dev trigger to re-populate without re-doing OAuth (as long as the connection row still exists):
+### Wipe ALL data including the user (truly fresh)
 
-```bash
-curl -s -X POST http://localhost:8080/api/dev/monzo/backfill \
-  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" | jq .
+```sql
+TRUNCATE monzo_transactions, monzo_accounts, monzo_connections, oauth_states, users CASCADE;
 ```
 
 ---
 
 ## ✅ Final Checklist
 
-- [ ] Scenario 1: App running, Flyway tables exist, OAuth complete
-- [ ] Scenario 2: Baseline DB shows 0 accounts, 0 transactions
-- [ ] Scenario 3: Dev trigger returns 200 `{"success":true,"data":null}`
-- [ ] Scenario 4: `monzo_accounts` has real account rows with Monzo IDs
-- [ ] Scenario 5: `monzo_transactions` has real transactions (pence amounts, categories)
-- [ ] Scenario 6: `last_transaction_id` cursor set on each open account
-- [ ] Scenario 7: Second backfill produces identical row count (idempotent)
-- [ ] Scenario 8: Logs show correct thread names and backfill activity
-- [ ] Scenario 9: No-connection user gets 404
-- [ ] Scenario 10: Unauthenticated request gets 401
-- [ ] Scenario 11: Post-OAuth async backfill fires on `backfill-N` thread, HTTP response returns immediately
+**Path A**
+- [ ] Scenario 1: Prereqs — `APP_DATABASE_CLEAN_ON_STARTUP=false`, V10 migration ran
+- [ ] Scenario 2: Clean DB + fresh user via quick-login; status shows `NOT_STARTED`
+- [ ] Scenario 3: OAuth approved in Monzo app
+- [ ] Scenario 4: Backfill triggered async on `taskExecutor-N`; accounts row inserted with `monzo_created_at`
+- [ ] Scenario 5: Transactions persisted with proper `monzo_created_at`; no within-window gaps
+- [ ] Scenario 6: `/api/monzo/status` returns `tokenStatus: ACTIVE`, `backfillStatus: IN_PROGRESS`/`COMPLETED`/`NEEDS_REAUTH`
+
+**Path B**
+- [ ] Scenario 7: Backfill walks ≤350-day windows; each request includes both `since` AND `before`
+- [ ] Scenario 8: SCA expiry → ONE warn log, no retry storm; `backfill_status='NEEDS_REAUTH'`; checkpoint persisted
+- [ ] Scenario 9: State survives app restart
+- [ ] Scenario 10: Re-OAuth — first request uses saved `before` (and `sinceId` if mid-window cursor was saved)
+- [ ] Scenario 11: Eventually reaches `monzo_created_at` → `backfill_status='COMPLETED'`
+
+**Path C**
+- [ ] Scenario 12: Re-triggering completed backfill is a no-op (no duplicate rows)
+- [ ] Scenario 13: `last_transaction_id` cursor points to the most recent tx
+- [ ] Scenario 14: Dev backfill + reset endpoints work; reset clears all three `backfill_*` columns + deletes txs
+- [ ] Scenario 15: 404 no-connection, 403 wrong-user, 404 unknown account, 401 unauthenticated
 
 ---
 
@@ -701,10 +793,40 @@ curl -s -X POST http://localhost:8080/api/dev/monzo/backfill \
 | Postman Collection | `scripts/postman/budgeteer-transaction-sync.postman_collection.json` |
 | Postman Environment | `scripts/postman/budgeteer-local.postman_environment.json` |
 | Feature Documentation | `docs/features/MONZO-TRANSACTION-SYNC.md` |
-| Transaction Sync Service | `backend/.../service/monzo/TransactionSyncService.java` |
-| Dev Trigger Endpoint | `backend/.../api/dev/DevAuthController.java` |
-| Integration Tests | `backend/.../integration/TransactionSyncIT.java` |
+| Plan / Design (resumability) | `.agents/notes/resumable-backfill-plan.md` |
+| Service | `backend/src/main/java/dev/amf/budgeteer/service/monzo/TransactionSyncService.java` |
+| Client (403 detection) | `backend/src/main/java/dev/amf/budgeteer/client/monzo/MonzoClient.java` |
+| Status aggregation | `backend/src/main/java/dev/amf/budgeteer/service/monzo/MonzoConnectionService.java` |
+| Dev controller | `backend/src/main/java/dev/amf/budgeteer/api/dev/DevMonzoController.java` |
+| Entity | `backend/src/main/java/dev/amf/budgeteer/domain/monzo/MonzoAccount.java` |
+| V9 Migration (`monzo_created_at`) | `backend/src/main/resources/db/migration/V9__add_monzo_account_created.sql` |
+| V10 Migration (backfill state) | `backend/src/main/resources/db/migration/V10__add_monzo_account_backfill_state.sql` |
+| Unit tests | `backend/src/test/java/dev/amf/budgeteer/service/monzo/TransactionSyncServiceTest.java` |
+| Integration tests | `backend/src/test/java/dev/amf/budgeteer/integration/MonzoTransactionSyncIT.java` |
 
 ---
 
-*Last updated: 2026-05-25 — Phase 4 Transaction Sync complete*
+## 📝 Implementation notes worth knowing
+
+### Progress checkpointing granularity
+
+- **Per page:** `backfill_progress_cursor` is saved after every 100-tx page within a window.
+- **Per window:** `backfill_progress_at` advances at window boundaries.
+- So a 403 mid-page leaves a precise resume point; a 403 between windows still resumes cleanly (cursor null, progressAt at the boundary).
+
+### `last_transaction_id` vs `backfill_progress_cursor`
+
+- `last_transaction_id` — delta sync cursor (newest tx ever seen). Saved as soon as the first (most recent) window completes on a fresh backfill, so delta sync works even if the rest of backfill is paused in NEEDS_REAUTH.
+- `backfill_progress_cursor` — backfill resume cursor (within the in-flight window only). Cleared at every window boundary.
+
+### Backfill runs in one big DB transaction
+
+The `@Transactional` on `backfillAsync` / `backfill` means partial progress is durable only if backfill exits cleanly (which it does on SCA expiry — the catch block ensures commit). A hard process crash mid-flight rolls back the current attempt's progress. Re-OAuth re-starts from the previously-persisted checkpoint.
+
+### `now()` drift between attempts
+
+If the very first window of a fresh backfill is interrupted on its first request (before any cursor was saved), the next attempt's window walk uses the **new `now()`**, not the original one. This causes a few seconds to a few hours of drift, fully covered by the next window's natural overlap. No data is missed.
+
+---
+
+*Last updated: 2026-06-13 — Windowed backfill + resumable SCA recovery (V10).*

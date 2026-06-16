@@ -322,6 +322,57 @@
 			"name": "3. Verify Sync Results",
 			"item": [
 				{
+					"name": "📊 Sync Progress",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 200\", () => pm.response.to.have.status(200));",
+									"",
+									"var json = pm.response.json();",
+									"var accounts = json.data.accounts;",
+									"",
+									"console.log(\"📊 Sync progress — \" + accounts.length + \" account(s)\");",
+									"console.log(\"\");",
+									"",
+									"accounts.forEach(function(a) {",
+									"    var bar = \"[\";",
+									"    var filled = Math.round(a.progressPercent / 5);",
+									"    for (var i = 0; i < 20; i++) bar += i < filled ? \"█\" : \"░\";",
+									"    bar += \"] \" + a.progressPercent + \"%\";",
+									"",
+									"    console.log(\"🏦 \" + a.description);",
+									"    console.log(\"   Status:       \" + a.status);",
+									"    console.log(\"   Progress:     \" + bar);",
+									"    console.log(\"   Transactions: \" + a.transactionCount);",
+									"    if (a.currentWindowDate) {",
+									"        console.log(\"   Window at:    \" + a.currentWindowDate.substring(0, 10));",
+									"    }",
+									"    console.log(\"\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/monzo/sync/progress",
+							"host": ["{{base_url}}"],
+							"path": ["api", "monzo", "sync", "progress"]
+						},
+						"description": "Returns per-account backfill progress. Poll this while a backfill is running to monitor progress.\n\nProgress is time-based: `(now - currentWindowDate) / (now - accountCreatedAt) × 100`.\n\n**Status values:**\n- `NOT_STARTED` — backfill has never run\n- `IN_PROGRESS` — currently fetching historical windows\n- `COMPLETED` — all history fetched successfully\n- `NEEDS_REAUTH` — SCA window expired mid-backfill, re-OAuth to resume\n\n**Example response:**\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"accounts\": [\n      {\n        \"accountId\": \"acc_xxx\",\n        \"description\": \"Current Account\",\n        \"status\": \"IN_PROGRESS\",\n        \"progressPercent\": 34,\n        \"currentWindowDate\": \"2024-01-15T00:00:00Z\",\n        \"transactionCount\": 847\n      }\n    ]\n  }\n}\n```"
+					},
+					"response": []
+				},
+				{
 					"name": "Re-check Monzo Status (after sync)",
 					"event": [
 						{

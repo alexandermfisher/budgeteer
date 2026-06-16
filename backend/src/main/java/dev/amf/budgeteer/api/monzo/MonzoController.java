@@ -5,6 +5,7 @@ import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.api.monzo.dto.MonzoConnectInitResponse;
 import dev.amf.budgeteer.api.monzo.dto.MonzoConnectionResponse;
 import dev.amf.budgeteer.api.monzo.dto.MonzoStatusResponse;
+import dev.amf.budgeteer.api.monzo.dto.MonzoSyncProgressResponse;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
@@ -132,6 +133,7 @@ public class MonzoController {
      */
     @GetMapping("/callback")
     public ResponseEntity<ApiResponse<MonzoConnectionResponse>> handleCallback(
+            // todo : potentially extract field validation - unsure as get request with query params
             @RequestParam(value = "code", required = false) @Nullable @Size(max = 1024, message = "Code too long") String code,
             @RequestParam("state") @NotBlank(message = "State is required") @Size(max = 64, message = "State too long") String state,
             @RequestParam(value = "error", required = false) @Nullable @Size(max = 256, message = "Error too long") String error,
@@ -277,6 +279,19 @@ public class MonzoController {
      * @param user the authenticated user (injected via {@link CurrentUser})
      * @return connection status
      */
+    /**
+     * Returns per-account backfill progress for the authenticated user.
+     * Progress is time-based: (now - currentWindowDate) / (now - accountCreatedAt).
+     * Poll this during backfill to drive a progress indicator in the UI.
+     *
+     * <p>GET /api/monzo/sync/progress
+     */
+    @GetMapping("/sync/progress")
+    public ResponseEntity<ApiResponse<MonzoSyncProgressResponse>> getSyncProgress(@CurrentUser User user) {
+        MonzoSyncProgressResponse progress = syncService.getSyncProgress(user.getId());
+        return ResponseEntity.ok(ApiResponse.of(progress));
+    }
+
     @GetMapping("/status")
     public ResponseEntity<ApiResponse<MonzoStatusResponse>> getStatus(@CurrentUser User user) {
         boolean hasConnection = connectionService.hasActiveConnection(user.getId());

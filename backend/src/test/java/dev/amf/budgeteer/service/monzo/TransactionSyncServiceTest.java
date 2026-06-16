@@ -12,6 +12,8 @@ import dev.amf.budgeteer.repository.MonzoAccountRepository;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.repository.MonzoTransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,7 @@ class TransactionSyncServiceTest {
     @Mock private MonzoConnectionRepository connectionRepository;
     @Mock private MonzoAccountRepository accountRepository;
     @Mock private MonzoTransactionRepository transactionRepository;
+    @Mock private PlatformTransactionManager txManager;
 
     @InjectMocks
     private TransactionSyncService service;
@@ -62,6 +65,7 @@ class TransactionSyncServiceTest {
         when(user.getId()).thenReturn(userId);
         when(connection.getId()).thenReturn(connectionId);
         when(connection.getUser()).thenReturn(user);
+        when(txManager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
     }
 
     @Nested
@@ -132,9 +136,9 @@ class TransactionSyncServiceTest {
                     eq(ACCESS_TOKEN), eq("acc_001"), anyString(), anyString(), isNull(), eq(100)))
                     .thenReturn(firstPage, List.of());
 
-            // Cursor follow-up within the first window: sinceId set, since dropped to null.
+            // Cursor follow-up: since=null, before=null (dropped when cursor active), sinceId set.
             when(monzoClient.getTransactions(
-                    eq(ACCESS_TOKEN), eq("acc_001"), isNull(), anyString(), eq("tx_page1_099"), eq(100)))
+                    eq(ACCESS_TOKEN), eq("acc_001"), isNull(), isNull(), eq("tx_page1_099"), eq(100)))
                     .thenReturn(secondPage);
 
             service.backfill(connectionId);
@@ -143,7 +147,7 @@ class TransactionSyncServiceTest {
             verify(transactionRepository, times(105))
                     .upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
             verify(monzoClient, times(1))
-                    .getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), isNull(), anyString(), eq("tx_page1_099"), eq(100));
+                    .getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), isNull(), isNull(), eq("tx_page1_099"), eq(100));
         }
     }
 
@@ -298,9 +302,10 @@ class TransactionSyncServiceTest {
 
             service.backfill(connectionId);
 
-            // The first call within the resumed window must use the saved cursor, not null
+            // The first call within the resumed window must use the saved cursor.
+            // `before` is dropped when a cursor is active (Monzo descending-order bug fix).
             verify(monzoClient, atLeastOnce()).getTransactions(
-                    eq(ACCESS_TOKEN), eq("acc_001"), isNull(), eq(progressAt.toString()),
+                    eq(ACCESS_TOKEN), eq("acc_001"), isNull(), isNull(),
                     eq(savedCursor), eq(100));
         }
     }
