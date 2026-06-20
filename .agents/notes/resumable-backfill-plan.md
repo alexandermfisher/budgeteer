@@ -1,8 +1,10 @@
 # Resumable Backfill with SCA Re-Auth Recovery — Plan
 
-**Status:** Planned, not yet implemented. Next session — carry on from here.
-**Branch:** `feature/transaction-sync` (current, contains uncommitted windowed-backfill fix)
+**Status:** ✅ Implemented & merged (PR #55, 2026-06-20). Kept as a historical design record.
+**Branch:** `feature/transaction-sync` (merged to `main`)
 **Created:** 2026-06-12
+
+> ⚠️ **Correction (2026-06-20):** references below to a `since_id` cursor param are historical. Monzo has **no** `since_id` param — the cursor is sent via `since` (timestamp *or* transaction id). The `since_id` approach caused an infinite backfill loop, fixed in PR #55. See `docs/features/MONZO-TRANSACTION-SYNC.md`.
 
 ## Context — what brought us here
 

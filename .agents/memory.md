@@ -25,8 +25,8 @@ Also add `Referrer-Policy` and `Permissions-Policy` headers to `SecurityConfig` 
 ---
 
 ## 📅 Last Updated
-**Date:** 2026-03-29
-**Session Focus:** Input Validation Hardening + dev.sh test-all
+**Date:** 2026-06-20
+**Session Focus:** Phase 4 Transaction Sync merged (#55) — fixed the Monzo backfill infinite loop (cursor was sent as a non-existent `since_id` param; now sent via `since`, `before` retained per window). Verified end-to-end against real Monzo: fresh backfill, SCA expiry → NEEDS_REAUTH, restart survival, re-OAuth resume → COMPLETED. Also merged #58 (DB credential / Postgres hardening) and #59 (IT flake fix). Note: stop the dev app via `./scripts/dev.sh stop` (kills by port) — never `^C`/`^Z`, which forks/suspends the JVM and freezes Postgres row locks.
 
 ---
 
@@ -46,8 +46,9 @@ Also add `Referrer-Policy` and `Permissions-Policy` headers to `SecurityConfig` 
 - [x] **Phase 2: Monzo Token Persistence** ✅ COMPLETE (all phases A-E)
 - [x] **Email Service** ✅ COMPLETE (Resend SMTP)
 - [x] **Input Validation Hardening** ✅ COMPLETE (516 tests)
-- [ ] Phase 3: Token Auto-Refresh
-- [ ] Phase 4: Transaction sync
+- [x] **Phase 3: Token Auto-Refresh** ✅ COMPLETE (April 2026)
+- [x] **Phase 4: Transaction Sync** ✅ COMPLETE & MERGED (#55, June 2026) — windowed backfill, delta job, SCA-resume, cursor fix
+- [ ] Multi-module Maven restructure (P1 — next per board)
 - [ ] Phase 5: Webhooks & Budgeting features
 
 ### What's Working

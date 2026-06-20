@@ -1,6 +1,6 @@
 # Phase 3: Token Auto-Refresh
 
-> **Priority:** P1 | **Estimate:** 1 day | **Status:** In Progress
+> **Priority:** P1 | **Estimate:** 1 day | **Status:** ✅ Complete (merged April 2026)
 
 ## Goal
 
