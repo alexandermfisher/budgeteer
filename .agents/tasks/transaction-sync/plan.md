@@ -1,6 +1,8 @@
 # Phase 4: Transaction Sync
 
-> **Priority:** P2 | **Estimate:** 2–3 days | **Status:** Complete | **Branch:** `feature/transaction-sync`
+> **Priority:** P2 | **Estimate:** 2–3 days | **Status:** ✅ Complete & merged (PR #55) | **Branch:** `feature/transaction-sync`
+>
+> ⚠️ **Correction (2026-06-20):** any reference to a `since_id` query parameter below is historical and incorrect. Monzo has **no** `since_id` param — the cursor is passed via `since` (which accepts a timestamp *or* a transaction id). Sending it as `since_id` caused an infinite backfill loop, fixed in PR #55. See `docs/features/MONZO-TRANSACTION-SYNC.md`.
 
 ## Goal
 

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Phase 4 — Monzo Transaction Sync** (PR #55, June 2026)
+  - Raw account + transaction mirror: `monzo_accounts`, `monzo_transactions` (migrations V7–V10)
+  - Async post-OAuth backfill that runs within Monzo's ~5-minute SCA window
+  - Windowed historical sync in ≤350-day windows, resumable across SCA re-auth via per-window commits (`backfill_status`, `backfill_progress_at`)
+  - 60-minute scheduled delta sync via `last_transaction_id` cursor
+  - `GET /api/monzo/sync/progress` — per-account progress + status
+  - Dev endpoints: `POST /api/dev/monzo/backfill`, `POST /api/dev/monzo/reset-backfill/{accountId}`
+  - `MONZO_SYNC_ERROR` error code
+- **Phase 3 — Monzo Token Auto-Refresh** (April 2026) — background refresh job + eager inline guard before Monzo API calls; `tokenStatus` exposed on the status endpoint
+- **Production security headers** — HSTS, CSP, CORS, error-response suppression
+
+### Fixed
+- **Monzo backfill infinite loop** (PR #55) — the pagination cursor was sent as a non-existent `since_id` query param. Monzo's `since` accepts *either* an RFC3339 timestamp *or* a transaction id; the cursor is now sent via `since`, with `before` retained per window so the cursor advances. Previously, any account with ≥100 transactions in a window looped forever.
+- Integration-test flake in `MonzoConnectionRepositoryIT` — cross-class row leakage; now clears the table in `@BeforeEach` (PR #59)
+
+### Security
+- Removed default database credentials — `DB_USER` / `DB_PASSWORD` are now required (no `budgeteer:budgeteer` fallback); Postgres bound to `127.0.0.1` only; connection/disconnection audit logging enabled (PR #58)
+
 ### Changed
 - **Dependency Updates** (March 2026)
   - nimbus-jose-jwt: 10.0.2 → 10.7
