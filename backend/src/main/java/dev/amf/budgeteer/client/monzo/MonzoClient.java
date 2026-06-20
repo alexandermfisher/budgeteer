@@ -1,6 +1,11 @@
 package dev.amf.budgeteer.client.monzo;
 
 import dev.amf.budgeteer.api.common.ErrorCode;
+import dev.amf.budgeteer.client.monzo.dto.MonzoAccountResponse;
+import dev.amf.budgeteer.client.monzo.dto.MonzoAccountsResponse;
+import dev.amf.budgeteer.client.monzo.dto.MonzoTransactionResponse;
+import dev.amf.budgeteer.client.monzo.dto.MonzoTransactionsResponse;
+import dev.amf.budgeteer.client.monzo.dto.TokenResponse;
 import dev.amf.budgeteer.config.MonzoProperties;
 import dev.amf.budgeteer.exception.ApiException;
 import org.jspecify.annotations.Nullable;
@@ -13,8 +18,10 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -155,6 +162,105 @@ public class MonzoClient {
         }
     }
 
+    /**
+     * Lists all Monzo accounts for the authenticated user.
+     *
+     * @param accessToken the access token
+     * @return list of accounts
+     * @throws ApiException if the call fails or token is revoked
+     */
+    public List<MonzoAccountResponse> getAccounts(String accessToken) {
+        log.debug("Fetching Monzo accounts");
+
+        try {
+            MonzoAccountsResponse response = restClient.get()
+                    .uri("/accounts")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .body(MonzoAccountsResponse.class);
+
+            if (response == null) {
+                throw new ApiException(ErrorCode.MONZO_API_ERROR, "Empty response from Monzo accounts endpoint");
+            }
+
+            log.debug("Fetched {} Monzo accounts", response.accounts().size());
+            return response.accounts();
+
+        } catch (RestClientResponseException e) {
+            handleMonzoError(e, "accounts");
+            throw new ApiException(ErrorCode.MONZO_API_ERROR, "Failed to fetch Monzo accounts: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Lists transactions for a Monzo account.
+     *
+     * <p>Monzo enforces a maximum 365-day range when both {@code since} and {@code before} are
+     * supplied — backfills must therefore be chunked into ≤1-year windows. Within a window, use
+     * {@code sinceId} (a transaction id) to paginate forward. Delta syncs pass {@code sinceId} only.
+     *
+     * <p>Monzo has <strong>no separate cursor parameter</strong>: its {@code since} query parameter
+     * accepts either an RFC3339 timestamp <em>or</em> a transaction id. {@code sinceId} is therefore
+     * sent as {@code since} and takes precedence over the {@code since} timestamp argument when both
+     * are supplied (in practice they are mutually exclusive — a window's first page uses a timestamp,
+     * follow-up pages use the last-seen transaction id).
+     *
+     * @param accessToken the access token
+     * @param accountId   the Monzo account ID
+     * @param since       RFC3339 timestamp lower bound — returns transactions on/after this instant (nullable)
+     * @param before      RFC3339 timestamp upper bound — returns transactions strictly before this instant (nullable)
+     * @param sinceId     transaction-id cursor — returns transactions after this id; sent via {@code since} (nullable)
+     * @param limit       maximum number of transactions to return
+     * @return list of transactions
+     * @throws ApiException if the call fails or token is revoked
+     */
+    public List<MonzoTransactionResponse> getTransactions(
+            String accessToken,
+            String accountId,
+            @Nullable String since,
+            @Nullable String before,
+            @Nullable String sinceId,
+            int limit
+    ) {
+        log.debug("Fetching Monzo transactions [accountId={}, since={}, before={}, sinceId={}, limit={}]",
+                accountId, since, before, sinceId, limit);
+
+        try {
+            UriComponentsBuilder uri = UriComponentsBuilder.fromPath("/transactions")
+                    .queryParam("account_id", accountId)
+                    .queryParam("expand[]", "merchant")
+                    .queryParam("limit", limit);
+
+            // Monzo has no dedicated cursor param — `since` accepts a timestamp OR a transaction id.
+            // The cursor (sinceId) therefore takes the `since` slot, with precedence over the
+            // timestamp form. The two are mutually exclusive in practice.
+            String sinceValue = sinceId != null ? sinceId : since;
+            if (sinceValue != null) {
+                uri.queryParam("since", sinceValue);
+            }
+            if (before != null) {
+                uri.queryParam("before", before);
+            }
+
+            MonzoTransactionsResponse response = restClient.get()
+                    .uri(uri.build().toUriString())
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .body(MonzoTransactionsResponse.class);
+
+            if (response == null) {
+                throw new ApiException(ErrorCode.MONZO_API_ERROR, "Empty response from Monzo transactions endpoint");
+            }
+
+            log.debug("Fetched {} transactions for account {}", response.transactions().size(), accountId);
+            return response.transactions();
+
+        } catch (RestClientResponseException e) {
+            handleMonzoError(e, "transactions");
+            throw new ApiException(ErrorCode.MONZO_API_ERROR, "Failed to fetch Monzo transactions: " + e.getMessage(), e);
+        }
+    }
+
     // ============ Private Methods ============
 
     /**
@@ -199,6 +305,12 @@ public class MonzoClient {
         }
 
         if (status.value() == 403) {
+            String body = e.getResponseBodyAsString();
+            if (body.contains("forbidden.verification_required")) {
+                log.warn("Monzo API returned 403 verification_required for {} - SCA window has expired", endpoint);
+                throw new ApiException(ErrorCode.MONZO_VERIFICATION_REQUIRED,
+                        "Monzo requires re-authentication to access older transactions.");
+            }
             log.warn("Monzo API returned 403 for {} - insufficient permissions", endpoint);
             throw new ApiException(ErrorCode.MONZO_API_ERROR,
                     "Monzo API access denied. You may need to re-authorize.");
@@ -213,19 +325,4 @@ public class MonzoClient {
         log.error("Monzo API error for {}: {} - {}", endpoint, status.value(), e.getResponseBodyAsString());
     }
 
-    // ============ Response Records ============
-
-    /**
-     * Token response from Monzo OAuth.
-     *
-     * @param accessToken  the access token
-     * @param refreshToken the refresh token (may be null)
-     * @param expiresAt    when the access token expires
-     */
-    public record TokenResponse(
-            String accessToken,
-            @Nullable String refreshToken,
-            @Nullable Instant expiresAt
-    ) {
-    }
 }

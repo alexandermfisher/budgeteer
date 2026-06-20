@@ -93,7 +93,7 @@ TRUNCATE monzo_connections, oauth_states, app_refresh_tokens, magic_link_tokens,
 ### Option A: Quick Login (Dev Mode - Fastest)
 
 ```bash
-curl -X POST http://localhost:8080/api/test/auth/quick-login \
+curl -X POST http://localhost:8080/api/dev/auth/quick-login \
   -H "Content-Type: application/json" \
   -d '{"email": "test@example.com"}' \
   -c cookies.txt
@@ -740,9 +740,9 @@ Mark each scenario as you complete it:
 ### Dev Tools (dev profile only)
 | Method | Endpoint | Auth | Purpose |
 |--------|----------|------|---------|
-| POST | `/api/test/auth/quick-login` | ❌ | Instant login (no magic link) |
-| POST | `/api/test/auth/revoke-all` | ❌ | Revoke all sessions |
-| POST | `/api/test/auth/revoke-user` | ❌ | Revoke user's sessions |
+| POST | `/api/dev/auth/quick-login` | ❌ | Instant login (no magic link) |
+| POST | `/api/dev/auth/revoke-all` | ❌ | Revoke all sessions |
+| POST | `/api/dev/auth/revoke-user` | ❌ | Revoke user's sessions |
 
 ### Monzo Endpoints
 | Method | Endpoint | Auth | Purpose |

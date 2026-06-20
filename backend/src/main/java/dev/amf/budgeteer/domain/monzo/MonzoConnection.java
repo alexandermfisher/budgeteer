@@ -59,10 +59,10 @@ public class MonzoConnection {
 
     /**
      * Monzo user identifier from /ping/whoami endpoint.
-     * Format: "user_xxxxx"
+     * Format: "user_xxxxx" (alphanumeric, case-sensitive)
      */
     @NotBlank
-    @Pattern(regexp = "user_[a-z0-9]+", message = "Invalid Monzo user ID format")
+    @Pattern(regexp = "user_[a-zA-Z0-9]+", message = "Invalid Monzo user ID format")
     @Column(name = "monzo_user_id", nullable = false, length = 255)
     private String monzoUserId;
 

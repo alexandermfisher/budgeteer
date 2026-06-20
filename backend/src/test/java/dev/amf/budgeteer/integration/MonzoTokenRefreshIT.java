@@ -1,7 +1,5 @@
 package dev.amf.budgeteer.integration;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
@@ -10,23 +8,17 @@ import dev.amf.budgeteer.repository.MonzoConnectionRepository;
 import dev.amf.budgeteer.service.common.EncryptionService;
 import dev.amf.budgeteer.service.monzo.MonzoConnectionService;
 import dev.amf.budgeteer.service.monzo.MonzoTokenRefreshService;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.configureFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.containing;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
@@ -51,10 +43,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * </ul>
  */
 @DisplayName("Monzo Token Refresh Integration Tests")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class MonzoTokenRefreshIT extends AbstractPostgresIntegrationTest {
-
-    private static WireMockServer wireMockServer;
+class MonzoTokenRefreshIT extends AbstractMonzoWireMockIT {
 
     @Autowired
     private MonzoTokenRefreshService tokenRefreshService;
@@ -71,35 +60,9 @@ class MonzoTokenRefreshIT extends AbstractPostgresIntegrationTest {
     @Autowired
     private TestDataFactory testData;
 
-    @BeforeAll
-    static void startWireMock() {
-        wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort());
-        wireMockServer.start();
-        configureFor("localhost", wireMockServer.port());
-    }
-
-    @AfterAll
-    static void stopWireMock() {
-        if (wireMockServer != null) {
-            wireMockServer.stop();
-        }
-    }
-
-    @DynamicPropertySource
-    static void configureWireMockUrls(DynamicPropertyRegistry registry) {
-        if (wireMockServer == null) {
-            wireMockServer = new WireMockServer(WireMockConfiguration.options().dynamicPort());
-            wireMockServer.start();
-        }
-        String wiremockBase = "http://localhost:" + wireMockServer.port();
-        registry.add("monzo.token-url", () -> wiremockBase + "/oauth2/token");
-        registry.add("monzo.api-base-url", () -> wiremockBase);
-    }
-
     @BeforeEach
     void setUp() {
         connectionRepository.deleteAll();
-        wireMockServer.resetAll();
     }
 
     // =========================================================================
@@ -141,7 +104,7 @@ class MonzoTokenRefreshIT extends AbstractPostgresIntegrationTest {
                     .isEqualTo("new-refresh-token");
 
             // Verify Monzo was called with the right refresh token
-            wireMockServer.verify(postRequestedFor(urlPathEqualTo("/oauth2/token"))
+            wm.verify(postRequestedFor(urlPathEqualTo("/oauth2/token"))
                     .withRequestBody(containing("grant_type=refresh_token"))
                     .withRequestBody(containing("refresh_token=" + knownRefreshToken)));
 
@@ -179,7 +142,7 @@ class MonzoTokenRefreshIT extends AbstractPostgresIntegrationTest {
                     user, "revoked-refresh-token", Instant.now().minus(1, ChronoUnit.MINUTES)
             );
 
-            wireMockServer.stubFor(post(urlPathEqualTo("/oauth2/token"))
+            wm.stubFor(post(urlPathEqualTo("/oauth2/token"))
                     .willReturn(aResponse().withStatus(401).withBody("{\"error\":\"unauthorized\"}")));
 
             // When - should NOT throw for 401
@@ -203,7 +166,7 @@ class MonzoTokenRefreshIT extends AbstractPostgresIntegrationTest {
                     user, "valid-refresh-token", Instant.now().minus(1, ChronoUnit.MINUTES)
             );
 
-            wireMockServer.stubFor(post(urlPathEqualTo("/oauth2/token"))
+            wm.stubFor(post(urlPathEqualTo("/oauth2/token"))
                     .willReturn(aResponse().withStatus(500).withBody("Internal Server Error")));
 
             // When/Then - should throw
@@ -300,15 +263,15 @@ class MonzoTokenRefreshIT extends AbstractPostgresIntegrationTest {
             );
 
             // conn1 and conn3: success; conn2: revoked
-            wireMockServer.stubFor(post(urlPathEqualTo("/oauth2/token"))
+            wm.stubFor(post(urlPathEqualTo("/oauth2/token"))
                     .withRequestBody(containing("refresh_token=refresh-token-1"))
                     .willReturn(aResponse().withStatus(200)
                             .withHeader("Content-Type", "application/json")
                             .withBody(tokenResponseBody("access-1", "refresh-1-new", 21600))));
-            wireMockServer.stubFor(post(urlPathEqualTo("/oauth2/token"))
+            wm.stubFor(post(urlPathEqualTo("/oauth2/token"))
                     .withRequestBody(containing("refresh_token=refresh-token-2"))
                     .willReturn(aResponse().withStatus(401).withBody("{\"error\":\"unauthorized\"}")));
-            wireMockServer.stubFor(post(urlPathEqualTo("/oauth2/token"))
+            wm.stubFor(post(urlPathEqualTo("/oauth2/token"))
                     .withRequestBody(containing("refresh_token=refresh-token-3"))
                     .willReturn(aResponse().withStatus(200)
                             .withHeader("Content-Type", "application/json")
@@ -372,7 +335,7 @@ class MonzoTokenRefreshIT extends AbstractPostgresIntegrationTest {
                     user, "about-to-be-revoked", Instant.now().plus(2, ChronoUnit.MINUTES)
             );
 
-            wireMockServer.stubFor(post(urlPathEqualTo("/oauth2/token"))
+            wm.stubFor(post(urlPathEqualTo("/oauth2/token"))
                     .willReturn(aResponse().withStatus(401).withBody("{\"error\":\"unauthorized\"}")));
 
             // When/Then
@@ -402,7 +365,7 @@ class MonzoTokenRefreshIT extends AbstractPostgresIntegrationTest {
             connectionService.getDecryptedAccessToken(connection.getId(), user.getId());
 
             // Then - Monzo was NOT called
-            wireMockServer.verify(0, postRequestedFor(urlPathEqualTo("/oauth2/token")));
+            wm.verify(0, postRequestedFor(urlPathEqualTo("/oauth2/token")));
         }
     }
 
@@ -411,7 +374,7 @@ class MonzoTokenRefreshIT extends AbstractPostgresIntegrationTest {
     // =========================================================================
 
     private void stubMonzoTokenRefreshSuccess(String accessToken, String refreshToken, int expiresIn) {
-        wireMockServer.stubFor(post(urlPathEqualTo("/oauth2/token"))
+        wm.stubFor(post(urlPathEqualTo("/oauth2/token"))
                 .willReturn(aResponse()
                         .withStatus(200)
                         .withHeader("Content-Type", "application/json")

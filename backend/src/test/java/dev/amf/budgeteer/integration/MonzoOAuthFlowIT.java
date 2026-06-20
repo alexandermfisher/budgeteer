@@ -1,8 +1,6 @@
 package dev.amf.budgeteer.integration;
 
-import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.repository.MonzoConnectionRepository;
@@ -16,10 +14,7 @@ import dev.amf.budgeteer.service.monzo.MonzoOAuthService;
 import io.restassured.RestAssured;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -50,10 +45,7 @@ import static org.hamcrest.Matchers.notNullValue;
  * </ul>
  */
 @DisplayName("Monzo OAuth Flow Integration Tests")
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
-
-    private static WireMockServer wireMockServer;
+class MonzoOAuthFlowIT extends AbstractMonzoWireMockIT {
 
     @LocalServerPort
     private int port;
@@ -76,43 +68,12 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
     @Autowired
     private TestDataFactory testData;
 
-    @BeforeAll
-    static void startWireMock() {
-        wireMockServer = new WireMockServer(WireMockConfiguration.options()
-                .dynamicPort()
-                .usingFilesUnderClasspath("wiremock"));
-        wireMockServer.start();
-        configureFor("localhost", wireMockServer.port());
-    }
-
-    @AfterAll
-    static void stopWireMock() {
-        if (wireMockServer != null) {
-            wireMockServer.stop();
-        }
-    }
-
-    @DynamicPropertySource
-    static void configureWireMockUrls(DynamicPropertyRegistry registry) {
-        // Start WireMock early to get the port
-        if (wireMockServer == null) {
-            wireMockServer = new WireMockServer(WireMockConfiguration.options()
-                    .dynamicPort()
-                    .usingFilesUnderClasspath("wiremock"));
-            wireMockServer.start();
-        }
-        String baseUrl = "http://localhost:" + wireMockServer.port();
-        registry.add("monzo.token-url", () -> baseUrl + "/oauth2/token");
-        registry.add("monzo.api-base-url", () -> baseUrl);
-    }
-
     @BeforeEach
     void setUp() {
         RestAssured.port = port;
         monzoConnectionRepository.deleteAll();
         oAuthStateRepository.deleteAll();
         userRepository.deleteAll();
-        wireMockServer.resetAll();
     }
 
     // ========================================================================
@@ -158,10 +119,10 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
             assertThat(updatedState.isUsed()).isTrue();
 
             // Verify Monzo API was called correctly
-            wireMockServer.verify(postRequestedFor(urlPathEqualTo("/oauth2/token"))
+            wm.verify(postRequestedFor(urlPathEqualTo("/oauth2/token"))
                     .withRequestBody(containing("grant_type=authorization_code"))
                     .withRequestBody(containing("code=valid-authorization-code")));
-            wireMockServer.verify(getRequestedFor(urlPathEqualTo("/ping/whoami"))
+            wm.verify(getRequestedFor(urlPathEqualTo("/ping/whoami"))
                     .withHeader("Authorization", WireMock.equalTo("Bearer test-access-token")));
         }
 
@@ -194,7 +155,7 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
             assertThat(updatedState.isUsed()).isTrue();
 
             // Monzo token exchange should NOT have been called
-            wireMockServer.verify(0, postRequestedFor(urlPathEqualTo("/oauth2/token")));
+            wm.verify(0, postRequestedFor(urlPathEqualTo("/oauth2/token")));
         }
 
         @Test
@@ -215,7 +176,7 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
             assertThat(monzoConnectionRepository.findAll()).isEmpty();
 
             // Monzo API not called
-            wireMockServer.verify(0, postRequestedFor(urlPathEqualTo("/oauth2/token")));
+            wm.verify(0, postRequestedFor(urlPathEqualTo("/oauth2/token")));
         }
 
         @Test
@@ -285,7 +246,7 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
             OAuthState state = testData.createValidOAuthStateFor(user);
 
             // Stub Monzo to reject the token exchange
-            wireMockServer.stubFor(post(urlPathEqualTo("/oauth2/token"))
+            wm.stubFor(post(urlPathEqualTo("/oauth2/token"))
                     .willReturn(aResponse()
                             .withStatus(400)
                             .withHeader("Content-Type", "application/json")
@@ -486,7 +447,7 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
     // ========================================================================
 
     private void stubMonzoTokenExchangeSuccess(String accessToken, String refreshToken, String userId) {
-        wireMockServer.stubFor(post(urlPathEqualTo("/oauth2/token"))
+        wm.stubFor(post(urlPathEqualTo("/oauth2/token"))
                 .willReturn(okJson(String.format("""
                         {
                             "access_token": "%s",
@@ -499,7 +460,7 @@ class MonzoOAuthFlowIT extends AbstractPostgresIntegrationTest {
     }
 
     private void stubMonzoWhoamiSuccess(String userId) {
-        wireMockServer.stubFor(get(urlPathEqualTo("/ping/whoami"))
+        wm.stubFor(get(urlPathEqualTo("/ping/whoami"))
                 .willReturn(okJson(String.format("""
                         {
                             "authenticated": true,

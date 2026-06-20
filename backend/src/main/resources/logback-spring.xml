@@ -23,8 +23,7 @@
         <logger name="dev.amf.budgeteer" level="DEBUG"/>
         <logger name="org.springframework.web" level="DEBUG"/>
         <logger name="org.springframework.security" level="DEBUG"/>
-        <logger name="org.hibernate.SQL" level="DEBUG"/>
-        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+        <logger name="org.hibernate" level="WARN"/>
         
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>

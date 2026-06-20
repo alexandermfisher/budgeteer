@@ -15,8 +15,10 @@ wiremock/
 │       ├── ping/                # Health/identity endpoints
 │       │   ├── whoami-authenticated.json
 │       │   └── whoami-unauthenticated.json
-│       └── accounts/            # Account endpoints (Phase 4)
-│           └── (future stubs)
+│       ├── accounts/            # Account list endpoint
+│       │   └── accounts-list.json
+│       └── transactions/        # Transaction list endpoint
+│           └── transactions-list.json
 └── __files/                     # Response body files (for large responses)
     └── monzo/
         └── (future large response bodies)
@@ -26,19 +28,25 @@ wiremock/
 
 ### Automatic Loading (Recommended)
 
-WireMock automatically loads all JSON files from `mappings/` when using `@EnableWireMock`:
+All integration tests that need Monzo API stubs extend `AbstractMonzoWireMockIT`, which
+starts a shared singleton `WireMockServer`. Each test gets a clean slate: `wm.resetAll()`
+runs in `@BeforeEach`, clearing both stubs and the request journal.
+
+File stubs are not served automatically — `resetAll()` clears them before each test.
+Load them explicitly per-test using `loadStubFromFile`, or stub inline with `wm.stubFor`.
 
 ```java
-@SpringBootTest
-@EnableWireMock(
-    @ConfigureWireMock(
-        name = "monzo-api",
-        filesUnderDirectory = "wiremock",
-        property = "monzo.api-base-url"
-    )
-)
-class MonzoOAuthFlowIT {
-    // Stubs are automatically loaded from mappings/
+class MyMonzoIT extends AbstractMonzoWireMockIT {
+
+    @Test
+    void myTest() {
+        // Load a canned response from a mapping file
+        loadStubFromFile("wiremock/mappings/monzo/accounts/accounts-list.json");
+
+        // Or stub inline for test-specific data
+        wm.stubFor(get(urlPathEqualTo("/accounts"))
+                .willReturn(okJson("{\"accounts\":[]}")));
+    }
 }
 ```
 

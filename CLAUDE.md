@@ -22,6 +22,7 @@ All context is in `.agents/context/` (symlinked at `.claude/context/` for tool c
 | `.agents/context/conventions.md` | Commit format, branch naming, code style, Flyway rules |
 | `.agents/context/commands.md` | Every build / test / run / script command |
 | `.agents/context/security.md` | Auth model, encryption, what never to log |
+| `.agents/context/testing.md` | Test base classes, WireMock patterns, TestDataFactory, stub file conventions |
 
 ## Shared Agent State
 

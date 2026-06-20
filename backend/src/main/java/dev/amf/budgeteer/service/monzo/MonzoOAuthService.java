@@ -147,7 +147,7 @@ public class MonzoOAuthService {
      * @throws ApiException if the token exchange fails
      */
     public TokenResponse exchangeCodeForTokens(String code) {
-        MonzoClient.TokenResponse clientResponse = monzoClient.exchangeCode(code);
+        dev.amf.budgeteer.client.monzo.dto.TokenResponse clientResponse = monzoClient.exchangeCode(code);
 
         return new TokenResponse(
                 clientResponse.accessToken(),

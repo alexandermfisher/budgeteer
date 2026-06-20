@@ -4,12 +4,15 @@ import dev.amf.budgeteer.api.common.ApiResponse;
 import dev.amf.budgeteer.api.common.ErrorCode;
 import dev.amf.budgeteer.api.monzo.dto.MonzoConnectInitResponse;
 import dev.amf.budgeteer.api.monzo.dto.MonzoConnectionResponse;
+import dev.amf.budgeteer.api.monzo.dto.MonzoStatusResponse;
+import dev.amf.budgeteer.api.monzo.dto.MonzoSyncProgressResponse;
 import dev.amf.budgeteer.domain.monzo.MonzoConnection;
 import dev.amf.budgeteer.domain.user.User;
 import dev.amf.budgeteer.exception.ApiException;
 import dev.amf.budgeteer.security.CurrentUser;
 import dev.amf.budgeteer.service.monzo.MonzoConnectionService;
 import dev.amf.budgeteer.service.monzo.MonzoOAuthService;
+import dev.amf.budgeteer.service.monzo.TransactionSyncService;
 import dev.amf.budgeteer.util.LogSanitizer;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -45,13 +48,16 @@ public class MonzoController {
 
     private final MonzoOAuthService oauthService;
     private final MonzoConnectionService connectionService;
+    private final TransactionSyncService syncService;
 
     public MonzoController(
             MonzoOAuthService oauthService,
-            MonzoConnectionService connectionService
+            MonzoConnectionService connectionService,
+            TransactionSyncService syncService
     ) {
         this.oauthService = oauthService;
         this.connectionService = connectionService;
+        this.syncService = syncService;
     }
 
     // ============ OAuth Endpoints ============
@@ -127,6 +133,7 @@ public class MonzoController {
      */
     @GetMapping("/callback")
     public ResponseEntity<ApiResponse<MonzoConnectionResponse>> handleCallback(
+            // todo : potentially extract field validation - unsure as get request with query params
             @RequestParam(value = "code", required = false) @Nullable @Size(max = 1024, message = "Code too long") String code,
             @RequestParam("state") @NotBlank(message = "State is required") @Size(max = 64, message = "State too long") String state,
             @RequestParam(value = "error", required = false) @Nullable @Size(max = 256, message = "Error too long") String error,
@@ -178,8 +185,11 @@ public class MonzoController {
         log.info("Successfully connected Monzo account for user {} [connectionId={}]",
                 user.getId(), connection.getId());
 
-        // Return JSON response (frontend can redirect based on this)
-        // In the future, could redirect to a frontend URL
+        log.info("Triggering async transaction backfill within SCA window [connectionId={}]",
+                connection.getId());
+        syncService.backfillAsync(connection.getId());
+
+        // Return immediately — backfill happens async with retries in background
         return ResponseEntity.ok(ApiResponse.of(MonzoConnectionResponse.from(connection)));
     }
 
@@ -269,29 +279,27 @@ public class MonzoController {
      * @param user the authenticated user (injected via {@link CurrentUser})
      * @return connection status
      */
+    /**
+     * Returns per-account backfill progress for the authenticated user.
+     * Progress is time-based: (now - currentWindowDate) / (now - accountCreatedAt).
+     * Poll this during backfill to drive a progress indicator in the UI.
+     *
+     * <p>GET /api/monzo/sync/progress
+     */
+    @GetMapping("/sync/progress")
+    public ResponseEntity<ApiResponse<MonzoSyncProgressResponse>> getSyncProgress(@CurrentUser User user) {
+        MonzoSyncProgressResponse progress = syncService.getSyncProgress(user.getId());
+        return ResponseEntity.ok(ApiResponse.of(progress));
+    }
+
     @GetMapping("/status")
-    public ResponseEntity<ApiResponse<ConnectionStatus>> getStatus(@CurrentUser User user) {
+    public ResponseEntity<ApiResponse<MonzoStatusResponse>> getStatus(@CurrentUser User user) {
         boolean hasConnection = connectionService.hasActiveConnection(user.getId());
         long connectionCount = connectionService.countActiveConnections(user.getId());
         MonzoConnectionService.TokenStatus tokenStatus = connectionService.getTokenStatus(user.getId());
+        MonzoConnectionService.BackfillStatus backfillStatus = connectionService.getBackfillStatus(user.getId());
 
-        ConnectionStatus status = new ConnectionStatus(hasConnection, connectionCount, tokenStatus);
+        MonzoStatusResponse status = new MonzoStatusResponse(hasConnection, connectionCount, tokenStatus, backfillStatus);
         return ResponseEntity.ok(ApiResponse.of(status));
-    }
-
-    // ============ Response Records ============
-
-    /**
-     * Connection status response including token health.
-     *
-     * @param connected       whether the user has at least one active Monzo connection
-     * @param connectionCount number of active connections
-     * @param tokenStatus     health of the OAuth tokens
-     */
-    public record ConnectionStatus(
-            boolean connected,
-            long connectionCount,
-            MonzoConnectionService.TokenStatus tokenStatus
-    ) {
     }
 }
