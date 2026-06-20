@@ -135,8 +135,6 @@ class MonzoClientTest {
                     .withQueryParam("since", matching(".*")));
             wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
                     .withQueryParam("before", matching(".*")));
-            wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
-                    .withQueryParam("since_id", matching(".*")));
         }
 
         @Test
@@ -162,16 +160,17 @@ class MonzoClientTest {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).id()).isEqualTo("tx_old");
 
+            // Monzo has no since_id param; the timestamp window is sent verbatim on `since`/`before`.
             wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
                     .withQueryParam("since_id", matching(".*")));
         }
 
         @Test
-        @DisplayName("with sinceId (cursor) — includes since_id but not since/before")
+        @DisplayName("with sinceId (cursor) — sent as `since`, no `since_id` or `before`")
         void withSinceId() {
             wm.stubFor(get(urlPathEqualTo("/transactions"))
                     .withQueryParam("account_id", equalTo("acc_001"))
-                    .withQueryParam("since_id", equalTo("tx_100"))
+                    .withQueryParam("since", equalTo("tx_100"))
                     .withQueryParam("expand[]", equalTo("merchant"))
                     .withQueryParam("limit", equalTo("100"))
                     .willReturn(okJson("""
@@ -189,8 +188,11 @@ class MonzoClientTest {
             assertThat(result.get(0).merchant()).isNull();
             assertThat(result.get(0).settled()).isNull();
 
+            // The cursor is sent via `since` (Monzo accepts a tx id there); no `since_id`, no `before`.
+            wm.verify(getRequestedFor(urlPathEqualTo("/transactions"))
+                    .withQueryParam("since", equalTo("tx_100")));
             wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
-                    .withQueryParam("since", matching(".*")));
+                    .withQueryParam("since_id", matching(".*")));
             wm.verify(0, getRequestedFor(urlPathEqualTo("/transactions"))
                     .withQueryParam("before", matching(".*")));
         }

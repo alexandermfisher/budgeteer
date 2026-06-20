@@ -320,13 +320,14 @@ public class TransactionSyncService {
         int total = 0;
 
         while (true) {
-            // Monzo returns results in descending order when `before` is set, which breaks
-            // since_id cursor pagination (page.get(last) always returns the cursor itself).
-            // Drop `before` once a cursor is active — ascending order resumes and pagination advances.
-            String effectiveBefore = cursor != null ? null : before;
-
+            // Page forward within the window by passing the last-seen transaction id as the cursor
+            // (sent via Monzo's `since` param — Monzo has no separate cursor param). `before` stays
+            // pinned to the window end so each page is bounded; Monzo returns ascending order, so the
+            // last item is the newest and becomes the next cursor. Dropping `before` here was the old
+            // bug: with no bounds and an ignored `since_id`, every page came back identical and the
+            // cursor never advanced → infinite loop.
             List<MonzoTransactionResponse> page = monzoClient.getTransactions(
-                    accessToken, account.getId(), windowSince, effectiveBefore, cursor, PAGE_SIZE
+                    accessToken, account.getId(), windowSince, before, cursor, PAGE_SIZE
             );
 
             log.info("→ Monzo returned {} transactions [account={}, window={} → {}, cursor={}]",

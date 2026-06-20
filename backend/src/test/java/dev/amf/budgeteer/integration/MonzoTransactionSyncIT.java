@@ -143,8 +143,9 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
             assertThat(account.getLastTransactionId()).isEqualTo("tx_p2_004");
 
             // Cursor follow-up fires exactly once (within the first non-empty window).
+            // The cursor (last tx id of page 1) is sent via `since`.
             wm.verify(1, getRequestedFor(urlPathEqualTo("/transactions"))
-                    .withQueryParam("since_id", equalTo("tx_p1_099")));
+                    .withQueryParam("since", equalTo("tx_p1_099")));
         }
     }
 
@@ -187,7 +188,7 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
             assertThat(updated.getLastTransactionId()).isEqualTo("tx_new_001");
 
             wm.verify(1, getRequestedFor(urlPathEqualTo("/transactions"))
-                    .withQueryParam("since_id", equalTo("tx_seed")));
+                    .withQueryParam("since", equalTo("tx_seed")));
         }
     }
 
@@ -247,9 +248,11 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
     }
 
     /**
-     * Stub the first windowed backfill request (matched by absence of {@code since_id}, i.e. the
-     * start of a window) to return {@code json} once, then empty for all subsequent windows.
-     * Uses a WireMock scenario so the response progresses through the state machine.
+     * Stub the first windowed backfill request (a start-of-window call — {@code since} is a
+     * timestamp, not a transaction-id cursor) to return {@code json} once, then empty for all
+     * subsequent windows. Uses a WireMock scenario so the response progresses through the state
+     * machine. The {@code since} matcher is a timestamp pattern so these stubs never collide with
+     * {@link #stubCursorPage}, whose {@code since} is a {@code tx_…} cursor.
      */
     private void stubFirstWindowThenEmpty(String accountId, String json) {
         String scenario = "backfill-" + accountId;
@@ -259,7 +262,7 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
                 .whenScenarioStateIs(com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED)
                 .withQueryParam("account_id", equalTo(accountId))
                 .withQueryParam("expand[]", equalTo("merchant"))
-                .withQueryParam("since", matching(".+"))
+                .withQueryParam("since", matching("\\d{4}-.+"))
                 .withQueryParam("before", matching(".+"))
                 .willSetStateTo("first-window-served")
                 .willReturn(okJson(json)));
@@ -269,7 +272,7 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
                 .whenScenarioStateIs("first-window-served")
                 .withQueryParam("account_id", equalTo(accountId))
                 .withQueryParam("expand[]", equalTo("merchant"))
-                .withQueryParam("since", matching(".+"))
+                .withQueryParam("since", matching("\\d{4}-.+"))
                 .withQueryParam("before", matching(".+"))
                 .willReturn(okJson("{\"transactions\":[]}")));
     }
@@ -285,7 +288,7 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
                 .whenScenarioStateIs(com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED)
                 .withQueryParam("account_id", equalTo(accountId))
                 .withQueryParam("expand[]", equalTo("merchant"))
-                .withQueryParam("since", matching(".+"))
+                .withQueryParam("since", matching("\\d{4}-.+"))
                 .withQueryParam("before", matching(".+"))
                 .willSetStateTo("first-window-served")
                 .willReturn(okJson(json)));
@@ -300,12 +303,15 @@ class MonzoTransactionSyncIT extends AbstractMonzoWireMockIT {
                         .withBody("{\"code\":\"forbidden.verification_required\",\"message\":\"SCA required\"}")));
     }
 
-    /** Stub for a cursor-based page (used both for backfill pagination and delta sync). */
+    /**
+     * Stub for a cursor-based page (used both for backfill pagination and delta sync). The cursor
+     * is a transaction id sent via Monzo's {@code since} param — there is no {@code since_id} param.
+     */
     private void stubCursorPage(String accountId, String sinceId, String json) {
         wm.stubFor(get(urlPathEqualTo("/transactions"))
                 .withQueryParam("account_id", equalTo(accountId))
                 .withQueryParam("expand[]", equalTo("merchant"))
-                .withQueryParam("since_id", equalTo(sinceId))
+                .withQueryParam("since", equalTo(sinceId))
                 .willReturn(okJson(json)));
     }
 

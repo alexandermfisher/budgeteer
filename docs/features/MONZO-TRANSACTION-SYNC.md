@@ -69,7 +69,7 @@ Stores one row per Monzo account per connection. Delta sync state lives here.
 | `description` | `VARCHAR(500)` | Nullable |
 | `currency` | `VARCHAR(3)` | e.g. `GBP` |
 | `last_synced_at` | `TIMESTAMPTZ` | NULL = never synced |
-| `last_transaction_id` | `VARCHAR(255)` | `since_id` cursor for next delta sync; NULL = no cursor |
+| `last_transaction_id` | `VARCHAR(255)` | Transaction-id cursor for next delta sync (sent via Monzo's `since` param); NULL = no cursor |
 | `closed` | `BOOLEAN` | Closed accounts are skipped during sync |
 | `created_at` / `updated_at` | `TIMESTAMPTZ` | Managed by JPA lifecycle hooks |
 
@@ -173,7 +173,7 @@ sequenceDiagram
         SyncService->>DB: upsert MonzoAccount
 
         loop paginate until page < 100
-            SyncService->>MonzoAPI: GET /transactions?account_id=x&expand[]=merchant&limit=100[&since_id=cursor]
+            SyncService->>MonzoAPI: GET /transactions?account_id=x&expand[]=merchant&limit=100&before=windowEnd[&since=cursor]
             MonzoAPI-->>SyncService: page of transactions
             SyncService->>DB: upsert each transaction (native SQL)
         end
@@ -207,7 +207,7 @@ sequenceDiagram
         ConnService-->>SyncService: plaintext access token
 
         loop paginate until page < 100
-            SyncService->>MonzoAPI: GET /transactions?account_id=x&since_id=cursor&expand[]=merchant&limit=100
+            SyncService->>MonzoAPI: GET /transactions?account_id=x&since=cursor&expand[]=merchant&limit=100
             MonzoAPI-->>SyncService: page of new transactions
             SyncService->>DB: save() new transactions
         end
@@ -262,8 +262,8 @@ Backfill — native SQL upsert (performance)
   re-running backfill idempotently — safe to run multiple times.
 
 Delta — JPA save() (simplicity)
-  New rows dominate delta syncs. The cursor (since_id) prevents fetching already-seen
-  transactions, so plain save() is fine. Pending→settled updates can still happen
+  New rows dominate delta syncs. The cursor (a transaction id, sent via `since`) prevents
+  fetching already-seen transactions, so plain save() is fine. Pending→settled updates can still happen
   if a transaction settles between delta runs.
 ```
 
@@ -429,7 +429,7 @@ Called by `MonzoClient.getTransactions()`. Always includes `expand[]=merchant` s
 merchant name and category are populated without a separate call.
 
 ```
-GET /transactions?account_id=acc_xxx&expand[]=merchant&limit=100[&since_id=tx_xxx]
+GET /transactions?account_id=acc_xxx&expand[]=merchant&limit=100[&since=<ts|tx_xxx>][&before=ts]
 ```
 
 | Param | Required | Notes |
@@ -437,7 +437,8 @@ GET /transactions?account_id=acc_xxx&expand[]=merchant&limit=100[&since_id=tx_xx
 | `account_id` | Yes | The Monzo account to fetch transactions for |
 | `expand[]` | Yes | Always `merchant` — populates merchant sub-object |
 | `limit` | Yes | Always 100 (page size) |
-| `since_id` | No | Cursor — returns transactions after this ID only |
+| `since` | No | Lower bound — accepts **either** an RFC3339 timestamp **or** a transaction id. Monzo has no separate `since_id` param; the cursor is sent here |
+| `before` | No | Upper bound — RFC3339 timestamp; pins the window end during backfill pagination |
 
 ---
 

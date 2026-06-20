@@ -197,13 +197,19 @@ public class MonzoClient {
      *
      * <p>Monzo enforces a maximum 365-day range when both {@code since} and {@code before} are
      * supplied — backfills must therefore be chunked into ≤1-year windows. Within a window, use
-     * {@code sinceId} (a cursor) to paginate forward. Delta syncs pass {@code sinceId} only.
+     * {@code sinceId} (a transaction id) to paginate forward. Delta syncs pass {@code sinceId} only.
+     *
+     * <p>Monzo has <strong>no separate cursor parameter</strong>: its {@code since} query parameter
+     * accepts either an RFC3339 timestamp <em>or</em> a transaction id. {@code sinceId} is therefore
+     * sent as {@code since} and takes precedence over the {@code since} timestamp argument when both
+     * are supplied (in practice they are mutually exclusive — a window's first page uses a timestamp,
+     * follow-up pages use the last-seen transaction id).
      *
      * @param accessToken the access token
      * @param accountId   the Monzo account ID
      * @param since       RFC3339 timestamp lower bound — returns transactions on/after this instant (nullable)
      * @param before      RFC3339 timestamp upper bound — returns transactions strictly before this instant (nullable)
-     * @param sinceId     cursor for pagination — returns transactions after this ID (nullable)
+     * @param sinceId     transaction-id cursor — returns transactions after this id; sent via {@code since} (nullable)
      * @param limit       maximum number of transactions to return
      * @return list of transactions
      * @throws ApiException if the call fails or token is revoked
@@ -225,14 +231,15 @@ public class MonzoClient {
                     .queryParam("expand[]", "merchant")
                     .queryParam("limit", limit);
 
-            if (since != null) {
-                uri.queryParam("since", since);
+            // Monzo has no dedicated cursor param — `since` accepts a timestamp OR a transaction id.
+            // The cursor (sinceId) therefore takes the `since` slot, with precedence over the
+            // timestamp form. The two are mutually exclusive in practice.
+            String sinceValue = sinceId != null ? sinceId : since;
+            if (sinceValue != null) {
+                uri.queryParam("since", sinceValue);
             }
             if (before != null) {
                 uri.queryParam("before", before);
-            }
-            if (sinceId != null) {
-                uri.queryParam("since_id", sinceId);
             }
 
             MonzoTransactionsResponse response = restClient.get()

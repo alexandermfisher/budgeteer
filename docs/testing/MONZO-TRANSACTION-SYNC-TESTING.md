@@ -331,6 +331,21 @@ Re-run the curl a few seconds later — `backfillStatus` should transition to on
 
 # Path B — Windowed Sync + SCA Resume
 
+> ### 📌 Testing Path B when your whole history downloads inside the SCA window
+>
+> If your first OAuth ended in `Backfill complete … COMPLETED` (common for **low-volume** accounts — even ones several years old; account *age* doesn't decide this, transaction **volume + API latency** does), you can't trigger SCA expiry naturally. Use one of these to exercise §8–§11:
+>
+> **Reliable — kill the server mid-backfill (recommended):**
+> 1. Do a fresh OAuth and, ~5–10s into the backfill, run **`./scripts/dev.sh stop` from a second terminal** (NOT `Ctrl-C`/`Ctrl-Z` — see the warning in §9; those leave a frozen JVM holding row locks). `dev.sh stop` kills the port-8080 JVM; the `backfillTaskExecutor` doesn't wait for tasks on shutdown and each window commits independently, so completed windows persist while the in-flight one rolls back. Result: a few windows of data, `backfill_status='IN_PROGRESS'`, `backfill_progress_at` at the last completed window.
+> 2. Restart the app — state survives (§9). A restart does **not** auto-resume; nothing fetches again until you re-OAuth or hit the dev endpoint.
+> 3. Wait until **>5 minutes since the original approval** so the SCA window has closed.
+> 4. `POST /api/dev/monzo/backfill` → resumes from the checkpoint, but Monzo now 403s on the older (>90-day) windows → `backfill_status='NEEDS_REAUTH'` (§8). This is the exact path the cursor-loop fix touched — confirm there's no retry storm or infinite loop.
+> 5. Re-OAuth (opens a fresh SCA window) → async backfill resumes from the checkpoint → walks the remaining windows → `COMPLETED` (§10, §11).
+>
+> **Also works — natural 403 via delayed dev-trigger (skips the partial-data step):** after a COMPLETED backfill, `reset-backfill/{accountId}`, wait >5 min since approval, then `POST /api/dev/monzo/backfill`. SCA is closed → 403 on old windows → `NEEDS_REAUTH`. Then re-OAuth → `COMPLETED`.
+>
+> **Unreliable — delaying your Monzo approval:** the full-access window runs ~5 min from **approval**, not from when you start OAuth, and a ~20s backfill finishes inside even a 1-minute remainder. Don't rely on this to force a partial.
+
 ## 📦 7. Windowed Backfill
 
 The backfill doesn't make a single huge API call — it walks **≤350-day windows** backwards from now to the account creation date. Monzo enforces a 365-day max time range per request, so chunking is mandatory.
@@ -345,10 +360,9 @@ DEBUG ... Fetching Monzo transactions [accountId=..., since=null, before=<window
 DEBUG ... Fetching Monzo transactions [accountId=..., since=<earlierWindowStart>, before=<earlierWindowEnd>, sinceId=null, ...]
 ```
 
-Key observations:
-- Each window has `since` AND `before` set
-- First request of a window has `sinceId=null`
-- Subsequent pages within the window have `sinceId=<cursor>` and `since=null` (the cursor is more precise than the timestamp)
+Key observations (the DEBUG line logs the internal **method args** — on the wire the cursor is sent as Monzo's `since` param; Monzo has **no** `since_id` param):
+- A start-of-window request has a timestamp `since` AND `before` set, with `sinceId=null`
+- Subsequent pages within the window log `sinceId=<cursor>` and `since=null` — on the wire that cursor goes out as `since=<tx_id>`, with `before` still pinned to the window end (this is the cursor-pagination path that the infinite-loop fix corrected)
 - New windows start with `sinceId=null` again
 
 ### How many windows to expect
@@ -365,7 +379,7 @@ If `monzo_created_at` is 4 years ago, you'd see roughly `ceil(4 * 365 / 350) ≈
 
 ## ⏸️ 8. SCA Expiry Checkpoint
 
-If your Monzo account has more than ~12 months of history, the SCA window will close before backfill finishes. Watch for:
+If your backfill can't finish inside the ~5-minute SCA window (high transaction volume — **not** simply age; a multi-year low-volume account can finish in time), or you induced this via the Path B callout above, Monzo starts returning 403 on windows older than ~90 days. Watch for:
 
 ```
 WARN  ... Monzo API returned 403 verification_required for transactions - SCA window has expired
@@ -391,7 +405,7 @@ FROM monzo_accounts;
 Expect:
 - `backfill_status` = `NEEDS_REAUTH`
 - `backfill_progress_at` is non-null — the **windowEnd of the next window to resume from**. Should equal the `oldest_tx` (give or take a tx) you've fetched so far.
-- `backfill_progress_cursor` is non-null IF the SCA-expiring window was interrupted mid-pagination; null if it interrupted at a clean window boundary. **Both are valid checkpoints.**
+- `backfill_progress_cursor` is **null** — each window runs in a single committed transaction, so an interrupted window (403 or kill) rolls back wholesale and the durable checkpoint always lands on a window boundary.
 - `last_transaction_id` is **set** — the newest tx ID from the first (most recent) window. This is the delta-sync cursor. Saved as soon as window 1 completed on the fresh attempt.
 - `txs` > 0 — the transactions fetched up to the SCA expiry are persisted.
 
@@ -411,9 +425,13 @@ curl -s -H "Authorization: Bearer $ACCESS_TOKEN" http://localhost:8080/api/monzo
 The whole point of persisting the checkpoint to the DB is that it survives a process restart. Verify:
 
 ```bash
-# Ctrl-C the running app, then
-mvn spring-boot:run
+# From a SECOND terminal — stops the JVM on port 8080 cleanly:
+./scripts/dev.sh stop
+# then start it again (foreground, in your run terminal):
+./scripts/dev.sh start
 ```
+
+> ⚠️ **Never `Ctrl-C` or `Ctrl-Z` the run terminal.** `mvn spring-boot:run` *forks* the app JVM, so `Ctrl-C` hits Maven and the forked app keeps running; `Ctrl-Z` *suspends* it mid-transaction, leaving a frozen Postgres transaction holding row locks on `monzo_transactions`/`monzo_accounts`. A later backfill then blocks on those locks and appears to "hang". Always stop via `./scripts/dev.sh stop` (it kills by port). If you ever do hang: `ps axo pid,stat,command | grep '[b]udgeteer'` and `kill -9` any `T`-state (suspended) PIDs, then terminate idle-in-transaction backends: `SELECT pid, pg_terminate_backend(pid) FROM pg_stat_activity WHERE state='idle in transaction';`
 
 While the app is restarting:
 - Confirm `APP_DATABASE_CLEAN_ON_STARTUP=false` is still exported (else Flyway will wipe everything on startup).
@@ -446,8 +464,7 @@ DEBUG ... Fetching Monzo transactions [accountId=..., since=<...>, before=<backf
 ```
 
 - The `before` parameter should match the `backfill_progress_at` you saw in §8.
-- If `backfill_progress_cursor` was non-null, `sinceId` should equal it (and `since` will be `null`).
-- If `backfill_progress_cursor` was null, `since` will be `<progressAt - 350d>` and `sinceId` null.
+- Resume is **per-window** (`backfill_progress_cursor` is null in committed state), so the first resumed request uses `since=<progressAt - 350d>`, `before=<progressAt>`, `sinceId=null`.
 
 ### Track progress in psql (while backfill runs)
 
@@ -536,7 +553,7 @@ Delta sync fetches only transactions newer than the stored cursor (`last_transac
 There's no public endpoint to trigger delta sync manually — it's invoked by `MonzoTransactionDeltaSyncJob` (currently the only caller is internal scheduled work / future cron). For testing the logic in isolation, the integration test `MonzoTransactionSyncIT.usesCursorForDelta` covers it.
 
 If you make a new transaction in Monzo while testing:
-- Once that tx is settled (or visible via Monzo's API), the next delta sync would pick it up using `since_id=<last_transaction_id>`.
+- Once that tx is settled (or visible via Monzo's API), the next delta sync would pick it up using `since=<last_transaction_id>` (Monzo's `since` param accepts a transaction id — there is no `since_id` param).
 - The new tx's ID becomes the new `last_transaction_id`.
 
 To verify the cursor itself:
@@ -775,7 +792,7 @@ TRUNCATE monzo_transactions, monzo_accounts, monzo_connections, oauth_states, us
 - [ ] Scenario 7: Backfill walks ≤350-day windows; each request includes both `since` AND `before`
 - [ ] Scenario 8: SCA expiry → ONE warn log, no retry storm; `backfill_status='NEEDS_REAUTH'`; checkpoint persisted
 - [ ] Scenario 9: State survives app restart
-- [ ] Scenario 10: Re-OAuth — first request uses saved `before` (and `sinceId` if mid-window cursor was saved)
+- [ ] Scenario 10: Re-OAuth — first resumed request uses the saved `before` (= checkpoint); resume is per-window (`sinceId` null)
 - [ ] Scenario 11: Eventually reaches `monzo_created_at` → `backfill_status='COMPLETED'`
 
 **Path C**
@@ -810,18 +827,20 @@ TRUNCATE monzo_transactions, monzo_accounts, monzo_connections, oauth_states, us
 
 ### Progress checkpointing granularity
 
-- **Per page:** `backfill_progress_cursor` is saved after every 100-tx page within a window.
-- **Per window:** `backfill_progress_at` advances at window boundaries.
-- So a 403 mid-page leaves a precise resume point; a 403 between windows still resumes cleanly (cursor null, progressAt at the boundary).
+Durability is **per window**. Each ≤350-day window is fetched inside its own committed `txTemplate` transaction, so:
+- A completed window is committed and survives a process kill, restart, or 403.
+- The in-flight window when interrupted (kill or 403) rolls back wholesale.
+- `backfill_progress_at` advances to the window start at each boundary; the durable resume point is always a window boundary.
+- `backfill_progress_cursor` is written per-page *within* a window but is cleared at the boundary and rolled back on failure — so in committed state it is effectively always null, and resume restarts the last unfinished window from its start (not mid-page).
 
 ### `last_transaction_id` vs `backfill_progress_cursor`
 
 - `last_transaction_id` — delta sync cursor (newest tx ever seen). Saved as soon as the first (most recent) window completes on a fresh backfill, so delta sync works even if the rest of backfill is paused in NEEDS_REAUTH.
-- `backfill_progress_cursor` — backfill resume cursor (within the in-flight window only). Cleared at every window boundary.
+- `backfill_progress_cursor` — intended as a mid-window resume cursor, but because each window is one committed transaction it is cleared at the boundary and rolled back on failure; committed state is effectively always null (resume is per-window).
 
-### Backfill runs in one big DB transaction
+### Backfill commits per window, not in one big transaction
 
-The `@Transactional` on `backfillAsync` / `backfill` means partial progress is durable only if backfill exits cleanly (which it does on SCA expiry — the catch block ensures commit). A hard process crash mid-flight rolls back the current attempt's progress. Re-OAuth re-starts from the previously-persisted checkpoint.
+`backfillAsync` / `backfill` are **not** `@Transactional`; each window commits independently via `txTemplate`. So completed windows are durable even on a hard `kill -9` — only the in-flight window is lost. On SCA expiry the catch block commits the `NEEDS_REAUTH` status. Re-OAuth (or `POST /api/dev/monzo/backfill`) restarts from the last committed window boundary — there is no auto-resume on app startup.
 
 ### `now()` drift between attempts
 
