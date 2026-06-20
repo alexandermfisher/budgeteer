@@ -14,9 +14,14 @@
 
 ## 📋 Queue (Next Up)
 
+> Ordered by execution sequence. The refactor track runs **rename → multi-module → source migration → versioning**, then Phase 5. Rename goes first so it's a single sweep before the code is split across modules.
+
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 6 | 🏗️ Multi-Module Maven Restructure | 🔴 P1 | 1d | [plan](multi-module-refactor/plan.md) |
+| 7 | 🏷️ Package & groupId rename `dev.amf` → `dev.amfshr` | 🔴 P1 | 0.5–1d | [plan](package-rename/plan.md) |
+| 6 | 🏗️ Multi-Module Maven Restructure (4 modules; `backend/` → `budgeteer-api/`) | 🔴 P1 | 1d | [plan](multi-module-refactor/plan.md) |
+| 8 | 📦 Source Migration — Monzo → `monzo-client` jar (+ `OAuthStateService` → `budgeteer-common`) | 🔴 P1 | 2–3d | [plan](multi-module-refactor/plan.md) |
+| 9 | 🔢 API Endpoint Versioning (`/api/v1`) | 🟡 P2 | 0.5–1d | [plan](endpoint-versioning/plan.md) |
 | 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](webhooks/plan.md) |
 
 ---
@@ -27,8 +32,9 @@
 
 | Feature | Priority | Effort | Notes |
 |---------|----------|--------|-------|
-| 🔀 OAuth Abstraction & Source Migration | P1 | 2–3d | Extract `OAuthStateService` → `budgeteer-common`, move Monzo code → `monzo-client`, implement TrueLayer OAuth in `truelayer-client`. Subtasks: (1) extract + migrate code, (2) [event-driven post-sync](oauth-callback-events/plan.md) — `BackfillCompletedEvent` / `BackfillPausedEvent` + listeners for email, domain mapping, webhook registration. Phase: after multi-module restructure |
-| 🏦 TrueLayer Integration (Lloyds/HSBC/Barclays) | P2 | 3–4d | [plan](truelayer-integration/plan.md) — Add BankAdapter abstraction, TrueLayerClient, support multi-bank via single API. Phase: after OAuth abstraction |
+| 🧱 Domain Model Mapping (`monzo_transactions` → unified `transactions`) | P2 | 2–3d | Deferred out of Phase 4 (raw sync only). Add `user_accounts` / `transactions` domain tables, mapping layer, and the public `GET /api/transactions` (or `/v1`) endpoint. Now have real data to design against |
+| 📣 Event-driven post-sync hooks | P3 | 0.5d | [plan](oauth-callback-events/plan.md) — `BackfillCompletedEvent` / `BackfillPausedEvent` + listeners (email, domain mapping, webhook registration). Phase: after source migration |
+| 🏦 TrueLayer Integration (Lloyds/HSBC/Barclays) | P2 | 3–4d | [plan](truelayer-integration/plan.md) — Add BankAdapter abstraction, TrueLayerClient, support multi-bank via single API. Phase: after source migration |
 | 🔌 REST Client Refactoring & Config Consolidation | P2 | 1.5–2d | [plan](rest-client-refactoring/plan.md) — Eliminate config sprawl, create `BankRestClient` base class, organize under `config/clients/` & `config/properties/`. Foundation for TrueLayer. Phase: after transaction sync + webhooks |
 | 🔄 MonzoClient Resilience | P3 | 0.5d | Connection pooling, timeouts, retries, circuit breaker |
 | 🔐 WebAuthn/Passkey Authentication | P2 | 2d | Touch ID / biometric login for fast re-auth |
@@ -68,7 +74,10 @@
 ## ✅ Done
 
 ### June 2026
-- [x] Transaction Sync Hardening — per-window commits (survive Ctrl+C/SCA), fix Monzo `since_id+before` infinite loop, progress API (`GET /api/monzo/sync/progress`), readable logs, Postman updated
+- [x] **Transaction Sync — cursor fix** (PR #55): send the pagination cursor via Monzo's `since` param (Monzo has **no** `since_id`); keep `before` per window so the cursor advances. Fixes the backfill infinite loop. Verified end-to-end against real Monzo (fresh / SCA-resume / restart). *(An earlier attempt, 632cdec, misdiagnosed this as a `since_id`+`before` ordering issue — that's superseded by this fix.)*
+- [x] Transaction Sync Hardening (632cdec) — per-window commits (survive stop/SCA), progress API (`GET /api/monzo/sync/progress`), readable logs, Postman updated
+- [x] DB credential & Postgres hardening (PR #58); `MonzoConnectionRepositoryIT` flake fix (PR #59)
+- [x] Docs/board refresh through Phase 4 (PR #60)
 
 ### May 2026
 - [x] Phase 4: Transaction Sync — raw Monzo sync (accounts + transactions), backfill post-OAuth, 60-min delta job, 575 tests
@@ -116,4 +125,4 @@
 
 ---
 
-*Last updated: 2026-06-16 — Transaction sync hardening merged; multi-module restructure queued; events folded into OAuth abstraction subtasks*
+*Last updated: 2026-06-20 — Phase 4 transaction sync + cursor fix merged (#55); board de-staled; refactor track prioritised in Queue: package rename → multi-module → source migration → API versioning, then Phase 5*

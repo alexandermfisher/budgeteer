@@ -1,6 +1,8 @@
 # Code Structure Refactoring
 
-> **Priority:** HIGH | **Estimate:** 1 day | **Status:** Queue
+> **Priority:** HIGH | **Estimate:** 1 day | **Status:** ✅ Complete (merged March 2026)
+>
+> Delivered: `repository/` package now holds all repositories (`UserRepository` et al. moved out of `domain/`), and `service/` is split into `service/auth`, `service/monzo`, `service/common`. The "Current State (Problems)" below is the pre-refactor layout, kept for historical context.
 
 ## Goal
 
