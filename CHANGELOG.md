@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - Removed default database credentials — `DB_USER` / `DB_PASSWORD` are now required (no `budgeteer:budgeteer` fallback); Postgres bound to `127.0.0.1` only; connection/disconnection audit logging enabled (PR #58)
 
+### Refactored
+- **Package & groupId rename** (`dev.amf` → `dev.amfshr`, PR #61, June 2026) — pure mechanical rename across 145 Java files, `pom.xml` `<groupId>`, `logback-spring.xml`, and 4 properties files; zero behaviour change.
+
 ### Changed
 - **Dependency Updates** (March 2026)
   - nimbus-jose-jwt: 10.0.2 → 10.7

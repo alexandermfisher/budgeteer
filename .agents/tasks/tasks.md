@@ -8,9 +8,7 @@
 
 ## 🚀 In Progress
 
-| # | Task | Priority | Plan |
-|---|------|----------|------|
-| 7 | 🏷️ Package & groupId rename `dev.amf` → `dev.amfshr` | 🔴 P1 | [plan](package-rename/plan.md) — branch `refactor/rename-dev-amfshr`, plan written, ready to execute |
+*None — pick from Queue.*
 
 ---
 
@@ -75,6 +73,7 @@
 ## ✅ Done
 
 ### June 2026
+- [x] **Package & groupId rename** `dev.amf` → `dev.amfshr` (PR #61) — pure mechanical rename across 145 Java files, `pom.xml` groupId, logback, and 4 properties files. Zero behaviour change. Done before multi-module split so it's a single sweep.
 - [x] **Transaction Sync — cursor fix** (PR #55): send the pagination cursor via Monzo's `since` param (Monzo has **no** `since_id`); keep `before` per window so the cursor advances. Fixes the backfill infinite loop. Verified end-to-end against real Monzo (fresh / SCA-resume / restart). *(An earlier attempt, 632cdec, misdiagnosed this as a `since_id`+`before` ordering issue — that's superseded by this fix.)*
 - [x] Transaction Sync Hardening (632cdec) — per-window commits (survive stop/SCA), progress API (`GET /api/monzo/sync/progress`), readable logs, Postman updated
 - [x] DB credential & Postgres hardening (PR #58); `MonzoConnectionRepositoryIT` flake fix (PR #59)
@@ -126,4 +125,4 @@
 
 ---
 
-*Last updated: 2026-06-20 — Phase 4 transaction sync + cursor fix merged (#55); board de-staled; refactor track prioritised in Queue: package rename → multi-module → source migration → API versioning, then Phase 5*
+*Last updated: 2026-06-21 — Package rename `dev.amf` → `dev.amfshr` merged (#61); #6 multi-module Maven restructure is now the head of the Queue*

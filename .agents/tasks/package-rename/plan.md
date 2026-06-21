@@ -1,6 +1,6 @@
 # Package & groupId Rename — `dev.amf` → `dev.amfshr`
 
-> **Priority:** 🔴 P1 | **Estimate:** 0.5 day | **Status:** 🚀 In Progress | **Branch:** `refactor/rename-dev-amfshr`
+> **Priority:** 🔴 P1 | **Estimate:** 0.5 day | **Status:** ✅ Done (PR #61, merged June 2026) | **Branch:** `refactor/rename-dev-amfshr`
 
 ## Goal
 

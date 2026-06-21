@@ -6,9 +6,10 @@ Budgeteer is a personal finance app that syncs with Monzo via OAuth, stores and 
 
 ## Current Phase (June 2026)
 
-**Phase 4 — Transaction Sync is complete and merged** (PR #55). Phases 1–4 are all
-done and on `main`. Next up per the board is the multi-module Maven restructure (P1),
-then Phase 5 (webhooks).
+**Phase 4 — Transaction Sync is complete and merged** (PR #55). The `dev.amf` →
+`dev.amfshr` package/groupId rename is also merged (PR #61, pure mechanical — zero
+behaviour change). Next up per the board is the multi-module Maven restructure (#6, P1),
+then source migration, API versioning, and Phase 5 (webhooks).
 
 ## Completed
 
@@ -22,6 +23,7 @@ then Phase 5 (webhooks).
 - [x] Monzo token persistence (AES-256-GCM encrypted in `monzo_connections`)
 - [x] **Phase 3:** Monzo token auto-refresh (background job + eager inline guard, `tokenStatus` on status endpoint)
 - [x] **Phase 4:** Transaction sync — async post-OAuth backfill, windowed historical sync (≤350-day windows, resumable across SCA re-auth via per-window commits), 60-min delta job, `GET /api/monzo/sync/progress`
+- [x] **Package & groupId rename** `dev.amf` → `dev.amfshr` (PR #61) — 145 Java files, `pom.xml`, logback, 4 properties files; done before multi-module split
 - [x] Structured request logging + LogSanitizer (no PII/tokens in logs)
 - [x] Email service via Resend SMTP (magic link delivery)
 - [x] Input validation hardening (Bean Validation on all user-input boundaries, IP sanitization)
@@ -32,8 +34,10 @@ then Phase 5 (webhooks).
 
 > The authoritative, prioritised board is `.agents/tasks/tasks.md`. Summary:
 
-1. Multi-module Maven restructure (P1)
-2. Phase 5: Webhook ingestion (real-time transactions via Cloudflare Tunnel)
+1. Multi-module Maven restructure (P1) — `backend/` → 4 modules: `budgeteer-common`, `monzo-client`, `truelayer-client`, `budgeteer-api`
+2. Source migration — Monzo code → `monzo-client` jar
+3. API endpoint versioning (`/api/v1`)
+4. Phase 5: Webhook ingestion (real-time transactions via Cloudflare Tunnel)
 3. OAuth abstraction + TrueLayer (multi-bank) integration
 4. Budgeting / analytics features
 5. Frontend UI (React / Vue / HTMX — not decided)
