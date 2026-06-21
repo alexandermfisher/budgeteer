@@ -8,7 +8,9 @@
 
 ## 🚀 In Progress
 
-*Nothing in progress*
+| # | Task | Priority | Plan |
+|---|------|----------|------|
+| 7 | 🏷️ Package & groupId rename `dev.amf` → `dev.amfshr` | 🔴 P1 | [plan](package-rename/plan.md) — branch `refactor/rename-dev-amfshr`, plan written, ready to execute |
 
 ---
 
@@ -18,7 +20,6 @@
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 7 | 🏷️ Package & groupId rename `dev.amf` → `dev.amfshr` | 🔴 P1 | 0.5–1d | [plan](package-rename/plan.md) |
 | 6 | 🏗️ Multi-Module Maven Restructure (4 modules; `backend/` → `budgeteer-api/`) | 🔴 P1 | 1d | [plan](multi-module-refactor/plan.md) |
 | 8 | 📦 Source Migration — Monzo → `monzo-client` jar (+ `OAuthStateService` → `budgeteer-common`) | 🔴 P1 | 2–3d | [plan](multi-module-refactor/plan.md) |
 | 9 | 🔢 API Endpoint Versioning (`/api/v1`) | 🟡 P2 | 0.5–1d | [plan](endpoint-versioning/plan.md) |

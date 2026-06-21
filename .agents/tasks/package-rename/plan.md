@@ -1,37 +1,120 @@
 # Package & groupId Rename — `dev.amf` → `dev.amfshr`
 
-> **Priority:** 🔴 P1 | **Estimate:** 0.5–1 day | **Status:** Queue | **Branch:** `refactor/rename-dev-amfshr`
+> **Priority:** 🔴 P1 | **Estimate:** 0.5 day | **Status:** 🚀 In Progress | **Branch:** `refactor/rename-dev-amfshr`
 
 ## Goal
 
-Rename the Maven `groupId` from `dev.amf` → `dev.amfshr` and the Java base package
-`dev.amf.budgeteer.*` → `dev.amfshr.budgeteer.*` across the whole codebase.
+Rename the Maven `groupId` `dev.amf` → `dev.amfshr` and the Java base package
+`dev.amf.budgeteer.*` → `dev.amfshr.budgeteer.*` across the whole codebase. Pure rename —
+**zero behaviour change**.
 
-## Why first (before multi-module)
+## Why now / why first
 
-Do this while the project is still a **single module** — one source tree, one `pom.xml`.
-Renaming after the multi-module split (#6) would mean repeating the rename across four
-modules. One sweep now is far cheaper. Sequence: **this → multi-module → source migration → versioning**.
+Do it while the project is still a **single module** (`backend/`, one `pom.xml`, one source
+tree). After the multi-module split (#6) the same rename would have to be repeated across four
+modules. Sequence: **this → multi-module → source migration → API versioning**.
 
-## Scope / checklist
+---
 
-- [ ] `pom.xml`: `<groupId>dev.amf</groupId>` → `dev.amfshr`
-- [ ] Move source dirs: `src/main/java/dev/amf/budgeteer` → `src/main/java/dev/amfshr/budgeteer` (use `git mv` to preserve history); same for `src/test/java/...`
-- [ ] Update every `package dev.amf.budgeteer...` declaration and `import dev.amf.budgeteer...` statement
-- [ ] `logback-spring.xml` — logger names `dev.amf` → `dev.amfshr`
-- [ ] `application*.properties` / YAML — any `dev.amf` references (logging levels, `@ConfigurationProperties` prefixes are annotation-based so usually unaffected — verify)
-- [ ] Checkstyle config / suppressions referencing the package path
-- [ ] WireMock stub packages, test resource references, `package-info.java` files
-- [ ] CI workflows / scripts referencing `dev/amf` paths (e.g. `scripts/`, jacoco/coverage paths)
-- [ ] Spring component scan — defaults to the `@SpringBootApplication` package, so moving the main class handles it; verify no hard-coded `dev.amf` base-package scans
+## Confirmed inventory (audited 2026-06-21)
+
+**Java — 145 files**, all under `dev/amf/budgeteer/`:
+- `backend/src/main/java/dev/amf/budgeteer/` — 96 files
+- `backend/src/test/java/dev/amf/budgeteer/` — 49 files
+
+Each contains a `package dev.amf.budgeteer…` declaration and/or `import dev.amf.budgeteer…`.
+
+**Non-Java references (7 files):**
+| File | Reference |
+|------|-----------|
+| `backend/pom.xml` | `<groupId>dev.amf</groupId>` (line 11 — the **only** dev.amf line; no jacoco/sonar/mainClass refs) |
+| `backend/src/main/resources/logback-spring.xml` | 3× `<logger name="dev.amf.budgeteer" …>` |
+| `backend/src/main/resources/application-dev.properties` | `logging.level.dev.amf.budgeteer=DEBUG` |
+| `backend/src/main/resources/application-prod.properties` | `logging.level.dev.amf.budgeteer=INFO` |
+| `backend/src/test/resources/application-test.properties` | `logging.level.dev.amf.budgeteer=DEBUG` |
+| `backend/src/test/resources/application-integration-test.properties` | `logging.level.dev.amf.budgeteer=DEBUG` |
+| `backend/.idea/workspace.xml` | **gitignored — leave it; IntelliJ regenerates** |
+
+**The one non-obvious reference** (a blanket `dev.amf.budgeteer` replace catches it, a "package/import only" replace would miss it):
+- `BudgeteerApplication.java`: `@ConfigurationPropertiesScan("dev.amf.budgeteer.config")` — a **string literal** base package.
+
+**Verified clean (no changes needed):**
+- `backend/config/checkstyle/checkstyle.xml` — no package refs
+- `.github/` workflows — no refs
+- `scripts/` — no refs
+- No `@ComponentScan` / `@EntityScan` / `@EnableJpaRepositories` / `basePackages` — component scan rides on `@SpringBootApplication` (on `BudgeteerApplication`) and moves automatically when the main class moves
+- Flyway migrations (SQL) — no package refs, unaffected
+
+---
+
+## Execution (macOS / BSD `sed` — note the `-i ''`)
+
+Run from repo root. Do it as **one mechanical commit**.
+
+### Step 1 — move the source directories (preserves git history as renames)
+```bash
+git mv backend/src/main/java/dev/amf backend/src/main/java/dev/amfshr
+git mv backend/src/test/java/dev/amf backend/src/test/java/dev/amfshr
+```
+> `dev/amf/` contains only `budgeteer/`, so renaming `amf` → `amfshr` yields `dev/amfshr/budgeteer/`.
+
+### Step 2 — rewrite package / import / string-literal refs in all Java files
+```bash
+grep -rl 'dev\.amf\.budgeteer' backend/src --include='*.java' \
+  | xargs sed -i '' 's/dev\.amf\.budgeteer/dev.amfshr.budgeteer/g'
+```
+> Catches `package`, `import`, the `@ConfigurationPropertiesScan("…")` literal, and `{@link dev.amf.budgeteer.*}` javadoc.
+
+### Step 3 — pom `groupId` (note: `dev.amf`, not `dev.amf.budgeteer`)
+```bash
+sed -i '' 's#<groupId>dev\.amf</groupId>#<groupId>dev.amfshr</groupId>#' backend/pom.xml
+```
+
+### Step 4 — config: logback + logging levels
+```bash
+sed -i '' 's/dev\.amf\.budgeteer/dev.amfshr.budgeteer/g' \
+  backend/src/main/resources/logback-spring.xml \
+  backend/src/main/resources/application-dev.properties \
+  backend/src/main/resources/application-prod.properties \
+  backend/src/test/resources/application-test.properties \
+  backend/src/test/resources/application-integration-test.properties
+```
+
+### Step 5 — guard: nothing left behind
+```bash
+grep -rn 'dev\.amf\b' backend/src backend/pom.xml backend/src/main/resources backend/src/test/resources \
+  | grep -v 'dev\.amfshr'
+# expected: no output
+```
+
+---
 
 ## Verification
 
-- [ ] `mvn clean verify` green (checkstyle + unit + integration)
-- [ ] App boots (`./scripts/dev.sh start`) — Flyway + JPA + security filters initialise
-- [ ] `grep -rn "dev\.amf\b" --include=*.java --include=*.xml --include=*.properties .` returns nothing unexpected
+- [ ] `cd backend && mvn clean verify` — checkstyle + unit + integration green (Docker running for ITs)
+- [ ] App boots: `./scripts/dev.sh start` → Flyway runs, JPA + security filters init, no `ConfigurationProperties` bean errors (confirms the `@ConfigurationPropertiesScan` literal was updated)
+- [ ] Guard grep (Step 5) returns nothing
+- [ ] IntelliJ: **Invalidate Caches / Restart** (or re-import Maven) — stale `dev.amf` indexes otherwise show phantom errors
+- [ ] `git diff --stat` shows ~152 files: 145 Java (renamed+edited) + pom + logback + 4 properties
 
-## Notes
+## Out of scope / no impact
 
-- Pure rename — **no behaviour change**. Keep it in its own PR so the diff is reviewable as a mechanical move.
-- Flyway migrations are unaffected (no package references in SQL).
+- **Flyway** — SQL only, untouched.
+- **`backend/.idea/workspace.xml`** — gitignored; do not edit.
+- **`.m2` artifact coordinate** changes (`dev.amf:budgeteer-backend` → `dev.amfshr:…`) — fine, nothing downstream consumes it.
+- **No endpoint/URL changes** — that's the separate `/api/v1` task (#9).
+
+## PR strategy
+
+- Single PR, one squash commit, titled `refactor: rename base package/groupId dev.amf → dev.amfshr`.
+- Review as a **pure mechanical move** — the diff is large but uniform; the only "logic" touch is the `@ConfigurationPropertiesScan` literal (Step 2) and the boot check covers it.
+- Land before starting #6 (multi-module).
+
+## Rollback
+
+Branch is isolated; if `mvn verify` or boot fails, `git reset --hard` and re-run. No DB or external state involved.
+
+## Done criteria
+
+- `mvn clean verify` green, app boots, guard grep clean, PR merged to `main`.
+- `tasks.md` #7 moved to Done; `multi-module-refactor` (#6) becomes the active head of the Queue.
