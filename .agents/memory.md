@@ -25,8 +25,8 @@ Also add `Referrer-Policy` and `Permissions-Policy` headers to `SecurityConfig` 
 ---
 
 ## 📅 Last Updated
-**Date:** 2026-06-20
-**Session Focus:** Phase 4 Transaction Sync merged (#55) — fixed the Monzo backfill infinite loop (cursor was sent as a non-existent `since_id` param; now sent via `since`, `before` retained per window). Verified end-to-end against real Monzo: fresh backfill, SCA expiry → NEEDS_REAUTH, restart survival, re-OAuth resume → COMPLETED. Also merged #58 (DB credential / Postgres hardening) and #59 (IT flake fix). Note: stop the dev app via `./scripts/dev.sh stop` (kills by port) — never `^C`/`^Z`, which forks/suspends the JVM and freezes Postgres row locks.
+**Date:** 2026-06-21
+**Session Focus:** Package & groupId rename `dev.amf` → `dev.amfshr` (PR #61, merged June 2026) — 145 Java files (git mv preserves history), `pom.xml` groupId, `logback-spring.xml`, 4 properties files. `@ConfigurationPropertiesScan` string literal caught by blanket replace. All 697 tests green. Pure mechanical refactor, zero behaviour change. Done before the multi-module split (#6) so it's a single sweep. Next: multi-module Maven restructure (branch `refactor/multi-module-maven`).
 
 ---
 
@@ -48,7 +48,8 @@ Also add `Referrer-Policy` and `Permissions-Policy` headers to `SecurityConfig` 
 - [x] **Input Validation Hardening** ✅ COMPLETE (516 tests)
 - [x] **Phase 3: Token Auto-Refresh** ✅ COMPLETE (April 2026)
 - [x] **Phase 4: Transaction Sync** ✅ COMPLETE & MERGED (#55, June 2026) — windowed backfill, delta job, SCA-resume, cursor fix
-- [ ] Multi-module Maven restructure (P1 — next per board)
+- [x] **Package & groupId rename** `dev.amf` → `dev.amfshr` ✅ MERGED (#61, June 2026)
+- [ ] Multi-module Maven restructure (P1 — #6, next per board)
 - [ ] Phase 5: Webhooks & Budgeting features
 
 ### What's Working

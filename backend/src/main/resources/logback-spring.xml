@@ -20,7 +20,7 @@
         </appender>
         
         <!-- Application loggers -->
-        <logger name="dev.amf.budgeteer" level="DEBUG"/>
+        <logger name="dev.amfshr.budgeteer" level="DEBUG"/>
         <logger name="org.springframework.web" level="DEBUG"/>
         <logger name="org.springframework.security" level="DEBUG"/>
         <logger name="org.hibernate" level="WARN"/>
@@ -74,7 +74,7 @@
         </appender>
         
         <!-- Application loggers - less verbose in production -->
-        <logger name="dev.amf.budgeteer" level="INFO"/>
+        <logger name="dev.amfshr.budgeteer" level="INFO"/>
         <logger name="org.springframework.web" level="WARN"/>
         <logger name="org.springframework.security" level="WARN"/>
         <logger name="org.hibernate" level="WARN"/>
@@ -95,7 +95,7 @@
             </encoder>
         </appender>
         
-        <logger name="dev.amf.budgeteer" level="DEBUG"/>
+        <logger name="dev.amfshr.budgeteer" level="DEBUG"/>
         <logger name="org.springframework" level="WARN"/>
         <logger name="org.hibernate" level="WARN"/>
         <logger name="org.testcontainers" level="INFO"/>
