@@ -40,6 +40,7 @@ Skill definitions live in `.agents/skills/<name>/SKILL.md` (symlinked at `.claud
 | Command | What it does |
 |---------|-------------|
 | `/start-task` | Promote a task to In Progress, create its subfolder and `plan.md` |
+| `/grill-me` | Interrogate a ticket branch-by-branch (senior Spring Boot persona) and write an implementation-ready spec into its `plan.md` for a cheaper model to build |
 | `/new-migration` | Scaffold the next Flyway migration with correct version number |
 | `/check` | Run tests + checkstyle — use before raising a PR |
 | `/dependabot` | Review and merge open Dependabot PRs (patch/minor auto-merged, majors flagged) |
