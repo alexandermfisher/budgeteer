@@ -411,7 +411,7 @@ public class MonzoConnectionService {
      * Token health status for a user's Monzo connections.
      *
      * <p>Returned by {@link MonzoConnectionService#getTokenStatus(UUID)} and
-     * exposed via the {@code GET /api/monzo/status} endpoint.
+     * exposed via the {@code GET /api/v1/monzo/status} endpoint.
      */
     public enum TokenStatus {
         /** All active connections have healthy tokens. */
@@ -426,7 +426,7 @@ public class MonzoConnectionService {
      * Aggregate backfill status across a user's non-closed Monzo accounts.
      *
      * <p>Returned by {@link MonzoConnectionService#getBackfillStatus(UUID)} and
-     * exposed via the {@code GET /api/monzo/status} endpoint.
+     * exposed via the {@code GET /api/v1/monzo/status} endpoint.
      */
     public enum BackfillStatus {
         /** No accounts exist, or no account has started backfill. */

@@ -29,7 +29,7 @@ class RequestLoggingFilterTest {
         void shouldMaskTokenQueryParam() throws Exception {
             try (LogCaptor logCaptor = LogCaptor.forClass(RequestLoggingFilter.class)) {
                 // Given
-                HttpServletRequest request = mockRequest("GET", "/api/auth/verify", "token=secret-magic-link-123");
+                HttpServletRequest request = mockRequest("GET", "/api/v1/auth/verify", "token=secret-magic-link-123");
                 HttpServletResponse response = mockResponse(200);
                 FilterChain chain = mock(FilterChain.class);
 
@@ -48,7 +48,7 @@ class RequestLoggingFilterTest {
         void shouldMaskOAuthCodeParam() throws Exception {
             try (LogCaptor logCaptor = LogCaptor.forClass(RequestLoggingFilter.class)) {
                 // Given
-                HttpServletRequest request = mockRequest("GET", "/api/monzo/oauth/callback", 
+                HttpServletRequest request = mockRequest("GET", "/api/v1/monzo/callback", 
                         "code=oauth_code_abc123&state=random_state");
                 HttpServletResponse response = mockResponse(200);
                 FilterChain chain = mock(FilterChain.class);
@@ -75,7 +75,7 @@ class RequestLoggingFilterTest {
         void shouldGenerateRequestId() throws Exception {
             try (LogCaptor logCaptor = LogCaptor.forClass(RequestLoggingFilter.class)) {
                 // Given
-                HttpServletRequest request = mockRequest("GET", "/api/auth/me", null);
+                HttpServletRequest request = mockRequest("GET", "/api/v1/auth/me", null);
                 HttpServletResponse response = mockResponse(200);
                 FilterChain chain = mock(FilterChain.class);
 
@@ -94,7 +94,7 @@ class RequestLoggingFilterTest {
             try (LogCaptor logCaptor = LogCaptor.forClass(RequestLoggingFilter.class)) {
                 // Given
                 String existingRequestId = "existing-request-id-123";
-                HttpServletRequest request = mockRequest("GET", "/api/auth/me", null);
+                HttpServletRequest request = mockRequest("GET", "/api/v1/auth/me", null);
                 when(request.getHeader("X-Request-ID")).thenReturn(existingRequestId);
                 HttpServletResponse response = mockResponse(200);
                 FilterChain chain = mock(FilterChain.class);
@@ -160,7 +160,7 @@ class RequestLoggingFilterTest {
         void shouldLogSuccessfulResponse() throws Exception {
             try (LogCaptor logCaptor = LogCaptor.forClass(RequestLoggingFilter.class)) {
                 // Given
-                HttpServletRequest request = mockRequest("POST", "/api/auth/login", null);
+                HttpServletRequest request = mockRequest("POST", "/api/v1/auth/login", null);
                 HttpServletResponse response = mockResponse(200);
                 FilterChain chain = mock(FilterChain.class);
 
@@ -169,7 +169,7 @@ class RequestLoggingFilterTest {
 
                 // Then
                 assertThat(logCaptor.getInfoLogs())
-                        .anyMatch(log -> log.contains("POST /api/auth/login"))
+                        .anyMatch(log -> log.contains("POST /api/v1/auth/login"))
                         .anyMatch(log -> log.contains("-> 200"))
                         .anyMatch(log -> log.contains("ms"));
             }
@@ -180,7 +180,7 @@ class RequestLoggingFilterTest {
         void shouldLogErrorResponseAsWarning() throws Exception {
             try (LogCaptor logCaptor = LogCaptor.forClass(RequestLoggingFilter.class)) {
                 // Given
-                HttpServletRequest request = mockRequest("GET", "/api/auth/me", null);
+                HttpServletRequest request = mockRequest("GET", "/api/v1/auth/me", null);
                 HttpServletResponse response = mockResponse(401);
                 FilterChain chain = mock(FilterChain.class);
 

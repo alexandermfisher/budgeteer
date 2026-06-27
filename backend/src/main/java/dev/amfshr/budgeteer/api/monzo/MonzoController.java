@@ -41,7 +41,7 @@ import java.util.UUID;
  */
 @Validated
 @RestController
-@RequestMapping("/api/monzo")
+@RequestMapping("/api/v1/monzo")
 public class MonzoController {
 
     private static final Logger log = LoggerFactory.getLogger(MonzoController.class);
@@ -72,9 +72,9 @@ public class MonzoController {
      *   <li>Redirects the user to Monzo's authorization page</li>
      * </ol>
      *
-     * <p>After the user approves, Monzo redirects to /api/monzo/callback.
+     * <p>After the user approves, Monzo redirects to /api/v1/monzo/callback.
      *
-     * <p>GET /api/monzo/connect
+     * <p>GET /api/v1/monzo/connect
      *
      * @param user the authenticated user (injected via {@link CurrentUser})
      * @return redirect to Monzo authorization page
@@ -94,7 +94,7 @@ public class MonzoController {
      *
      * <p>Useful for SPAs that want to control the redirect themselves.
      *
-     * <p>POST /api/monzo/connect
+     * <p>POST /api/v1/monzo/connect
      *
      * @param user the authenticated user (injected via {@link CurrentUser})
      * @return the authorization URL in a JSON response
@@ -122,8 +122,8 @@ public class MonzoController {
      * However, security is maintained through the state parameter which links
      * the callback to a specific authenticated user.
      *
-     * <p>Success case: GET /api/monzo/callback?code=...&state=...
-     * <p>Error case: GET /api/monzo/callback?error=...&error_description=...&state=...
+     * <p>Success case: GET /api/v1/monzo/callback?code=...&state=...
+     * <p>Error case: GET /api/v1/monzo/callback?error=...&error_description=...&state=...
      *
      * @param code             the authorization code from Monzo (null if user denied)
      * @param state            the state parameter for CSRF verification
@@ -198,7 +198,7 @@ public class MonzoController {
     /**
      * Lists all active Monzo connections for the authenticated user.
      *
-     * <p>GET /api/monzo/connections
+     * <p>GET /api/v1/monzo/connections
      *
      * @param user the authenticated user (injected via {@link CurrentUser})
      * @return list of connections (without tokens)
@@ -221,7 +221,7 @@ public class MonzoController {
     /**
      * Gets a specific Monzo connection by ID.
      *
-     * <p>GET /api/monzo/connections/{id}
+     * <p>GET /api/v1/monzo/connections/{id}
      *
      * @param user the authenticated user (injected via {@link CurrentUser})
      * @param id   the connection ID
@@ -245,7 +245,7 @@ public class MonzoController {
      * <p>The connection is marked as disconnected but not deleted from the database.
      * This maintains audit history and allows for potential reconnection.
      *
-     * <p>DELETE /api/monzo/connections/{id}
+     * <p>DELETE /api/v1/monzo/connections/{id}
      *
      * @param user the authenticated user (injected via {@link CurrentUser})
      * @param id   the connection ID
@@ -274,7 +274,7 @@ public class MonzoController {
      *   <li>{@code RECONNECT_REQUIRED} — no active connection, re-OAuth needed</li>
      * </ul>
      *
-     * <p>GET /api/monzo/status
+     * <p>GET /api/v1/monzo/status
      *
      * @param user the authenticated user (injected via {@link CurrentUser})
      * @return connection status
@@ -284,7 +284,7 @@ public class MonzoController {
      * Progress is time-based: (now - currentWindowDate) / (now - accountCreatedAt).
      * Poll this during backfill to drive a progress indicator in the UI.
      *
-     * <p>GET /api/monzo/sync/progress
+     * <p>GET /api/v1/monzo/sync/progress
      */
     @GetMapping("/sync/progress")
     public ResponseEntity<ApiResponse<MonzoSyncProgressResponse>> getSyncProgress(@CurrentUser User user) {

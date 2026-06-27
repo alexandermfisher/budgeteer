@@ -78,7 +78,7 @@ public class CookieService {
     /**
      * Sets the refresh token cookie on the response.
      * 
-     * <p>Cookie is scoped to /api/auth path (more restrictive than access token)
+     * <p>Cookie is scoped to /api/v1/auth path (more restrictive than access token)
      * and includes SameSite=Lax for CSRF protection.</p>
      *
      * @param response the HTTP response
@@ -89,7 +89,7 @@ public class CookieService {
                 .httpOnly(true)
                 .secure(secureCookies)
                 .sameSite(SAME_SITE_POLICY)
-                .path("/api/auth")
+                .path("/api/v1/auth")
                 .maxAge(jweProperties.getRefreshTokenExpiry())
                 .build();
         
@@ -129,7 +129,7 @@ public class CookieService {
                 .httpOnly(true)
                 .secure(secureCookies)
                 .sameSite(SAME_SITE_POLICY)
-                .path("/api/auth")
+                .path("/api/v1/auth")
                 .maxAge(Duration.ZERO)
                 .build();
         

@@ -81,7 +81,7 @@ class MonzoOAuthFlowIT extends AbstractMonzoWireMockIT {
     // ========================================================================
 
     @Nested
-    @DisplayName("GET /api/monzo/callback - OAuth Callback Endpoint")
+    @DisplayName("GET /api/v1/monzo/callback - OAuth Callback Endpoint")
     class OAuthCallbackEndpoint {
 
         @Test
@@ -100,7 +100,7 @@ class MonzoOAuthFlowIT extends AbstractMonzoWireMockIT {
                 .queryParam("code", "valid-authorization-code")
                 .queryParam("state", state.getState())
             .when()
-                .get("/api/monzo/callback")
+                .get("/api/v1/monzo/callback")
             .then()
                 .statusCode(200)
                 .body("success", is(true))
@@ -139,7 +139,7 @@ class MonzoOAuthFlowIT extends AbstractMonzoWireMockIT {
                 .queryParam("error_description", "The user denied access to their Monzo account")
                 .queryParam("state", state.getState())
             .when()
-                .get("/api/monzo/callback")
+                .get("/api/v1/monzo/callback")
             .then()
                 .statusCode(400)
                 .body("success", is(false))
@@ -166,7 +166,7 @@ class MonzoOAuthFlowIT extends AbstractMonzoWireMockIT {
                 .queryParam("code", "valid-code")
                 .queryParam("state", "unknown-state-that-does-not-exist")
             .when()
-                .get("/api/monzo/callback")
+                .get("/api/v1/monzo/callback")
             .then()
                 .statusCode(400)
                 .body("success", is(false))
@@ -191,7 +191,7 @@ class MonzoOAuthFlowIT extends AbstractMonzoWireMockIT {
                 .queryParam("code", "valid-code")
                 .queryParam("state", expiredState.getState())
             .when()
-                .get("/api/monzo/callback")
+                .get("/api/v1/monzo/callback")
             .then()
                 .statusCode(400)
                 .body("success", is(false))
@@ -213,7 +213,7 @@ class MonzoOAuthFlowIT extends AbstractMonzoWireMockIT {
                 .queryParam("code", "valid-code")
                 .queryParam("state", usedState.getState())
             .when()
-                .get("/api/monzo/callback")
+                .get("/api/v1/monzo/callback")
             .then()
                 .statusCode(400)
                 .body("success", is(false))
@@ -231,7 +231,7 @@ class MonzoOAuthFlowIT extends AbstractMonzoWireMockIT {
             given()
                 .queryParam("state", state.getState())
             .when()
-                .get("/api/monzo/callback")
+                .get("/api/v1/monzo/callback")
             .then()
                 .statusCode(400)
                 .body("success", is(false))
@@ -262,7 +262,7 @@ class MonzoOAuthFlowIT extends AbstractMonzoWireMockIT {
                 .queryParam("code", "expired-or-invalid-code")
                 .queryParam("state", state.getState())
             .when()
-                .get("/api/monzo/callback")
+                .get("/api/v1/monzo/callback")
             .then()
                 .statusCode(anyOf(is(400), is(502))); // Either bad request or gateway error
 
@@ -292,7 +292,7 @@ class MonzoOAuthFlowIT extends AbstractMonzoWireMockIT {
                 .queryParam("code", "authorization-code-from-monzo")
                 .queryParam("state", state)
             .when()
-                .get("/api/monzo/callback")
+                .get("/api/v1/monzo/callback")
             .then()
                 .statusCode(200)
                 .body("success", is(true))
@@ -311,7 +311,7 @@ class MonzoOAuthFlowIT extends AbstractMonzoWireMockIT {
                 .queryParam("code", "another-code")
                 .queryParam("state", state)
             .when()
-                .get("/api/monzo/callback")
+                .get("/api/v1/monzo/callback")
             .then()
                 .statusCode(400)
                 .body("error.code", is(ErrorCode.OAUTH_STATE_INVALID.name()));

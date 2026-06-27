@@ -352,12 +352,13 @@
 							"raw": "{\n    \"email\": \"{{user_email}}\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/auth/login",
+							"raw": "{{base_url}}/api/v1/auth/login",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"login"
 							]
@@ -422,12 +423,13 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/auth/verify?token={{magic_link_token}}",
+							"raw": "{{base_url}}/api/v1/auth/verify?token={{magic_link_token}}",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"verify"
 							],
@@ -477,12 +479,13 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/auth/me",
+							"raw": "{{base_url}}/api/v1/auth/me",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"me"
 							]
@@ -527,12 +530,13 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/auth/refresh",
+							"raw": "{{base_url}}/api/v1/auth/refresh",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"refresh"
 							]
@@ -574,12 +578,13 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/auth/logout",
+							"raw": "{{base_url}}/api/v1/auth/logout",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"logout"
 							]
@@ -647,12 +652,13 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/auth/me",
+							"raw": "{{base_url}}/api/v1/auth/me",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"me"
 							]
@@ -718,12 +724,13 @@
 							"raw": "{\n    \"refreshToken\": \"{{refresh_token}}\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/auth/refresh",
+							"raw": "{{base_url}}/api/v1/auth/refresh",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"refresh"
 							]
@@ -771,12 +778,13 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/monzo/status",
+							"raw": "{{base_url}}/api/v1/monzo/status",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"monzo",
 								"status"
 							]
@@ -833,12 +841,13 @@
 						"method": "POST",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/monzo/connect",
+							"raw": "{{base_url}}/api/v1/monzo/connect",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"monzo",
 								"connect"
 							]
@@ -891,12 +900,13 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/monzo/connections",
+							"raw": "{{base_url}}/api/v1/monzo/connections",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"monzo",
 								"connections"
 							]
@@ -954,12 +964,13 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/monzo/connections/{{monzo_connection_id}}",
+							"raw": "{{base_url}}/api/v1/monzo/connections/{{monzo_connection_id}}",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"monzo",
 								"connections",
 								"{{monzo_connection_id}}"
@@ -1014,12 +1025,13 @@
 						"method": "DELETE",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/monzo/connections/{{monzo_connection_id}}",
+							"raw": "{{base_url}}/api/v1/monzo/connections/{{monzo_connection_id}}",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"monzo",
 								"connections",
 								"{{monzo_connection_id}}"
@@ -1030,7 +1042,7 @@
 					"response": []
 				}
 			],
-			"description": "Monzo bank account integration endpoints.\n\n## OAuth Flow (Browser-Based)\n1. **Quick Login** first (Dev Tools)\n2. **Check Status** - see if already connected\n3. **Initiate OAuth** - get authorization URL\n4. Open URL in browser → approve in Monzo app\n5. Browser redirects to /callback → Server handles it automatically\n6. ✅ Connection created!\n\n## Frontend Endpoints (Postman Testable)\n- **Check Status** - GET /api/monzo/status\n- **Initiate OAuth** - POST /api/monzo/connect\n- **List Connections** - GET /api/monzo/connections\n- **Get Details** - GET /api/monzo/connections/{id}\n- **Disconnect** - DELETE /api/monzo/connections/{id}\n\n## Server-Handled (NOT for Postman)\n- GET /api/monzo/callback - Called by browser redirect from Monzo\n  - Error cases tested via integration tests (MonzoOAuthFlowIT)"
+			"description": "Monzo bank account integration endpoints.\n\n## OAuth Flow (Browser-Based)\n1. **Quick Login** first (Dev Tools)\n2. **Check Status** - see if already connected\n3. **Initiate OAuth** - get authorization URL\n4. Open URL in browser → approve in Monzo app\n5. Browser redirects to /callback → Server handles it automatically\n6. ✅ Connection created!\n\n## Frontend Endpoints (Postman Testable)\n- **Check Status** - GET /api/v1/monzo/status\n- **Initiate OAuth** - POST /api/v1/monzo/connect\n- **List Connections** - GET /api/v1/monzo/connections\n- **Get Details** - GET /api/v1/monzo/connections/{id}\n- **Disconnect** - DELETE /api/v1/monzo/connections/{id}\n\n## Server-Handled (NOT for Postman)\n- GET /api/v1/monzo/callback - Called by browser redirect from Monzo\n  - Error cases tested via integration tests (MonzoOAuthFlowIT)"
 		},
 		{
 			"name": "Error Cases",
@@ -1059,12 +1071,13 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/auth/verify?token=invalid-token-here",
+							"raw": "{{base_url}}/api/v1/auth/verify?token=invalid-token-here",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"verify"
 							],
@@ -1109,12 +1122,13 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/auth/me",
+							"raw": "{{base_url}}/api/v1/auth/me",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"me"
 							]
@@ -1156,12 +1170,13 @@
 							"raw": "{\n    \"email\": \"not-an-email\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/auth/login",
+							"raw": "{{base_url}}/api/v1/auth/login",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"login"
 							]
@@ -1201,12 +1216,13 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/auth/me",
+							"raw": "{{base_url}}/api/v1/auth/me",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"me"
 							]
@@ -1250,12 +1266,13 @@
 							"raw": "{\n    \"refreshToken\": \"invalid-refresh-token-here\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/auth/refresh",
+							"raw": "{{base_url}}/api/v1/auth/refresh",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"refresh"
 							]
@@ -1303,12 +1320,13 @@
 							"raw": "{}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/auth/refresh",
+							"raw": "{{base_url}}/api/v1/auth/refresh",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
 								"api",
+								"v1",
 								"auth",
 								"refresh"
 							]

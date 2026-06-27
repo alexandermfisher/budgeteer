@@ -36,7 +36,7 @@ import java.util.Optional;
  */
 @Validated
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 public class AuthController {
 
     private static final Logger log = LoggerFactory.getLogger(AuthController.class);
@@ -58,7 +58,7 @@ public class AuthController {
 
     /**
      * Request a magic link email.
-     * POST /api/auth/login
+     * POST /api/v1/auth/login
      */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
@@ -70,7 +70,7 @@ public class AuthController {
 
     /**
      * Verify magic link and create session.
-     * GET /api/auth/verify?token=xxx
+     * GET /api/v1/auth/verify?token=xxx
      * 
      * <p>Content negotiation:
      * <ul>
@@ -120,7 +120,7 @@ public class AuthController {
     /**
      * Refresh access token using refresh token.
      * 
-     * <p>POST /api/auth/refresh
+     * <p>POST /api/v1/auth/refresh
      * 
      * <p>The refresh token can be provided in two ways:
      * <ol>
@@ -186,7 +186,7 @@ public class AuthController {
 
     /**
      * Logout and revoke refresh token.
-     * POST /api/auth/logout
+     * POST /api/v1/auth/logout
      */
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<AuthResponse>> logout(
@@ -209,7 +209,7 @@ public class AuthController {
 
     /**
      * Get current authenticated user.
-     * GET /api/auth/me
+     * GET /api/v1/auth/me
      */
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> me() {

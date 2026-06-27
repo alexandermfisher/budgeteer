@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "budgeteer-transaction-sync-collection",
 		"name": "Budgeteer — Transaction Sync",
-		"description": "Manual testing collection for Phase 4: Monzo Transaction Sync.\n\n## Recommended Order\n\n1. **Setup** — Quick Login + verify Monzo is connected\n2. **Inspect DB** — confirm tables are empty\n3. **Trigger Sync** — use dev trigger to run backfill without re-doing OAuth\n4. **Verify Results** — check accounts and transactions were created\n5. **Delta Sync** — trigger delta and confirm only new rows are added\n6. **Edge Cases** — unauthenticated, no connection, etc.\n\n## Prerequisites\n- App running with `dev` profile (`./scripts/dev.sh start`)\n- Monzo OAuth already completed (you have an active connection)\n- Import `budgeteer-local.postman_environment.json` and select it\n- Run `⚡ Quick Login` first to set auth cookies\n\n## What This Tests\n- POST /api/dev/monzo/backfill (backfill)\n- GET /api/monzo/status (tokenStatus field)\n- Database state via curl-accessible psql",
+		"description": "Manual testing collection for Phase 4: Monzo Transaction Sync.\n\n## Recommended Order\n\n1. **Setup** — Quick Login + verify Monzo is connected\n2. **Inspect DB** — confirm tables are empty\n3. **Trigger Sync** — use dev trigger to run backfill without re-doing OAuth\n4. **Verify Results** — check accounts and transactions were created\n5. **Delta Sync** — trigger delta and confirm only new rows are added\n6. **Edge Cases** — unauthenticated, no connection, etc.\n\n## Prerequisites\n- App running with `dev` profile (`./scripts/dev.sh start`)\n- Monzo OAuth already completed (you have an active connection)\n- Import `budgeteer-local.postman_environment.json` and select it\n- Run `⚡ Quick Login` first to set auth cookies\n\n## What This Tests\n- POST /api/dev/monzo/backfill (backfill)\n- GET /api/v1/monzo/status (tokenStatus field)\n- Database state via curl-accessible psql",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -65,7 +65,7 @@
 									"",
 									"if (!data.connected) {",
 									"    console.warn(\"⚠️  No active Monzo connection — complete OAuth before testing sync!\");",
-									"    console.log(\"Run: POST /api/monzo/connect → open URL → approve in Monzo app\");",
+									"    console.log(\"Run: POST /api/v1/monzo/connect → open URL → approve in Monzo app\");",
 									"} else {",
 									"    console.log(\"✅ Ready to test sync!\");",
 									"}"
@@ -82,7 +82,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/monzo/status",
+							"raw": "{{base_url}}/api/v1/monzo/status",
 							"host": ["{{base_url}}"],
 							"path": ["api", "monzo", "status"]
 						},
@@ -124,7 +124,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/monzo/connections",
+							"raw": "{{base_url}}/api/v1/monzo/connections",
 							"host": ["{{base_url}}"],
 							"path": ["api", "monzo", "connections"]
 						},
@@ -167,7 +167,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/monzo/status",
+							"raw": "{{base_url}}/api/v1/monzo/status",
 							"host": ["{{base_url}}"],
 							"path": ["api", "monzo", "status"]
 						},
@@ -364,7 +364,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/monzo/sync/progress",
+							"raw": "{{base_url}}/api/v1/monzo/sync/progress",
 							"host": ["{{base_url}}"],
 							"path": ["api", "monzo", "sync", "progress"]
 						},
@@ -402,7 +402,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/monzo/status",
+							"raw": "{{base_url}}/api/v1/monzo/status",
 							"host": ["{{base_url}}"],
 							"path": ["api", "monzo", "status"]
 						},
@@ -497,7 +497,7 @@
 						"method": "GET",
 						"header": [],
 						"url": {
-							"raw": "{{base_url}}/api/monzo/status",
+							"raw": "{{base_url}}/api/v1/monzo/status",
 							"host": ["{{base_url}}"],
 							"path": ["api", "monzo", "status"]
 						},

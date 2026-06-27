@@ -128,7 +128,7 @@ class CookieServiceTest {
             assertThat(cookieHeader).isNotNull();
             assertThat(cookieHeader).contains("refresh_token=test-refresh-token");
             assertThat(cookieHeader).contains("HttpOnly");
-            assertThat(cookieHeader).contains("Path=/api/auth"); // More restrictive path
+            assertThat(cookieHeader).contains("Path=/api/v1/auth"); // More restrictive path
             assertThat(cookieHeader).contains("SameSite=Lax");
         }
 
@@ -208,7 +208,7 @@ class CookieServiceTest {
             boolean hasAccessPath = cookieHeaders.stream()
                     .anyMatch(h -> h.contains("access_token") && h.contains("Path=/api"));
             boolean hasRefreshPath = cookieHeaders.stream()
-                    .anyMatch(h -> h.contains("refresh_token") && h.contains("Path=/api/auth"));
+                    .anyMatch(h -> h.contains("refresh_token") && h.contains("Path=/api/v1/auth"));
 
             assertThat(hasAccessPath).isTrue();
             assertThat(hasRefreshPath).isTrue();

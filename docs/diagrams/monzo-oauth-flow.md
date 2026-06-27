@@ -43,7 +43,7 @@ sequenceDiagram
     participant OSR as OAuthStateRepository
     participant MP as MonzoProperties
 
-    U->>+JWF: POST /api/monzo/connect<br/>Cookie: budgeteer_access_token
+    U->>+JWF: POST /api/v1/monzo/connect<br/>Cookie: budgeteer_access_token
     JWF->>JWF: Validate JWE token
     JWF->>JWF: Set SecurityContext with userId
     JWF->>+MC: Continue (authenticated)
@@ -105,7 +105,7 @@ sequenceDiagram
     U->>MA: Tap "Approve"
     MA->>M: Authorization approved
     
-    M-->>-U: Redirect to:<br/>budgeteer.dev/api/monzo/callback?<br/>code={auth_code}&state={state}
+    M-->>-U: Redirect to:<br/>budgeteer.dev/api/v1/monzo/callback?<br/>code={auth_code}&state={state}
 ```
 
 ---
@@ -126,7 +126,7 @@ sequenceDiagram
     participant ES as EncryptionService
     participant MCR as MonzoConnectionRepository
 
-    U->>+MC: GET /api/monzo/callback<br/>?code={code}&state={state}
+    U->>+MC: GET /api/v1/monzo/callback<br/>?code={code}&state={state}
     
     Note over MC: No auth needed (public endpoint)<br/>but state validates user
     
@@ -183,7 +183,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[GET /api/monzo/callback] --> B{State parameter?}
+    A[GET /api/v1/monzo/callback] --> B{State parameter?}
     B -->|Missing| C[400 Bad Request<br/>MISSING_STATE]
     B -->|Present| D{State in database?}
     D -->|No| E[400 Bad Request<br/>OAUTH_STATE_INVALID]
@@ -222,7 +222,7 @@ sequenceDiagram
 
     Note over A: Attacker captured state from<br/>user's OAuth redirect
 
-    A->>+B: GET /api/monzo/callback<br/>?code=valid&state=captured
+    A->>+B: GET /api/v1/monzo/callback<br/>?code=valid&state=captured
     B->>+DB: Find state
     DB-->>-B: State found
     
@@ -298,7 +298,7 @@ sequenceDiagram
     participant MCS as MonzoConnectionService
     participant MCR as MonzoConnectionRepository
 
-    U->>+MC: GET /api/monzo/connections<br/>Cookie: budgeteer_access_token
+    U->>+MC: GET /api/v1/monzo/connections<br/>Cookie: budgeteer_access_token
     
     Note over MC: @CurrentUser User injected<br/>from JWE token
     
@@ -323,7 +323,7 @@ sequenceDiagram
     participant MCS as MonzoConnectionService
     participant MCR as MonzoConnectionRepository
 
-    U->>+MC: GET /api/monzo/status<br/>Cookie: budgeteer_access_token
+    U->>+MC: GET /api/v1/monzo/status<br/>Cookie: budgeteer_access_token
     
     MC->>+MCS: hasActiveConnection(userId)
     MCS->>+MCR: existsByUserIdAndDisconnectedAtIsNull(userId)
@@ -348,7 +348,7 @@ sequenceDiagram
     participant MCS as MonzoConnectionService
     participant MCR as MonzoConnectionRepository
 
-    U->>+MC: DELETE /api/monzo/connections/{id}<br/>Cookie: budgeteer_access_token
+    U->>+MC: DELETE /api/v1/monzo/connections/{id}<br/>Cookie: budgeteer_access_token
     
     MC->>+MCS: disconnectConnection(connectionId, userId)
     MCS->>+MCR: findById(connectionId)
@@ -388,8 +388,8 @@ flowchart TD
     end
     
     subgraph "API Calls"
-        C[GET /api/monzo/connections]
-        D[DELETE /api/monzo/connections/3]
+        C[GET /api/v1/monzo/connections]
+        D[DELETE /api/v1/monzo/connections/3]
     end
     
     C -->|User A| A1
@@ -423,7 +423,7 @@ sequenceDiagram
     rect rgb(255, 248, 240)
         Note over U,DB: Step 2: Initiate Connection
         U->>B: Click "Connect Monzo"
-        B->>API: POST /api/monzo/connect
+        B->>API: POST /api/v1/monzo/connect
         API->>DB: Save OAuthState
         API-->>B: {authorizationUrl}
         B->>M: Redirect to auth.monzo.com
@@ -438,7 +438,7 @@ sequenceDiagram
 
     rect rgb(255, 255, 240)
         Note over U,DB: Step 4: Complete Connection
-        B->>API: GET /api/monzo/callback?code=...&state=...
+        B->>API: GET /api/v1/monzo/callback?code=...&state=...
         API->>DB: Validate & consume state
         API->>M: Exchange code for tokens
         M-->>API: access_token, refresh_token
@@ -453,7 +453,7 @@ sequenceDiagram
     rect rgb(240, 248, 255)
         Note over U,DB: Step 5: Use Connected Account
         U->>B: View accounts
-        B->>API: GET /api/monzo/accounts
+        B->>API: GET /api/v1/monzo/accounts
         API->>DB: Get encrypted tokens
         API->>API: Decrypt access token
         API->>M: GET /accounts<br/>Authorization: Bearer {token}
