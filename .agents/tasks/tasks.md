@@ -18,10 +18,9 @@
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 6 | 🏗️ Multi-Module Maven Restructure (4 modules; `backend/` → `budgeteer-api/`) | 🔴 P1 | 1d | [plan](multi-module-refactor/plan.md) |
-| 8 | 📦 Source Migration — Monzo → `monzo-client` jar (+ `OAuthStateService` → `budgeteer-common`) | 🔴 P1 | 2–3d | [plan](multi-module-refactor/plan.md) |
-| 9 | 🔢 API Endpoint Versioning (`/api/v1`) | 🟡 P2 | 0.5–1d | [plan](endpoint-versioning/plan.md) |
-| 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](webhooks/plan.md) |
+| 6 | 🏗️ Multi-Module Maven Restructure (4 modules; `backend/` → `budgeteer-api/`) | 🔴 P1 | 1d | [plan](open/multi-module-refactor/plan.md) |
+| 8 | 📦 Source Migration — Monzo → `monzo-client` jar (+ `OAuthStateService` → `budgeteer-common`) | 🔴 P1 | 2–3d | [plan](open/multi-module-refactor/plan.md) |
+| 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](open/webhooks/plan.md) |
 
 ---
 
@@ -32,9 +31,9 @@
 | Feature | Priority | Effort | Notes |
 |---------|----------|--------|-------|
 | 🧱 Domain Model Mapping (`monzo_transactions` → unified `transactions`) | P2 | 2–3d | Deferred out of Phase 4 (raw sync only). Add `user_accounts` / `transactions` domain tables, mapping layer, and the public `GET /api/transactions` (or `/v1`) endpoint. Now have real data to design against |
-| 📣 Event-driven post-sync hooks | P3 | 0.5d | [plan](oauth-callback-events/plan.md) — `BackfillCompletedEvent` / `BackfillPausedEvent` + listeners (email, domain mapping, webhook registration). Phase: after source migration |
-| 🏦 TrueLayer Integration (Lloyds/HSBC/Barclays) | P2 | 3–4d | [plan](truelayer-integration/plan.md) — Add BankAdapter abstraction, TrueLayerClient, support multi-bank via single API. Phase: after source migration |
-| 🔌 REST Client Refactoring & Config Consolidation | P2 | 1.5–2d | [plan](rest-client-refactoring/plan.md) — Eliminate config sprawl, create `BankRestClient` base class, organize under `config/clients/` & `config/properties/`. Foundation for TrueLayer. Phase: after transaction sync + webhooks |
+| 📣 Event-driven post-sync hooks | P3 | 0.5d | [plan](closed/oauth-callback-events/plan.md) — `BackfillCompletedEvent` / `BackfillPausedEvent` + listeners (email, domain mapping, webhook registration). Phase: after source migration |
+| 🏦 TrueLayer Integration (Lloyds/HSBC/Barclays) | P2 | 3–4d | [plan](open/truelayer-integration/plan.md) — Add BankAdapter abstraction, TrueLayerClient, support multi-bank via single API. Phase: after source migration |
+| 🔌 REST Client Refactoring & Config Consolidation | P2 | 1.5–2d | [plan](closed/rest-client-refactoring/plan.md) — Eliminate config sprawl, create `BankRestClient` base class, organize under `config/clients/` & `config/properties/`. Foundation for TrueLayer. Phase: after transaction sync + webhooks |
 | 🔄 MonzoClient Resilience | P3 | 0.5d | Connection pooling, timeouts, retries, circuit breaker |
 | 🔐 WebAuthn/Passkey Authentication | P2 | 2d | Touch ID / biometric login for fast re-auth |
 | Monitoring Infrastructure | P3 | 0.5d | Prometheus/Grafana on NUC |
@@ -73,6 +72,7 @@
 ## ✅ Done
 
 ### June 2026
+- [x] **API Endpoint Versioning (`/api/v1`)** (PR #62) — all product endpoints on `/api/v1/auth/...` and `/api/v1/monzo/...`; config, security matchers, cookie paths, magic-link URLs, tests, Postman, docs repointed
 - [x] **Package & groupId rename** `dev.amf` → `dev.amfshr` (PR #61) — pure mechanical rename across 145 Java files, `pom.xml` groupId, logback, and 4 properties files. Zero behaviour change. Done before multi-module split so it's a single sweep.
 - [x] **Transaction Sync — cursor fix** (PR #55): send the pagination cursor via Monzo's `since` param (Monzo has **no** `since_id`); keep `before` per window so the cursor advances. Fixes the backfill infinite loop. Verified end-to-end against real Monzo (fresh / SCA-resume / restart). *(An earlier attempt, 632cdec, misdiagnosed this as a `since_id`+`before` ordering issue — that's superseded by this fix.)*
 - [x] Transaction Sync Hardening (632cdec) — per-window commits (survive stop/SCA), progress API (`GET /api/monzo/sync/progress`), readable logs, Postman updated
@@ -125,4 +125,4 @@
 
 ---
 
-*Last updated: 2026-06-21 — Package rename `dev.amf` → `dev.amfshr` merged (#61); #6 multi-module Maven restructure is now the head of the Queue*
+*Last updated: 2026-06-27 — API endpoint versioning (`/api/v1`) merged (#62); tasks split into `open/` and `closed/` subdirectories*

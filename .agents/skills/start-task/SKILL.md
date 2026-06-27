@@ -20,11 +20,11 @@ Set up everything needed to begin a new task.
 3. **Derive a slug** from the task name: lowercase, words separated by hyphens, no special characters.
    - e.g. "Phase 3: Token Auto-Refresh" → `token-auto-refresh`
 
-4. **Check if a subfolder already exists** at `.agents/tasks/<slug>/`.
+4. **Check if a subfolder already exists** at `.agents/tasks/open/<slug>/`.
    - If it does, read the existing `plan.md` and skip to step 6.
    - If it doesn't, create the folder and write a `plan.md` (step 5).
 
-5. **Create `.agents/tasks/<slug>/plan.md`** with this structure:
+5. **Create `.agents/tasks/open/<slug>/plan.md`** with this structure:
    ```
    # <Task Name>
 
@@ -44,7 +44,7 @@ Set up everything needed to begin a new task.
 
 6. **Update `.agents/tasks/tasks.md`**:
    - Move the task row from its current section (Backlog or Queue) into **🚀 In Progress** at the top.
-   - If it was a Backlog item (no existing row in Queue), add it to In Progress with a link: `[plan](<slug>/plan.md)`.
+   - If it was a Backlog item (no existing row in Queue), add it to In Progress with a link: `[plan](open/<slug>/plan.md)`.
    - If it already had a Queue row, move that row and ensure the plan link is present.
    - Update the `Last updated` date at the bottom.
 
