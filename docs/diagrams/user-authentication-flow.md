@@ -39,7 +39,7 @@ sequenceDiagram
     participant MLR as MagicLinkTokenRepository
     participant ES as EmailService
 
-    U->>+AC: POST /api/auth/login<br/>{email: "user@example.com"}
+    U->>+AC: POST /api/v1/auth/login<br/>{email: "user@example.com"}
     AC->>AC: Validate email format
     AC->>+AS: requestMagicLink(email)
     
@@ -59,7 +59,7 @@ sequenceDiagram
     MLR-->>-AS: MagicLinkToken
     
     AS->>+ES: sendMagicLink(email, rawToken)
-    ES->>ES: Build email with link:<br/>/api/auth/verify?token={rawToken}
+    ES->>ES: Build email with link:<br/>/api/v1/auth/verify?token={rawToken}
     ES-->>-AS: Email sent
     
     AS-->>-AC: void (success)
@@ -70,7 +70,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[POST /api/auth/login] --> B{Email valid?}
+    A[POST /api/v1/auth/login] --> B{Email valid?}
     B -->|No| C[400 Bad Request<br/>VALIDATION_ERROR]
     B -->|Yes| D[Normalize email]
     D --> E{Find or create user}
@@ -105,7 +105,7 @@ sequenceDiagram
     participant RTR as AppRefreshTokenRepository
     participant CS as CookieService
 
-    U->>+AC: GET /api/auth/verify?token={rawToken}
+    U->>+AC: GET /api/v1/auth/verify?token={rawToken}
     AC->>+AS: verifyMagicLink(rawToken, userAgent, ipAddress)
     
     AS->>AS: Hash rawToken with SHA-256
@@ -153,7 +153,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[GET /api/auth/verify?token=...] --> B{Token provided?}
+    A[GET /api/v1/auth/verify?token=...] --> B{Token provided?}
     B -->|No| C[400 Bad Request<br/>MISSING_TOKEN]
     B -->|Yes| D[Hash token]
     D --> E{Token exists in DB?}
@@ -247,7 +247,7 @@ sequenceDiagram
 
     Note over U: Access token expired (15min)<br/>Refresh token still valid (7 days)
     
-    U->>+AC: POST /api/auth/refresh<br/>Cookie: budgeteer_refresh_token={token}
+    U->>+AC: POST /api/v1/auth/refresh<br/>Cookie: budgeteer_refresh_token={token}
     AC->>AC: Extract refresh token from cookie
     AC->>+SS: refreshSession(refreshToken, userAgent, ipAddress)
     
@@ -318,7 +318,7 @@ sequenceDiagram
     participant RTR as AppRefreshTokenRepository
     participant CS as CookieService
 
-    U->>+AC: POST /api/auth/logout<br/>Cookie: budgeteer_refresh_token
+    U->>+AC: POST /api/v1/auth/logout<br/>Cookie: budgeteer_refresh_token
     AC->>AC: Extract refresh token
     AC->>+SS: revokeSession(refreshToken)
     
@@ -358,7 +358,7 @@ sequenceDiagram
     rect rgb(240, 248, 255)
         Note over U,E: Step 1: Initial Signup
         U->>B: Enter email address
-        B->>API: POST /api/auth/login
+        B->>API: POST /api/v1/auth/login
         API->>DB: Create User (if new)
         API->>DB: Save MagicLinkToken
         API->>E: Send magic link email
@@ -370,7 +370,7 @@ sequenceDiagram
         Note over U,E: Step 2: Click Magic Link
         E-->>U: Email arrives with link
         U->>B: Click magic link
-        B->>API: GET /api/auth/verify?token=xxx
+        B->>API: GET /api/v1/auth/verify?token=xxx
         API->>DB: Validate & consume token
         API->>DB: Mark email verified
         API->>DB: Save RefreshToken
@@ -391,7 +391,7 @@ sequenceDiagram
     rect rgb(255, 255, 240)
         Note over U,E: Step 4: Token Refresh (automatic)
         Note over B: Access token expires (15min)
-        B->>API: POST /api/auth/refresh<br/>(with refresh token cookie)
+        B->>API: POST /api/v1/auth/refresh<br/>(with refresh token cookie)
         API->>DB: Validate refresh token
         API->>DB: Revoke old, create new
         API-->>B: 200 OK + New cookies
@@ -401,7 +401,7 @@ sequenceDiagram
     rect rgb(255, 240, 240)
         Note over U,E: Step 5: Logout
         U->>B: Click logout
-        B->>API: POST /api/auth/logout
+        B->>API: POST /api/v1/auth/logout
         API->>DB: Revoke refresh token
         API-->>B: 200 OK + Clear cookies
         B-->>U: Redirected to login

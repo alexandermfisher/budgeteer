@@ -95,7 +95,7 @@ class MonzoControllerTest {
     // ============ OAuth Connect Tests ============
 
     @Nested
-    @DisplayName("GET /api/monzo/connect")
+    @DisplayName("GET /api/v1/monzo/connect")
     class Connect {
 
         @Test
@@ -106,7 +106,7 @@ class MonzoControllerTest {
             when(oauthService.initiateOAuthFlow(any(User.class))).thenReturn(expectedUrl);
 
             // When/Then
-            mockMvc.perform(get("/api/monzo/connect").with(user(testUser)))
+            mockMvc.perform(get("/api/v1/monzo/connect").with(user(testUser)))
                     .andExpect(status().is3xxRedirection())
                     .andExpect(header().string("Location", expectedUrl));
 
@@ -116,7 +116,7 @@ class MonzoControllerTest {
         @Test
         @DisplayName("should return 403 when not authenticated")
         void shouldReturn401WhenNotAuthenticated() throws Exception {
-            mockMvc.perform(get("/api/monzo/connect"))
+            mockMvc.perform(get("/api/v1/monzo/connect"))
                     .andExpect(status().isForbidden());
 
             verifyNoInteractions(oauthService);
@@ -124,7 +124,7 @@ class MonzoControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /api/monzo/connect")
+    @DisplayName("POST /api/v1/monzo/connect")
     class ConnectJson {
 
         @Test
@@ -135,7 +135,7 @@ class MonzoControllerTest {
             when(oauthService.initiateOAuthFlow(any(User.class))).thenReturn(expectedUrl);
 
             // When/Then
-            mockMvc.perform(post("/api/monzo/connect").with(user(testUser)))
+            mockMvc.perform(post("/api/v1/monzo/connect").with(user(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.authorizationUrl").value(expectedUrl))
@@ -147,7 +147,7 @@ class MonzoControllerTest {
         @Test
         @DisplayName("should return 403 when not authenticated")
         void shouldReturn401WhenNotAuthenticated() throws Exception {
-            mockMvc.perform(post("/api/monzo/connect"))
+            mockMvc.perform(post("/api/v1/monzo/connect"))
                     .andExpect(status().isForbidden());
 
             verifyNoInteractions(oauthService);
@@ -157,7 +157,7 @@ class MonzoControllerTest {
     // ============ OAuth Callback Tests ============
 
     @Nested
-    @DisplayName("GET /api/monzo/callback")
+    @DisplayName("GET /api/v1/monzo/callback")
     class Callback {
 
         @Test
@@ -184,7 +184,7 @@ class MonzoControllerTest {
                     .thenReturn(connection);
 
             // When/Then
-            mockMvc.perform(get("/api/monzo/callback")
+            mockMvc.perform(get("/api/v1/monzo/callback")
                             .param("code", code)
                             .param("state", state))
                     .andExpect(status().isOk())
@@ -208,7 +208,7 @@ class MonzoControllerTest {
                     .thenThrow(new ApiException(ErrorCode.OAUTH_STATE_INVALID));
 
             // When/Then
-            mockMvc.perform(get("/api/monzo/callback")
+            mockMvc.perform(get("/api/v1/monzo/callback")
                             .param("code", "auth-code-123")
                             .param("state", "invalid-state"))
                     .andExpect(status().isBadRequest())
@@ -226,7 +226,7 @@ class MonzoControllerTest {
                     .thenThrow(new ApiException(ErrorCode.OAUTH_STATE_EXPIRED));
 
             // When/Then
-            mockMvc.perform(get("/api/monzo/callback")
+            mockMvc.perform(get("/api/v1/monzo/callback")
                             .param("code", "auth-code-123")
                             .param("state", "expired-state"))
                     .andExpect(status().isBadRequest())
@@ -240,7 +240,7 @@ class MonzoControllerTest {
             when(oauthService.verifyStateAndGetUser("some-state")).thenReturn(testUser);
             
             // When/Then - code is missing, so controller throws OAUTH_CODE_MISSING
-            mockMvc.perform(get("/api/monzo/callback")
+            mockMvc.perform(get("/api/v1/monzo/callback")
                             .param("state", "some-state"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("OAUTH_CODE_MISSING"));
@@ -253,7 +253,7 @@ class MonzoControllerTest {
         @Test
         @DisplayName("should return 400 for missing state parameter")
         void shouldReturn400ForMissingState() throws Exception {
-            mockMvc.perform(get("/api/monzo/callback")
+            mockMvc.perform(get("/api/v1/monzo/callback")
                             .param("code", "auth-code"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
@@ -262,7 +262,7 @@ class MonzoControllerTest {
         @Test
         @DisplayName("should return 400 for blank state parameter")
         void shouldReturn400ForBlankState() throws Exception {
-            mockMvc.perform(get("/api/monzo/callback")
+            mockMvc.perform(get("/api/v1/monzo/callback")
                             .param("code", "auth-code")
                             .param("state", "   "))
                     .andExpect(status().isBadRequest())
@@ -280,7 +280,7 @@ class MonzoControllerTest {
                     .thenThrow(new ApiException(ErrorCode.MONZO_API_ERROR, "Token exchange failed"));
 
             // When/Then
-            mockMvc.perform(get("/api/monzo/callback")
+            mockMvc.perform(get("/api/v1/monzo/callback")
                             .param("code", "code")
                             .param("state", "valid-state"))
                     .andExpect(status().isBadGateway())
@@ -291,7 +291,7 @@ class MonzoControllerTest {
     // ============ Connection List Tests ============
 
     @Nested
-    @DisplayName("GET /api/monzo/connections")
+    @DisplayName("GET /api/v1/monzo/connections")
     class ListConnections {
 
         @Test
@@ -303,7 +303,7 @@ class MonzoControllerTest {
                     .thenReturn(List.of(connection));
 
             // When/Then
-            mockMvc.perform(get("/api/monzo/connections").with(user(testUser)))
+            mockMvc.perform(get("/api/v1/monzo/connections").with(user(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data", hasSize(1)))
@@ -321,7 +321,7 @@ class MonzoControllerTest {
                     .thenReturn(Collections.emptyList());
 
             // When/Then
-            mockMvc.perform(get("/api/monzo/connections").with(user(testUser)))
+            mockMvc.perform(get("/api/v1/monzo/connections").with(user(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data", hasSize(0)));
@@ -330,7 +330,7 @@ class MonzoControllerTest {
         @Test
         @DisplayName("should return 403 when not authenticated")
         void shouldReturn401WhenNotAuthenticated() throws Exception {
-            mockMvc.perform(get("/api/monzo/connections"))
+            mockMvc.perform(get("/api/v1/monzo/connections"))
                     .andExpect(status().isForbidden());
 
             verifyNoInteractions(connectionService);
@@ -340,7 +340,7 @@ class MonzoControllerTest {
     // ============ Get Single Connection Tests ============
 
     @Nested
-    @DisplayName("GET /api/monzo/connections/{id}")
+    @DisplayName("GET /api/v1/monzo/connections/{id}")
     class GetConnection {
 
         @Test
@@ -352,7 +352,7 @@ class MonzoControllerTest {
             when(connectionService.getConnection(eq(connectionId), any(UUID.class))).thenReturn(connection);
 
             // When/Then
-            mockMvc.perform(get("/api/monzo/connections/{id}", connectionId).with(user(testUser)))
+            mockMvc.perform(get("/api/v1/monzo/connections/{id}", connectionId).with(user(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.id").value(connectionId.toString()))
@@ -370,7 +370,7 @@ class MonzoControllerTest {
                     .thenThrow(new ApiException(ErrorCode.RESOURCE_NOT_FOUND));
 
             // When/Then
-            mockMvc.perform(get("/api/monzo/connections/{id}", connectionId).with(user(testUser)))
+            mockMvc.perform(get("/api/v1/monzo/connections/{id}", connectionId).with(user(testUser)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
         }
@@ -378,7 +378,7 @@ class MonzoControllerTest {
         @Test
         @DisplayName("should return 403 when not authenticated")
         void shouldReturn401WhenNotAuthenticated() throws Exception {
-            mockMvc.perform(get("/api/monzo/connections/{id}", UUID.randomUUID()))
+            mockMvc.perform(get("/api/v1/monzo/connections/{id}", UUID.randomUUID()))
                     .andExpect(status().isForbidden());
 
             verifyNoInteractions(connectionService);
@@ -388,7 +388,7 @@ class MonzoControllerTest {
     // ============ Disconnect Tests ============
 
     @Nested
-    @DisplayName("DELETE /api/monzo/connections/{id}")
+    @DisplayName("DELETE /api/v1/monzo/connections/{id}")
     class DisconnectConnection {
 
         @Test
@@ -399,7 +399,7 @@ class MonzoControllerTest {
             doNothing().when(connectionService).disconnectConnection(eq(connectionId), any(UUID.class));
 
             // When/Then
-            mockMvc.perform(delete("/api/monzo/connections/{id}", connectionId).with(user(testUser)))
+            mockMvc.perform(delete("/api/v1/monzo/connections/{id}", connectionId).with(user(testUser)))
                     .andExpect(status().isNoContent());
 
             verify(connectionService).disconnectConnection(eq(connectionId), any(UUID.class));
@@ -414,7 +414,7 @@ class MonzoControllerTest {
                     .when(connectionService).disconnectConnection(eq(connectionId), any(UUID.class));
 
             // When/Then
-            mockMvc.perform(delete("/api/monzo/connections/{id}", connectionId).with(user(testUser)))
+            mockMvc.perform(delete("/api/v1/monzo/connections/{id}", connectionId).with(user(testUser)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
         }
@@ -422,7 +422,7 @@ class MonzoControllerTest {
         @Test
         @DisplayName("should return 403 when not authenticated")
         void shouldReturn401WhenNotAuthenticated() throws Exception {
-            mockMvc.perform(delete("/api/monzo/connections/{id}", UUID.randomUUID()))
+            mockMvc.perform(delete("/api/v1/monzo/connections/{id}", UUID.randomUUID()))
                     .andExpect(status().isForbidden());
 
             verifyNoInteractions(connectionService);
@@ -432,7 +432,7 @@ class MonzoControllerTest {
     // ============ Status Tests ============
 
     @Nested
-    @DisplayName("GET /api/monzo/status")
+    @DisplayName("GET /api/v1/monzo/status")
     class GetStatus {
 
         @Test
@@ -443,7 +443,7 @@ class MonzoControllerTest {
             when(connectionService.countActiveConnections(any(UUID.class))).thenReturn(2L);
 
             // When/Then
-            mockMvc.perform(get("/api/monzo/status").with(user(testUser)))
+            mockMvc.perform(get("/api/v1/monzo/status").with(user(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.connected").value(true))
@@ -458,7 +458,7 @@ class MonzoControllerTest {
             when(connectionService.countActiveConnections(any(UUID.class))).thenReturn(0L);
 
             // When/Then
-            mockMvc.perform(get("/api/monzo/status").with(user(testUser)))
+            mockMvc.perform(get("/api/v1/monzo/status").with(user(testUser)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.connected").value(false))
@@ -468,7 +468,7 @@ class MonzoControllerTest {
         @Test
         @DisplayName("should return 403 when not authenticated")
         void shouldReturn401WhenNotAuthenticated() throws Exception {
-            mockMvc.perform(get("/api/monzo/status"))
+            mockMvc.perform(get("/api/v1/monzo/status"))
                     .andExpect(status().isForbidden());
 
             verifyNoInteractions(connectionService);

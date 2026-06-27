@@ -90,7 +90,7 @@ class AuthControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /api/auth/login")
+    @DisplayName("POST /api/v1/auth/login")
     class Login {
 
         @Test
@@ -100,7 +100,7 @@ class AuthControllerTest {
             doNothing().when(authService).requestMagicLink("test@example.com");
 
             // When/Then
-            mockMvc.perform(post("/api/auth/login")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"email": "test@example.com"}
@@ -115,7 +115,7 @@ class AuthControllerTest {
         @Test
         @DisplayName("should return 400 for missing email")
         void shouldReturn400ForMissingEmail() throws Exception {
-            mockMvc.perform(post("/api/auth/login")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isBadRequest())
@@ -128,7 +128,7 @@ class AuthControllerTest {
         @Test
         @DisplayName("should return 400 for invalid email format")
         void shouldReturn400ForInvalidEmailFormat() throws Exception {
-            mockMvc.perform(post("/api/auth/login")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"email": "not-an-email"}
@@ -143,7 +143,7 @@ class AuthControllerTest {
         @Test
         @DisplayName("should return 400 for blank email")
         void shouldReturn400ForBlankEmail() throws Exception {
-            mockMvc.perform(post("/api/auth/login")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"email": "   "}
@@ -157,7 +157,7 @@ class AuthControllerTest {
         @Test
         @DisplayName("should return 400 for malformed JSON")
         void shouldReturn400ForMalformedJson() throws Exception {
-            mockMvc.perform(post("/api/auth/login")
+            mockMvc.perform(post("/api/v1/auth/login")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("not valid json"))
                     .andExpect(status().isBadRequest())
@@ -167,7 +167,7 @@ class AuthControllerTest {
     }
 
     @Nested
-    @DisplayName("GET /api/auth/verify")
+    @DisplayName("GET /api/v1/auth/verify")
     class Verify {
 
         @Test
@@ -180,7 +180,7 @@ class AuthControllerTest {
             when(appProperties.getLoginSuccessUrl()).thenReturn("http://localhost:3000/dashboard");
 
             // When/Then
-            mockMvc.perform(get("/api/auth/verify")
+            mockMvc.perform(get("/api/v1/auth/verify")
                             .param("token", "valid-token"))
                     .andExpect(status().isFound())
                     .andExpect(header().string("Location", "http://localhost:3000/dashboard"));
@@ -196,7 +196,7 @@ class AuthControllerTest {
                     .thenReturn(Optional.empty());
 
             // When/Then
-            mockMvc.perform(get("/api/auth/verify")
+            mockMvc.perform(get("/api/v1/auth/verify")
                             .param("token", "invalid-token"))
                     .andExpect(status().isUnauthorized())
                     .andExpect(jsonPath("$.error.code").value("INVALID_TOKEN"))
@@ -206,7 +206,7 @@ class AuthControllerTest {
         @Test
         @DisplayName("should return 400 for missing token parameter")
         void shouldReturn400ForMissingToken() throws Exception {
-            mockMvc.perform(get("/api/auth/verify"))
+            mockMvc.perform(get("/api/v1/auth/verify"))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("INVALID_REQUEST"));
         }
@@ -214,7 +214,7 @@ class AuthControllerTest {
         @Test
         @DisplayName("should return 400 for blank token parameter")
         void shouldReturn400ForBlankToken() throws Exception {
-            mockMvc.perform(get("/api/auth/verify")
+            mockMvc.perform(get("/api/v1/auth/verify")
                             .param("token", "   "))
                     .andExpect(status().isBadRequest())
                     .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
@@ -233,7 +233,7 @@ class AuthControllerTest {
             when(cookieService.getClientIpAddress(any())).thenReturn("192.168.1.1");
 
             // When/Then
-            mockMvc.perform(get("/api/auth/verify")
+            mockMvc.perform(get("/api/v1/auth/verify")
                             .param("token", "token")
                             .header("User-Agent", "Mozilla/5.0"))
                     .andExpect(status().isFound());
@@ -243,7 +243,7 @@ class AuthControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /api/auth/refresh")
+    @DisplayName("POST /api/v1/auth/refresh")
     class Refresh {
 
         @Test
@@ -255,7 +255,7 @@ class AuthControllerTest {
                     .thenReturn(Optional.of(newTokens));
 
             // When/Then
-            mockMvc.perform(post("/api/auth/refresh")
+            mockMvc.perform(post("/api/v1/auth/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"refreshToken": "valid-refresh"}
@@ -278,7 +278,7 @@ class AuthControllerTest {
                     .thenReturn(Optional.of(newTokens));
 
             // When/Then
-            mockMvc.perform(post("/api/auth/refresh")
+            mockMvc.perform(post("/api/v1/auth/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isOk())
@@ -295,7 +295,7 @@ class AuthControllerTest {
                     .thenReturn(Optional.of(newTokens));
 
             // When/Then
-            mockMvc.perform(post("/api/auth/refresh")
+            mockMvc.perform(post("/api/v1/auth/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"refreshToken": "body-token"}
@@ -314,7 +314,7 @@ class AuthControllerTest {
                     .thenReturn(Optional.empty());
 
             // When/Then
-            mockMvc.perform(post("/api/auth/refresh")
+            mockMvc.perform(post("/api/v1/auth/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("""
                                     {"refreshToken": "invalid-token"}
@@ -333,7 +333,7 @@ class AuthControllerTest {
             when(cookieService.extractRefreshToken(any())).thenReturn(Optional.empty());
 
             // When/Then - API returns 401 with MISSING_TOKEN error
-            mockMvc.perform(post("/api/auth/refresh")
+            mockMvc.perform(post("/api/v1/auth/refresh")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{}"))
                     .andExpect(status().isUnauthorized())
@@ -342,7 +342,7 @@ class AuthControllerTest {
     }
 
     @Nested
-    @DisplayName("POST /api/auth/logout")
+    @DisplayName("POST /api/v1/auth/logout")
     class Logout {
 
         @Test
@@ -353,7 +353,7 @@ class AuthControllerTest {
             when(sessionService.revokeSession("refresh-token")).thenReturn(true);
 
             // When/Then
-            mockMvc.perform(post("/api/auth/logout"))
+            mockMvc.perform(post("/api/v1/auth/logout"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.message").value("Logged out"));
 
@@ -368,7 +368,7 @@ class AuthControllerTest {
             when(cookieService.extractRefreshToken(any())).thenReturn(Optional.empty());
 
             // When/Then
-            mockMvc.perform(post("/api/auth/logout"))
+            mockMvc.perform(post("/api/v1/auth/logout"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.message").value("Logged out"));
 
@@ -378,7 +378,7 @@ class AuthControllerTest {
     }
 
     @Nested
-    @DisplayName("GET /api/auth/me")
+    @DisplayName("GET /api/v1/auth/me")
     class Me {
 
         @Test
@@ -386,7 +386,7 @@ class AuthControllerTest {
         void shouldReturn403WhenNotAuthenticated() throws Exception {
             // Given - no authentication context
             // When/Then - Spring Security returns 403 for protected endpoints
-            mockMvc.perform(get("/api/auth/me"))
+            mockMvc.perform(get("/api/v1/auth/me"))
                     .andExpect(status().isForbidden());
         }
 
@@ -401,7 +401,7 @@ class AuthControllerTest {
             SecurityContext context = createAuthenticatedContext();
 
             // When/Then
-            mockMvc.perform(get("/api/auth/me")
+            mockMvc.perform(get("/api/v1/auth/me")
                             .with(securityContext(context)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.id").value(testUser.getId().toString()))
@@ -418,10 +418,39 @@ class AuthControllerTest {
             SecurityContext context = createAuthenticatedContext();
 
             // When/Then
-            mockMvc.perform(get("/api/auth/me")
+            mockMvc.perform(get("/api/v1/auth/me")
                             .with(securityContext(context)))
                     .andExpect(status().isNotFound())
                     .andExpect(jsonPath("$.error.code").value("USER_NOT_FOUND"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Old path cut-over: /api/auth/* is rejected (not on permitAll list)")
+    class OldPathReturns404 {
+
+        @Test
+        @DisplayName("POST /api/auth/login → 403 (caught by /api/** authenticated)")
+        void shouldReturn403ForOldLoginPath() throws Exception {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\": \"test@example.com\"}"))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("GET /api/auth/verify → 403 (caught by /api/** authenticated)")
+        void shouldReturn403ForOldVerifyPath() throws Exception {
+            mockMvc.perform(get("/api/auth/verify")
+                            .param("token", "some-token"))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("GET /api/auth/me → 403 (caught by /api/** authenticated)")
+        void shouldReturn403ForOldMePath() throws Exception {
+            mockMvc.perform(get("/api/auth/me"))
+                    .andExpect(status().isForbidden());
         }
     }
 }

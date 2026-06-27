@@ -45,7 +45,7 @@ public class EmailService {
      * Builds the magic link URL.
      */
     private String buildMagicLink(String token) {
-        return appProperties.getBaseUrl() + "/api/auth/verify?token=" + token;
+        return appProperties.getBaseUrl() + "/api/v1/auth/verify?token=" + token;
     }
 
     /**

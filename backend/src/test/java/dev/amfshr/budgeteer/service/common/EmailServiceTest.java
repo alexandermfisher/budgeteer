@@ -102,7 +102,7 @@ class EmailServiceTest {
             verify(mailSender).send(messageCaptor.capture());
             SimpleMailMessage sentMessage = messageCaptor.getValue();
             assertThat(sentMessage.getText())
-                    .contains("https://budgeteer.dev/api/auth/verify?token=my-secret-token");
+                    .contains("https://budgeteer.dev/api/v1/auth/verify?token=my-secret-token");
         }
 
         @Test
@@ -221,7 +221,7 @@ class EmailServiceTest {
             verify(mailSender).send(messageCaptor.capture());
             SimpleMailMessage sentMessage = messageCaptor.getValue();
             assertThat(sentMessage.getText())
-                    .contains("http://localhost:8080/api/auth/verify?token=dev-token");
+                    .contains("http://localhost:8080/api/v1/auth/verify?token=dev-token");
         }
     }
 }
