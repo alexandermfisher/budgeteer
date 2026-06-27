@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Package & groupId rename** (`dev.amf` → `dev.amfshr`, PR #61, June 2026) — pure mechanical rename across 145 Java files, `pom.xml` `<groupId>`, `logback-spring.xml`, and 4 properties files; zero behaviour change.
 
 ### Changed
+- **API Endpoint Versioning — `/api/v1`** (PR #62, June 2026) — all product endpoints moved from `/api/auth/...` and `/api/monzo/...` to `/api/v1/auth/...` and `/api/v1/monzo/...`. Config (`monzo.redirect-uri`), security matchers, cookie paths, magic-link URLs, tests, Postman collections, and docs all repointed. Old paths now reject (403 via `/api/**` catch-all). `/api/health/**`, `/api/dev/**`, and `/actuator/**` left untouched.
 - **Dependency Updates** (March 2026)
   - nimbus-jose-jwt: 10.0.2 → 10.7
   - logcaptor: 2.9.3 → 2.12.2

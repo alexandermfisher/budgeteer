@@ -80,7 +80,7 @@ This is the value the cheaper model can't afford to do. Be thorough.
 - **Find the closest existing feature** and read it end to end — controller → service → repository
   → entity → migration → tests. This is the template the new work should mirror. (e.g. for a new
   sync feature, read `TransactionSyncService` and its plan at
-  `.agents/tasks/transaction-sync/plan.md` — that plan is the gold standard for spec depth.)
+  `.agents/tasks/closed/transaction-sync/plan.md` — that plan is the gold standard for spec depth.)
 - **Resolve concrete facts** the spec will need:
   - Next Flyway version: highest `V{n}` in `backend/src/main/resources/db/migration/`.
   - Real base package (don't assume — `grep` for it; it has been renamed before).
@@ -155,7 +155,7 @@ don't apply (say so). After each branch, give a one-line recap of what was decid
 
 Write the agreed design into `.agents/tasks/<slug>/plan.md` using the **template below**. Fold in
 any pre-existing plan.md content (don't silently discard it). This single file is both the human
-plan and the cheap-model handoff. Match the depth of `.agents/tasks/transaction-sync/plan.md` —
+plan and the cheap-model handoff. Match the depth of `.agents/tasks/closed/transaction-sync/plan.md` —
 exact SQL, exact signatures, exact test names, exact build order. If the task wasn't on the board,
 ask whether to add a Backlog/Queue row in `tasks.md` (or point them at `/start-task`).
 
