@@ -31,8 +31,8 @@ This plan supersedes the older "4-module scaffolding-only" plan. It folds the bo
       exactly as before.
 - [ ] CI (`Build & Test`), checkstyle, scripts (`dev.sh`), CODEOWNERS, dependabot, codeql all
       reference `budgeteer-api/` instead of `backend/` and pass.
-- [ ] **No schema change, no new migration** — `backfill_progress_cursor` stays (mid-window SCA
-      resume still relies on it).
+- [ ] **No schema change, no new migration** — `backfill_progress_cursor` stays (it's intra-window
+      paging state, kept exactly as today).
 
 ## Out of Scope
 
@@ -80,13 +80,20 @@ Verified against the repo (the context docs are stale — do not trust them for 
 - **Two `TokenResponse` records exist** — `client/monzo/dto/TokenResponse` and a nested
   `MonzoOAuthService.TokenResponse`. Both collapse into the neutral `BankTokens`.
 - **Pagination STAYS in the API**: `TransactionSyncService` keeps the outer ≤350-day windowing +
-  per-page commits + mid-window cursor (`backfill_progress_cursor`) + SCA-pause — this is the
-  hard-won, regression-sensitive logic (the cursor-fix saga), so it stays put. The neutral method is
-  **paged with an opaque cursor**: `getTransactions(token, accountId, from, to, pageCursor) →
-  BankTransactionPage(txns, nextCursor)`. `MonzoBankClient` maps the opaque cursor ↔ Monzo's
-  `since`/`before` per page; the service drives the loop, commits per page, and persists the cursor
-  exactly as today. `MonzoClient.getTransactions(..., since, before, sinceId, limit)` becomes the
-  client's private per-page fetch behind that opaque cursor.
+  the per-**window** commit (one `TransactionTemplate` tx wraps a whole window — `paginateWindow`
+  runs inside it) + the intra-window paging cursor + SCA-pause — the hard-won, regression-sensitive
+  logic (the cursor-fix saga), so it stays put. The neutral method is **paged with an opaque
+  cursor**: `getTransactions(token, accountId, from, to, pageCursor) → BankTransactionPage(txns,
+  nextCursor)`. `MonzoBankClient` maps the opaque cursor ↔ Monzo's `since`/`before` per page; the
+  service drives the loop, commits per window, and uses the cursor exactly as today.
+  `MonzoClient.getTransactions(..., since, before, sinceId, limit)` becomes the client's private
+  per-page fetch behind that opaque cursor.
+- **Resume is window-granular** (verified): `backfill_progress_at` (last committed window start) is
+  the durable resume point. An SCA 403 mid-window rolls back the whole window transaction (incl. the
+  per-page cursor writes) and the window is re-fetched on resume — idempotent via the native upsert.
+  `backfill_progress_cursor` is reset to null at each window commit, so it does **not** carry
+  progress across re-auth; it's purely intra-window paging state. (True mid-window resume = a
+  separate per-page-commit enhancement, see `tasks.md`.)
 - **Persisted fields** (so the neutral types don't regress data):
   - `MonzoTransaction`: `id, amount(int signed), currency, description, merchantName,
     merchantCategory, notes, isDeclined, monzoCreatedAt(Instant), monzoSettledAt(Instant?)`.
@@ -106,7 +113,7 @@ Verified against the repo (the context docs are stale — do not trust them for 
 | 3 | **`monzo-client` = thin HTTP client** (client + DTOs + mapper + props), no Spring-persistence coupling | Clean "library" boundary; isolated deps | Fat vertical slice (services/jobs in the jar) — needs executor/event/config-scan wiring across jars |
 | 4 | **`BankClient` interface + neutral records in `common`; API programs to it** | True "program to an interface"; TrueLayer slots in as a 2nd impl | Client exposes Monzo DTOs, API maps them — API depends on Monzo types, not really an interface |
 | 5 | **Neutral types model what the app persists/uses today** (not a provider superset) | Avoids a god-object; zero data regression | Union-of-all-provider-fields superset — bloats + rots |
-| 6 | **Paged `getTransactions(from,to,pageCursor)` with an OPAQUE cursor; service keeps driving paging + per-page commits** | Preserves the mid-window SCA resume + per-page commits (regression-critical) while staying provider-neutral; window=`from/to`, opaque cursor=within-window paging. Fits TrueLayer (`nextCursor=null` when a date range returns in one page) | (a) Monzo-shaped `(since,before,sinceId,limit)` — leaks Monzo's model; (b) whole-window fetch + drop cursor — **breaks SCA resume** when a window can't be pulled in one 5-min SCA budget |
+| 6 | **Paged `getTransactions(from,to,pageCursor)` with an OPAQUE cursor; service keeps driving paging + the per-window commit** | Faithfully mirrors today's page-by-page fetch inside one per-window transaction (minimal diff, no schema churn) while staying provider-neutral; window=`from/to`, opaque cursor=within-window paging. Fits TrueLayer (`nextCursor=null` when a date range returns in one page) | (a) Monzo-shaped `(since,before,sinceId,limit)` — leaks Monzo's model; (b) whole-window fetch + drop cursor — behaviourally fine (resume is window-granular today regardless) but changes the memory profile + is gratuitous code/schema churn for a behaviour-preserving refactor |
 | 7 | **Canonical amount = signed `long` minor units** (negative = money out) | Monzo is already signed minor units; TrueLayer maps `amount×100 × ±1` from DEBIT/CREDIT | Decimal + separate type field — invites rounding/sign bugs |
 | 8 | **Same root package `dev.amfshr.budgeteer.*` across all modules** | `@ComponentScan`/`@ConfigurationPropertiesScan` on `BudgeteerApplication` auto-discover the jar's beans — **no Spring auto-configuration needed** | Distinct package per jar + `@AutoConfiguration` + `.imports` — ceremony |
 | 9 | **Neutral exceptions in `common`; map to existing `MONZO_*` `ErrorCode`s at the API boundary** | Keeps the jar free of the app error model; behaviour-preserving | Move `ApiException`/`ErrorCode` to `common` — drags app-specific codes into the shared jar |
@@ -162,7 +169,7 @@ public interface BankClient {
      * One page of transactions for an account in the half-open window [from, to). Pass a null
      * pageCursor for the first page; pass the returned nextCursor for each subsequent page until
      * nextCursor is null. The cursor is an OPAQUE provider token — the caller persists and replays
-     * it (for mid-window SCA resume) but never interprets it. The caller drives windowing + commits.
+     * it (intra-window paging) but never interprets it. The caller drives windowing + commits.
      * @throws BankReauthRequiredException if the provider's SCA window has expired for this range
      * @throws BankConnectionRevokedException if the connection is revoked (401)
      * @throws BankClientException on any other upstream failure
@@ -236,9 +243,9 @@ public class BankReauthRequiredException   extends BankClientException { /* 403 
   pageCursor)` fetches ONE page and returns `BankTransactionPage(mapped, nextCursor)`. Maps the
   opaque `pageCursor` → Monzo's `since` (last-seen tx id; on the first page `since`=`from`),
   `before`=`to`, `limit`=page size; `nextCursor` = the last tx id, or `null` when the page is short
-  (window exhausted). The **service keeps driving the loop + per-page commits + cursor persistence**
-  — no DB side-effects in the client. This preserves today's `paginateWindow`/`paginateTransactions`
-  behaviour; only the types + cursor opacity change.
+  (window exhausted). The **service keeps driving the page loop inside its per-window transaction +
+  cursor persistence** — no DB side-effects in the client. This preserves today's
+  `paginateWindow`/`paginateTransactions` behaviour; only the types + cursor opacity change.
 - **`getIdentity`** wraps the old `whoAmI` (`/ping/whoami`) → `BankIdentity(user_id, null)`.
 - **Throws neutral exceptions**: rewrite `handleMonzoError` to throw `BankConnectionRevokedException`
   (401), `BankReauthRequiredException` (403 `forbidden.verification_required`), `BankClientException`
@@ -259,7 +266,7 @@ Catch neutral exceptions where behaviour depends on them; let the rest propagate
 |-------|--------|
 | `MonzoOAuthService` | Drop `MonzoProperties` + `buildAuthorizationUrl` (moved to client) + nested `TokenResponse` record. Inject `BankClient`. `initiateOAuthFlow` → `bankClient.buildAuthorizationUrl(state)`. `exchangeCodeForTokens(code)` returns `BankTokens` (was nested `TokenResponse`). `getMonzoUserId(token)` → `bankClient.getIdentity(token).providerUserId()`. |
 | `MonzoTokenRefreshService` | `bankClient.refreshTokens(...)` → `BankTokens`. Change the revoke catch from `ApiException(MONZO_CONNECTION_REVOKED)` to `catch (BankConnectionRevokedException e)`. Same downstream behaviour (mark connection revoked). |
-| `TransactionSyncService` | Inject `BankClient`. Keep `paginateWindow`/`paginateTransactions` **structurally as-is** — just swap `monzoClient.getTransactions(...)` for `bankClient.getTransactions(token, accountId, from, to, cursor)` returning `BankTransactionPage`; iterate `page.transactions()` via `upsertTransaction`; advance `cursor = page.nextCursor()` (loop until null); keep persisting `backfill_progress_cursor` per page. Outer windowing + per-page commits + mid-window SCA resume all unchanged. Change SCA-pause catch from `ApiException(MONZO_VERIFICATION_REQUIRED)` to `catch (BankReauthRequiredException e)`, and the retry catch from `ApiException(MONZO_API_ERROR)` to `catch (BankClientException e)`. `MONZO_SYNC_ERROR` (own thrown `ApiException`) stays. `upsertAccount` maps `BankAccount` (was `MonzoAccountResponse`); `upsertTransaction` maps `BankTransaction`. |
+| `TransactionSyncService` | Inject `BankClient`. Keep `paginateWindow`/`paginateTransactions` **structurally as-is** — just swap `monzoClient.getTransactions(...)` for `bankClient.getTransactions(token, accountId, from, to, cursor)` returning `BankTransactionPage`; iterate `page.transactions()` via `upsertTransaction`; advance `cursor = page.nextCursor()` (loop until null); keep persisting `backfill_progress_cursor` per page (intra-window). Outer windowing + the per-window `TransactionTemplate` commit + window-granular resume all unchanged. Change SCA-pause catch from `ApiException(MONZO_VERIFICATION_REQUIRED)` to `catch (BankReauthRequiredException e)`, and the retry catch from `ApiException(MONZO_API_ERROR)` to `catch (BankClientException e)`. `MONZO_SYNC_ERROR` (own thrown `ApiException`) stays. `upsertAccount` maps `BankAccount` (was `MonzoAccountResponse`); `upsertTransaction` maps `BankTransaction`. |
 | `MonzoConnectionService` | `createConnection` takes the access/refresh/expiresAt from `BankTokens` fields instead of the nested `TokenResponse`. `EncryptionService` usage unchanged. |
 | `MonzoController` | Line ~171: `BankTokens tokens = oauthService.exchangeCodeForTokens(code);` (was `MonzoOAuthService.TokenResponse`). Otherwise unchanged. |
 | `api/common/GlobalExceptionHandler` | Add `@ExceptionHandler(BankClientException.class)` mapping subclasses → existing `ErrorCode` + `ApiResponse` (mirror the `ApiException` handler): `BankConnectionRevokedException`→`MONZO_CONNECTION_REVOKED`, `BankReauthRequiredException`→`MONZO_VERIFICATION_REQUIRED`, else→`MONZO_API_ERROR`. Covers neutral exceptions that reach the controller (e.g. during OAuth callback). |
@@ -277,8 +284,8 @@ No new keys. `monzo.*` properties (`client-id`, `client-secret`, `redirect-uri`,
 
 | Case | Handling |
 |------|----------|
-| Memory / streaming | **Unchanged** — the service still streams **page-by-page** and commits per page (the opaque-cursor method returns one page at a time). No whole-window-in-memory. |
-| Mid-window SCA resume | **Preserved.** Monzo's ~5-min SCA window can close partway through a large window; the per-page `backfill_progress_cursor` (kept) lets resume continue from the last committed page rather than restart the window. Without it, a window too big to pull in one 5-min SCA budget could never complete (403 → re-fetch → 403 …). Window-level resume still uses `backfill_progress_at`. |
+| Memory / streaming | **Unchanged** — the service fetches **page-by-page** (one page in memory at a time) within a single per-window transaction. No whole-window-in-memory. |
+| SCA crap-out + resume | **Unchanged (window-granular).** A 403 mid-window rolls back that window's transaction → account `NEEDS_REAUTH`; the durable point is the last fully-committed window (`backfill_progress_at`). On re-auth, resume re-fetches the failed window from scratch — idempotent via `transactionRepository.upsert` (ON CONFLICT). `backfill_progress_cursor` is intra-window only (reset per committed window), so it does **not** carry mid-window progress across re-auth. Genuine per-page resume = a separate per-page-commit enhancement (backlog). |
 | Delta sync semantics | Was sinceId-cursor; becomes `getTransactions(token, accountId, lastSyncedAt, now)`. Equivalent given idempotent upsert; any overlap is harmless. |
 | SCA window expired mid-backfill | `MonzoBankClient` throws `BankReauthRequiredException`; `TransactionSyncService` catches it and pauses exactly as before (persist progress, mark paused). |
 | Connection revoked (401) | `BankConnectionRevokedException` → caught by `MonzoTokenRefreshService` (mark revoked) or mapped to `MONZO_CONNECTION_REVOKED` by `GlobalExceptionHandler`. |
@@ -393,10 +400,11 @@ moves the client out, the API won't compile until Phase 4 rewires it — so 3+4 
 
 ## Open Questions / Assumptions
 
-- **Resolved:** transactions stay paged via an opaque cursor (not a whole-window fetch), so per-page
-  commits + mid-window SCA resume are preserved and `backfill_progress_cursor` stays — no schema
-  change. (This was reconsidered after spotting that a whole-window fetch could stall a window too
-  big to pull in one 5-min SCA budget.)
+- **Resolved:** transactions stay paged via an opaque cursor to mirror today's page-by-page fetch
+  inside one per-window transaction (minimal diff, no schema change). Resume is window-granular as
+  today — a 403 rolls back the in-flight window and it's re-fetched (idempotent upsert); the cursor
+  is intra-window only. Genuine mid-window resume would need per-page commits — a separate
+  enhancement (see backlog).
 - **Assumption:** `BankIdentity.consentExpiresAt` is populated-but-unused until a feature consumes it
   (Monzo leaves it null). Kept as the documented TrueLayer seam; remove only if you'd rather return a
   bare `String`.
@@ -433,8 +441,9 @@ safety net and must stay green. The `monzo-client` jar must not import `ApiExcep
 any JPA/persistence type; the `budgeteer-api` code must program to `BankClient`, not `MonzoBankClient`.
 
 **Do not** redesign, add scope (no `truelayer-client`, no domain `transactions` table, no generic
-`BANK_*` error codes), or deviate from this spec. If something is genuinely underspecified, stop and
-ask rather than guessing.
+`BANK_*` error codes, **no per-page-commit rework** — keep the existing per-window commit +
+window-granular resume), or deviate from this spec. If something is genuinely underspecified, stop
+and ask rather than guessing.
 
 **Definition of Done:** every *Acceptance Criteria* box ticked, all tests in *Test Strategy* written
 and passing, and `/check` (checkstyle + unit + integration) green from the repo root before opening
