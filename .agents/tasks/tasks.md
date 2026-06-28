@@ -10,7 +10,7 @@
 
 | # | Task | Priority | Plan |
 |---|------|----------|------|
-| 6 | 🔍 Multi-Module Restructure — **implemented, PR #66 open. Needs Postman live-test then merge.** | 🔴 P1 | [plan](open/multi-module-refactor/plan.md) |
+| 6 | 🔍 Multi-Module Restructure — **implemented, PR #67 open. Needs Postman live-test then merge.** | 🔴 P1 | [plan](open/multi-module-refactor/plan.md) |
 
 ---
 
@@ -128,4 +128,4 @@
 
 ---
 
-*Last updated: 2026-06-28 — #6 multi-module refactor implemented + PR #66 open (needs live test + merge); #10 monzo-client hardening plan deepened and queued*
+*Last updated: 2026-06-28 — #6 multi-module refactor implemented + PR #67 open (needs live test + merge); #10 monzo-client hardening plan deepened and queued*
