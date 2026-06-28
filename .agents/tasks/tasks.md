@@ -14,11 +14,12 @@
 
 ## 📋 Queue (Next Up)
 
-> Ordered by execution sequence. The refactor track (rename ✅ #61 → multi-module #6 → versioning ✅ #62) is now down to the single phased effort #6 — old #6 (restructure) and #8 (source migration) are consolidated into it. Then Phase 5.
+> Ordered by execution sequence. Multi-module refactor (#6) is **implemented and in PR #66**; next is hardening the `monzo-client` jar into a proper standalone library (auto-config), then Phase 5 / TrueLayer.
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 6 | 🏗️ Multi-Module Restructure + Monzo Client Extraction — 3 modules (`budgeteer-common` / `monzo-client` / `budgeteer-api`); `backend/` → `budgeteer-api/`; Monzo HTTP behind a neutral `BankClient` interface; persistence stays in the API. 4 compile-green phases | 🔴 P1 | ~3.5–4d | [plan](open/multi-module-refactor/plan.md) |
+| 10 | 🧩 Monzo-Client Jar — auto-config (decouple from app component-scan) + test hardening (mirror structure, integration tests, fixtures) + token-injection review (param vs interceptor). Template for `truelayer-client`. Open Q: shared OAuth → `common`? | 🟡 P2 | ~1–1.5d | [plan](open/monzo-client-hardening/plan.md) |
+| 6 | ✅ Multi-Module Restructure + Monzo Client Extraction (3 modules; neutral `BankClient` interface; `backend/` → `budgeteer-api/`; `bank` SPI → `common.bank`) — **implemented, in PR #66** | 🔴 P1 | ~3.5–4d | [plan](open/multi-module-refactor/plan.md) |
 | 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](open/webhooks/plan.md) |
 
 ---
