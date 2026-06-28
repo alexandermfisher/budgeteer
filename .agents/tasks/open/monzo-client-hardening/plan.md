@@ -277,7 +277,9 @@ This is out of scope for this task — note it for TrueLayer.
 ## Implementation Checklist
 
 **Rename `common` → `bank-client-api`**
-- [ ] `common/pom.xml`: change `artifactId` from `common` → `bank-client-api`, update `<name>` to `Bank Client API`
+- [ ] Rename directory: `git mv common bank-client-api`
+- [ ] Root `pom.xml` `<modules>`: change `<module>common</module>` → `<module>bank-client-api</module>`
+- [ ] `bank-client-api/pom.xml`: change `artifactId` from `common` → `bank-client-api`, update `<name>` to `Bank Client API`
 - [ ] `monzo-client/pom.xml`: update dependency `artifactId` to `bank-client-api`
 - [ ] `budgeteer-api/pom.xml`: update dependency `artifactId` to `bank-client-api`
 - [ ] Root `pom.xml` `<dependencyManagement>`: update managed `artifactId` to `bank-client-api`
