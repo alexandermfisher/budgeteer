@@ -256,10 +256,10 @@ complexity, no benefit. Token storage, decryption (AES-256-GCM), and refresh sta
 
 ---
 
-## 5. Shared OAuth → `common`? (Resolved: No)
+## 5. Shared OAuth → `bank-client-api`? (Resolved: No)
 
-The contract lives in `common` (`BankClient.buildAuthorizationUrl / exchangeCode / refreshTokens`).
-A shared *impl* in `common` would pull `spring-web`/HTTP into a dependency-light jar. Each
+The contract lives in `bank-client-api` (`BankClient.buildAuthorizationUrl / exchangeCode / refreshTokens`).
+A shared *impl* in `bank-client-api` would pull `spring-web`/HTTP into a dependency-light jar. Each
 client jar implements its own (Monzo vs TrueLayer OAuth differ). OAuth state orchestration
 (CSRF, DB-backed `OAuthState`, `User` link) stays in `budgeteer-api`.
 
@@ -275,6 +275,13 @@ This is out of scope for this task — note it for TrueLayer.
 ---
 
 ## Implementation Checklist
+
+**Rename `common` → `bank-client-api`**
+- [ ] `common/pom.xml`: change `artifactId` from `common` → `bank-client-api`, update `<name>` to `Bank Client API`
+- [ ] `monzo-client/pom.xml`: update dependency `artifactId` to `bank-client-api`
+- [ ] `budgeteer-api/pom.xml`: update dependency `artifactId` to `bank-client-api`
+- [ ] Root `pom.xml` `<dependencyManagement>`: update managed `artifactId` to `bank-client-api`
+- [ ] Verify `./mvnw package -DskipTests` compiles clean across all modules
 
 **Structural cleanup**
 - [ ] Delete `dto/TokenResponse.java`
