@@ -1,4 +1,4 @@
-package dev.amfshr.budgeteer.bank;
+package dev.amfshr.budgeteer.common.bank;
 
 /**
  * Thrown when the bank requires re-authentication (403 SCA / consent expired).

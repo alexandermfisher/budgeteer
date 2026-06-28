@@ -1,10 +1,10 @@
 package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
-import dev.amfshr.budgeteer.bank.BankClient;
-import dev.amfshr.budgeteer.bank.BankClientException;
-import dev.amfshr.budgeteer.bank.BankConnectionRevokedException;
-import dev.amfshr.budgeteer.bank.BankTokens;
+import dev.amfshr.budgeteer.common.bank.BankClient;
+import dev.amfshr.budgeteer.common.bank.BankClientException;
+import dev.amfshr.budgeteer.common.bank.BankConnectionRevokedException;
+import dev.amfshr.budgeteer.common.bank.BankTokens;
 import dev.amfshr.budgeteer.domain.monzo.MonzoConnection;
 import dev.amfshr.budgeteer.domain.user.User;
 import dev.amfshr.budgeteer.exception.ApiException;

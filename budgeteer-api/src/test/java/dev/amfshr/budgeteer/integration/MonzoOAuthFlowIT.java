@@ -8,7 +8,7 @@ import dev.amfshr.budgeteer.domain.oauth.OAuthState;
 import dev.amfshr.budgeteer.repository.OAuthStateRepository;
 import dev.amfshr.budgeteer.domain.user.User;
 import dev.amfshr.budgeteer.repository.UserRepository;
-import dev.amfshr.budgeteer.bank.BankTokens;
+import dev.amfshr.budgeteer.common.bank.BankTokens;
 import dev.amfshr.budgeteer.exception.ApiException;
 import dev.amfshr.budgeteer.service.monzo.MonzoConnectionService;
 import dev.amfshr.budgeteer.service.monzo.MonzoOAuthService;
