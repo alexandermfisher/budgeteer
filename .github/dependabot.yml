@@ -12,7 +12,7 @@ updates:
   # Maven Dependencies (Backend)
   # -------------------------------------------------------------------------
   - package-ecosystem: "maven"
-    directory: "/backend"
+    directory: "/budgeteer-api"
     schedule:
       interval: "monthly"
       day: "monday"

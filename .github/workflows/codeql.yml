@@ -41,7 +41,7 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: maven
-          cache-dependency-path: backend/pom.xml
+          cache-dependency-path: budgeteer-api/pom.xml
       
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
@@ -53,7 +53,7 @@ jobs:
           queries: +security-extended,security-and-quality
       
       - name: Build project
-        working-directory: ./backend
+        working-directory: ./budgeteer-api
         run: mvn compile -DskipTests --batch-mode --no-transfer-progress
       
       - name: Perform CodeQL Analysis
