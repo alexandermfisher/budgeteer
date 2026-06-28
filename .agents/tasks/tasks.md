@@ -14,13 +14,11 @@
 
 ## 📋 Queue (Next Up)
 
-> Ordered by execution sequence. The refactor track runs **rename → multi-module → source migration → versioning**, then Phase 5. Rename goes first so it's a single sweep before the code is split across modules.
+> Ordered by execution sequence. The refactor track (rename ✅ #61 → multi-module #6 → versioning ✅ #62) is now down to the single phased effort #6 — old #6 (restructure) and #8 (source migration) are consolidated into it. Then Phase 5.
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 6 | 🏗️ Multi-Module Maven Restructure (4 modules; `backend/` → `budgeteer-api/`) | 🔴 P1 | 1d | [plan](multi-module-refactor/plan.md) |
-| 8 | 📦 Source Migration — Monzo → `monzo-client` jar (+ `OAuthStateService` → `budgeteer-common`) | 🔴 P1 | 2–3d | [plan](multi-module-refactor/plan.md) |
-| 9 | 🔢 API Endpoint Versioning (`/api/v1`) | 🟡 P2 | 0.5–1d | [plan](endpoint-versioning/plan.md) |
+| 6 | 🏗️ Multi-Module Restructure + Monzo Client Extraction — 3 modules (`budgeteer-common` / `monzo-client` / `budgeteer-api`); `backend/` → `budgeteer-api/`; Monzo HTTP behind a neutral `BankClient` interface; persistence stays in the API. 4 compile-green phases | 🔴 P1 | ~3.5–4d | [plan](multi-module-refactor/plan.md) |
 | 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](webhooks/plan.md) |
 
 ---
@@ -33,7 +31,8 @@
 |---------|----------|--------|-------|
 | 🧱 Domain Model Mapping (`monzo_transactions` → unified `transactions`) | P2 | 2–3d | Deferred out of Phase 4 (raw sync only). Add `user_accounts` / `transactions` domain tables, mapping layer, and the public `GET /api/transactions` (or `/v1`) endpoint. Now have real data to design against |
 | 📣 Event-driven post-sync hooks | P3 | 0.5d | [plan](oauth-callback-events/plan.md) — `BackfillCompletedEvent` / `BackfillPausedEvent` + listeners (email, domain mapping, webhook registration). Phase: after source migration |
-| 🏦 TrueLayer Integration (Lloyds/HSBC/Barclays) | P2 | 3–4d | [plan](truelayer-integration/plan.md) — Add BankAdapter abstraction, TrueLayerClient, support multi-bank via single API. Phase: after source migration |
+| 🏦 TrueLayer Integration (Lloyds/HSBC/Barclays) | P2 | 3–4d | [plan](truelayer-integration/plan.md) — After #6: add `truelayer-client` jar as a 2nd `BankClient` impl (+ capability interfaces for cards/standing-orders/direct-debits). Interface already validated against TrueLayer's Data API in the #6 plan |
+| 🧯 Generalise bank error codes (`MONZO_*` → `BANK_*`) | P3 | 0.5d | After #6. Neutral exceptions (`BankConnectionRevokedException` / `BankReauthRequiredException` / `BankClientException`) currently map to `MONZO_*` `ErrorCode`s in `GlobalExceptionHandler`. Replace with provider-agnostic `BANK_*` codes so a TrueLayer revocation isn't labelled "Monzo". Land with or before TrueLayer |
 | 🔌 REST Client Refactoring & Config Consolidation | P2 | 1.5–2d | [plan](rest-client-refactoring/plan.md) — Eliminate config sprawl, create `BankRestClient` base class, organize under `config/clients/` & `config/properties/`. Foundation for TrueLayer. Phase: after transaction sync + webhooks |
 | 🔄 MonzoClient Resilience | P3 | 0.5d | Connection pooling, timeouts, retries, circuit breaker |
 | 🔐 WebAuthn/Passkey Authentication | P2 | 2d | Touch ID / biometric login for fast re-auth |
@@ -73,6 +72,7 @@
 ## ✅ Done
 
 ### June 2026
+- [x] **API endpoint versioning** `/api/v1` URL-path versioning (PR #62) — was queued as #9; merged.
 - [x] **Package & groupId rename** `dev.amf` → `dev.amfshr` (PR #61) — pure mechanical rename across 145 Java files, `pom.xml` groupId, logback, and 4 properties files. Zero behaviour change. Done before multi-module split so it's a single sweep.
 - [x] **Transaction Sync — cursor fix** (PR #55): send the pagination cursor via Monzo's `since` param (Monzo has **no** `since_id`); keep `before` per window so the cursor advances. Fixes the backfill infinite loop. Verified end-to-end against real Monzo (fresh / SCA-resume / restart). *(An earlier attempt, 632cdec, misdiagnosed this as a `since_id`+`before` ordering issue — that's superseded by this fix.)*
 - [x] Transaction Sync Hardening (632cdec) — per-window commits (survive stop/SCA), progress API (`GET /api/monzo/sync/progress`), readable logs, Postman updated
