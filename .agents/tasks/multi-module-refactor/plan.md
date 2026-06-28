@@ -426,13 +426,13 @@ repo (Spring Boot **4.0.6** / Java **25** / PostgreSQL 16; base package `dev.amf
 `.agents/context/conventions.md`, `.agents/context/testing.md`, this spec, and every file in *Key
 Files to Read Before Implementing*.
 
-**Then:** branch from `main` (`git checkout -b refactor/multi-module-maven`) and implement strictly
-in the order in *Implementation Order*, phase by phase, keeping the build compile-green at each
-phase boundary. Use `git mv` for all moves/renames to preserve history. Follow the *Codebase ground
-rules*: constructor injection, thin controllers, DTOs not entities, `@NullMarked`, checkstyle limits
-(≤120 cols, ≤500-line files, ≤50-line methods, no star/unused imports), never modify existing
-migrations, never log tokens/secrets. Create exactly the files in *New Files*; change exactly those
-in *Modified / Moved Files*.
+**Then:** implement strictly in the order in *Implementation Order*, phase by phase, **on the current
+branch** (do not create a new branch), keeping the build compile-green at each phase boundary. Use
+`git mv` for all moves/renames to preserve history. Follow the *Codebase ground rules*: constructor
+injection, thin controllers, DTOs not entities, `@NullMarked`, checkstyle limits (≤120 cols,
+≤500-line files, ≤50-line methods, no star/unused imports), never modify existing migrations, never
+log tokens/secrets. Create exactly the files in *New Files*; change exactly those in
+*Modified / Moved Files*.
 
 **Critical:** this is a **behaviour-preserving** refactor. The Monzo OAuth flow, token refresh, and
 the windowed backfill (per-window commits, SCA-pause/resume, retry, idempotent upsert) and delta
