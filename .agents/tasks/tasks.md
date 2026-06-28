@@ -8,18 +8,19 @@
 
 ## 🚀 In Progress
 
-*None — pick from Queue.*
+| # | Task | Priority | Plan |
+|---|------|----------|------|
+| 6 | 🔍 Multi-Module Restructure — **implemented, PR #66 open. Needs Postman live-test then merge.** | 🔴 P1 | [plan](open/multi-module-refactor/plan.md) |
 
 ---
 
 ## 📋 Queue (Next Up)
 
-> Ordered by execution sequence. Multi-module refactor (#6) is **implemented and in PR #66**; next is hardening the `monzo-client` jar into a proper standalone library (auto-config), then Phase 5 / TrueLayer.
+> Ordered by execution sequence. Unblock #6 first (test → merge → branch), then #10.
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 10 | 🧩 Monzo-Client Jar — auto-config (decouple from app component-scan) + test hardening (mirror structure, integration tests, fixtures) + token-injection review (param vs interceptor). Template for `truelayer-client`. Open Q: shared OAuth → `common`? | 🟡 P2 | ~1–1.5d | [plan](open/monzo-client-hardening/plan.md) |
-| 6 | ✅ Multi-Module Restructure + Monzo Client Extraction (3 modules; neutral `BankClient` interface; `backend/` → `budgeteer-api/`; `bank` SPI → `common.bank`) — **implemented, in PR #66** | 🔴 P1 | ~3.5–4d | [plan](open/multi-module-refactor/plan.md) |
+| 10 | 🧩 Monzo-Client Jar hardening — auto-config (consumer-owned `RestClient`, `@AutoConfiguration` + `META-INF` wiring, delete `@Component`/`MonzoClientConfig`); structural cleanup (target package layout, dead `TokenResponse` DTO, typed `MonzoWhoAmIResponse`); test parity (fixture files, `MonzoMapperTest`, `MonzoAutoConfigurationTest`, missing cases for `getIdentity`/`buildAuthorizationUrl`/429). Template for `truelayer-client`. | 🟡 P2 | ~1.5–2d | [plan](open/monzo-client-hardening/plan.md) |
 | 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](open/webhooks/plan.md) |
 
 ---
@@ -127,4 +128,4 @@
 
 ---
 
-*Last updated: 2026-06-27 — API endpoint versioning (`/api/v1`) merged (#62); tasks split into `open/` and `closed/` subdirectories*
+*Last updated: 2026-06-28 — #6 multi-module refactor implemented + PR #66 open (needs live test + merge); #10 monzo-client hardening plan deepened and queued*
