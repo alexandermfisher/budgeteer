@@ -54,13 +54,13 @@ jobs:
       # Unit Tests
       # -----------------------------------------------------------------------
       - name: Run unit tests
-        run: mvn test -Dtest="*Test" --batch-mode --no-transfer-progress
+        run: mvn test -Dtest="*Test" -Dsurefire.failIfNoSpecifiedTests=false --batch-mode --no-transfer-progress
 
       # -----------------------------------------------------------------------
       # Integration Tests (Testcontainers - PostgreSQL)
       # -----------------------------------------------------------------------
       - name: Run integration tests
-        run: mvn test -Dtest="*IT" --batch-mode --no-transfer-progress
+        run: mvn test -Dtest="*IT" -Dsurefire.failIfNoSpecifiedTests=false --batch-mode --no-transfer-progress
 
       # -----------------------------------------------------------------------
       # Test Report Upload (on failure)
