@@ -41,8 +41,8 @@ jobs:
           java-version: '25'
           distribution: 'temurin'
           cache: maven
-          cache-dependency-path: backend/pom.xml
-      
+          cache-dependency-path: '**/pom.xml'
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
@@ -51,10 +51,9 @@ jobs:
           config-file: ./.github/codeql/codeql-config.yml
           # Use extended security queries for more thorough analysis
           queries: +security-extended,security-and-quality
-      
+
       - name: Build project
-        working-directory: ./backend
-        run: mvn compile -DskipTests --batch-mode --no-transfer-progress
+        run: mvn install -DskipTests --batch-mode --no-transfer-progress
       
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4

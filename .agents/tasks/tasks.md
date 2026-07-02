@@ -8,18 +8,19 @@
 
 ## 🚀 In Progress
 
-*None — pick from Queue.*
+| # | Task | Priority | Plan |
+|---|------|----------|------|
+| 6 | 🔍 Multi-Module Restructure — **implemented, PR #67 open. Postman live-tested ✅ — ready to merge.** | 🔴 P1 | [plan](open/multi-module-refactor/plan.md) |
 
 ---
 
 ## 📋 Queue (Next Up)
 
-> Ordered by execution sequence. The refactor track runs **rename → multi-module → source migration → versioning**, then Phase 5. Rename goes first so it's a single sweep before the code is split across modules.
+> Ordered by execution sequence. Unblock #6 first (test → merge → branch), then #10.
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 6 | 🏗️ Multi-Module Maven Restructure (4 modules; `backend/` → `budgeteer-api/`) | 🔴 P1 | 1d | [plan](open/multi-module-refactor/plan.md) |
-| 8 | 📦 Source Migration — Monzo → `monzo-client` jar (+ `OAuthStateService` → `budgeteer-common`) | 🔴 P1 | 2–3d | [plan](open/multi-module-refactor/plan.md) |
+| 10 | 🧩 Monzo-Client Jar hardening — auto-config (consumer-owned `RestClient`, `@AutoConfiguration` + `META-INF` wiring, delete `@Component`/`MonzoClientConfig`); structural cleanup (target package layout, dead `TokenResponse` DTO, typed `MonzoWhoAmIResponse`); test parity (fixture files, `MonzoMapperTest`, `MonzoAutoConfigurationTest`, missing cases for `getIdentity`/`buildAuthorizationUrl`/429). Template for `truelayer-client`. | 🟡 P2 | ~1.5–2d | [plan](open/monzo-client-hardening/plan.md) |
 | 5 | 🪝 Phase 5: Webhooks | 🟢 P3 | TBD | [plan](open/webhooks/plan.md) |
 
 ---
@@ -32,7 +33,9 @@
 |---------|----------|--------|-------|
 | 🧱 Domain Model Mapping (`monzo_transactions` → unified `transactions`) | P2 | 2–3d | Deferred out of Phase 4 (raw sync only). Add `user_accounts` / `transactions` domain tables, mapping layer, and the public `GET /api/transactions` (or `/v1`) endpoint. Now have real data to design against |
 | 📣 Event-driven post-sync hooks | P3 | 0.5d | [plan](closed/oauth-callback-events/plan.md) — `BackfillCompletedEvent` / `BackfillPausedEvent` + listeners (email, domain mapping, webhook registration). Phase: after source migration |
-| 🏦 TrueLayer Integration (Lloyds/HSBC/Barclays) | P2 | 3–4d | [plan](open/truelayer-integration/plan.md) — Add BankAdapter abstraction, TrueLayerClient, support multi-bank via single API. Phase: after source migration |
+| 🏦 TrueLayer Integration (Lloyds/HSBC/Barclays) | P2 | 3–4d | [plan](open/truelayer-integration/plan.md) — After #6: add `truelayer-client` jar as a 2nd `BankClient` impl (+ capability interfaces for cards/standing-orders/direct-debits). Interface already validated against TrueLayer's Data API in the #6 plan |
+| 🧯 Generalise bank error codes (`MONZO_*` → `BANK_*`) | P3 | 0.5d | After #6. Neutral exceptions (`BankConnectionRevokedException` / `BankReauthRequiredException` / `BankClientException`) currently map to `MONZO_*` `ErrorCode`s in `GlobalExceptionHandler`. Replace with provider-agnostic `BANK_*` codes so a TrueLayer revocation isn't labelled "Monzo". Land with or before TrueLayer |
+| 🧩 Per-page backfill commits (true mid-window resume) | P3 | 0.5d | Backfill commits one `TransactionTemplate` tx per ≤350-day window; an SCA 403 mid-window rolls the whole window back, so resume re-fetches it. `backfill_progress_cursor` is written per page but rolled back with the window — it never actually resumes mid-window. Commit each page (`REQUIRES_NEW`) so partial progress in a large window survives re-auth. Only bites if a single >90-day-old window can't be pulled within one 5-min SCA budget — low urgency for personal accounts |
 | 🔌 REST Client Refactoring & Config Consolidation | P2 | 1.5–2d | [plan](closed/rest-client-refactoring/plan.md) — Eliminate config sprawl, create `BankRestClient` base class, organize under `config/clients/` & `config/properties/`. Foundation for TrueLayer. Phase: after transaction sync + webhooks |
 | 🔄 MonzoClient Resilience | P3 | 0.5d | Connection pooling, timeouts, retries, circuit breaker |
 | 🔐 WebAuthn/Passkey Authentication | P2 | 2d | Touch ID / biometric login for fast re-auth |
@@ -125,4 +128,4 @@
 
 ---
 
-*Last updated: 2026-06-27 — API endpoint versioning (`/api/v1`) merged (#62); tasks split into `open/` and `closed/` subdirectories*
+*Last updated: 2026-07-02 — #6 Postman live-tested ✅, PR #67 ready to merge; #10 monzo-client hardening plan deepened and queued*
