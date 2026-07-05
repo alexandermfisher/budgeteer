@@ -1,318 +1,558 @@
 # Bank-Client Modules — Renames, Contract Additions & Monzo Jar Hardening
 
-> **Status:** Queue (spec ready to build)
+> **Status:** Queue (spec ready to build — deep-grounded against the repo on 2026-07-05)
 > **Priority:** P1 | **Estimate:** ~2–2.5d | **Branch:** `refactor/bank-client-modules`
+>
+> This spec is written for handoff: every new file's full contents, every changed method's full
+> target body, and exact file:line references for mechanical edits are included. If reality
+> disagrees with a line reference, trust the description of the change, re-locate, and proceed;
+> if reality disagrees with a *design statement*, stop and ask.
 
 ## Goal
 
-Three things, one pass over the client modules:
+Five commits, one pass over the client modules:
 
-1. **Execute the module naming scheme** (decided 2026-07-05): `common` → `bank-client-api`,
-   `monzo-client` → `bank-client-monzo`, `budgeteer-api` → `budgeteer-server`.
-2. **Contract additions the domain layer needs** (from `.agents/notes/domain-model-design.md`):
-   `getBalance` → `BankBalance`, and `rawJson` raw-capture on `BankTransaction` / `BankAccount`.
-   These land now so the contract is touched exactly once and #11 (domain model mapping) starts
-   unblocked.
-3. **Harden `bank-client-monzo`** into a properly self-contained Spring Boot library — a single
-   configured entry point the consumer wires up once, after which everything comes to life purely
-   from being on the classpath. The finished jar is the template for `bank-client-truelayer`.
-
----
-
-## 0. Module Renames
-
-| Old | New | Why |
-|-----|-----|-----|
-| `common` | `bank-client-api` | `-api` is the standard Java suffix for a contract-only jar (`slf4j-api`, `jakarta.persistence-api`) |
-| `monzo-client` | `bank-client-monzo` | family-prefix grouping (`spring-data-jpa` pattern) — implementations sort together and each new bank slots into the scheme |
-| `budgeteer-api` | `budgeteer-server` | frees "api" for the contract jar; pairs with `frontend/` (client/server); the module is the whole orchestrator, not just a REST surface |
-
-**Java packages do NOT move** — `dev.amfshr.budgeteer.bank`, `dev.amfshr.budgeteer.client.monzo`,
-and the app root stay exactly as they are. Module names and package names are independent.
-
-Do the renames as **one pure-mechanical commit** before any behaviour change:
-
-- [ ] `git mv common bank-client-api && git mv monzo-client bank-client-monzo && git mv budgeteer-api budgeteer-server`
-- [ ] Root `pom.xml` `<modules>` — three new names
-- [ ] Each module pom: `artifactId` + `<name>` — `bank-client-api` / "Bank Client API",
-      `bank-client-monzo` / "Bank Client — Monzo", `budgeteer-server` / "Budgeteer Server"
-- [ ] Consumer poms: dependency `artifactId`s (`bank-client-monzo/pom.xml` → `bank-client-api`;
-      `budgeteer-server/pom.xml` → both jars)
-- [ ] Root `<dependencyManagement>`: managed `artifactId`s
-- [ ] `.github/workflows/ci.yml` — `working-directory`, `cache-dependency-path`, artifact paths
-- [ ] `.github/workflows/codeql.yml` — same
-- [ ] `.github/dependabot.yml` — `directory: "/budgeteer-api"` → `"/budgeteer-server"`
-- [ ] `.github/CODEOWNERS` — path update
-- [ ] `scripts/dev.sh` — all `budgeteer-api` path refs, incl. any fat-jar filename refs
-      (the boot jar becomes `budgeteer-server-*.jar`)
-- [ ] `.idea/runConfigurations/*.xml` — module/path refs (PR #67 touched these; check)
-- [ ] Repo-wide grep for stragglers:
-      `grep -rn 'budgeteer-api\|monzo-client' --include='*.md' --include='*.yml' --include='*.yaml' --include='*.sh' --include='*.xml' . | grep -v target/`
-      — repoint **living** docs/config only (`.agents/context/*`, `docs/`, README, compose).
-      Historical plans under `.agents/tasks/closed/` describe the past — leave them.
-- [ ] `./mvnw clean verify` green from root
+1. **Module renames**: `common` → `bank-client-api`, `monzo-client` → `bank-client-monzo`,
+   `budgeteer-api` → `budgeteer-server`.
+2. **Package rename**: `dev.amfshr.budgeteer.common.bank` → `dev.amfshr.budgeteer.bank`
+   (restores the #6 spec's intended layout; "common" is meaningless once the module is renamed).
+3. **Contract additions** the domain layer (#11) needs: `getBalance` → `BankBalance`, and
+   `rawJson` raw-capture on `BankTransaction` / `BankAccount`.
+4. **Auto-configuration + cleanup**: the jar self-wires from the classpath; consumer owns the
+   `RestClient`; dead code deleted; typed DTOs throughout.
+5. **Test hardening**: fixture-driven WireMock tests, mapper unit tests, auto-config tests,
+   all missing error cases. The finished jar is the template for `bank-client-truelayer`.
 
 ---
 
-## Current State — What's Wrong (post-#67)
+## Ground Truth (verified against the repo, 2026-07-05)
 
-### 1. Auto-config is missing entirely
+Facts below were read from source — where they contradict older plans/docs, these win:
 
-- `MonzoBankClient` is `@Component` — only works because the app scans `client.monzo`. Wrong for a library.
-- `MonzoProperties` javadoc says it's registered via `@ConfigurationPropertiesScan` in
-  `BudgeteerApplication` — the jar should own its own registration.
-- `MonzoClientConfig` creates the `RestClient` internally with a bare `baseUrl` and nothing else —
-  no timeouts, no logging interceptors, no connection pool config. Consumer has no way to customise it.
-- No `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`.
-
-### 2. The contract is missing what the domain layer needs
-
-- No balance method — the domain design stores account balance as a provider-fetched snapshot,
-  and raw `monzo_accounts` has no balance column. Nothing can serve the Connected Accounts page.
-- No raw-payload capture — Monzo history >90 days is behind a 5-minute SCA window and effectively
-  unrecoverable; fields not mapped at sync time are lost forever without a raw blob.
-
-### 3. Dead code in `dto/`
-
-`dto/TokenResponse.java` is an unused record. `MonzoBankClient` uses `Map<String,Object>` →
-`MonzoMapper.toBankTokens` instead. Delete it.
-
-### 4. Flat package — won't scale
-
-Everything lives in `client.monzo`. As the client grows (balance endpoint, pots, webhooks,
-more DTOs, retry logic) one flat package becomes unreadable. Need clear sub-structure.
-
-### 5. Test coverage is thin
-
-One test class (`MonzoBankClientTest`) with inline JSON strings and zero fixture files.
-Missing entirely: `getIdentity`, `buildAuthorizationUrl`, `getAccounts` 403/429,
-`getTransactions` 429, auto-config wiring, mapper edge cases.
-
-### 6. `getIdentity` uses raw `Map.class`
-
-`restClient.get()...retrieve().body(Map.class)` suppresses unchecked. Should use a typed DTO
-(`MonzoWhoAmIResponse`) consistent with how every other endpoint is handled.
+| Fact | Value |
+|---|---|
+| Parent | `spring-boot-starter-parent` **4.1.0** (root `pom.xml`) |
+| Contract package | **`dev.amfshr.budgeteer.common.bank`** (NOT `.bank` — the #6 implementation deviated from its spec) |
+| Contract types | `BankClient`, `BankTokens`, `BankIdentity`, `BankAccount`, `BankTransaction`, `BankTransactionPage`, 3 exceptions, `package-info.java` (`@NullMarked`) — 10 files |
+| Files importing `common.bank` | **14**: 11 in `budgeteer-api` (5 main: `GlobalExceptionHandler`, `MonzoController`, `MonzoOAuthService`, `MonzoTokenRefreshService`, `TransactionSyncService`; 6 test: `MonzoControllerTest`, `MonzoOAuthFlowIT`, `MonzoTokenRefreshIT`, `MonzoOAuthServiceTest`, `MonzoTokenRefreshServiceTest`, `TransactionSyncServiceTest`) + 3 in `monzo-client` (`MonzoBankClient`, `MonzoMapper`, `MonzoBankClientTest`) |
+| `MonzoBankClient` | `@Component`; ctor `(MonzoProperties, RestClient monzoRestClient)`; `PAGE_SIZE = 100`; token + whoami endpoints parse `Map.class`; accounts/transactions bind DTO classes directly |
+| `MonzoMapper` | package-private **static utility** (private ctor); `toBankTokens(Map)`, `toBankAccount(dto)`, `toBankTransaction(dto)` |
+| DTO style | records with **explicit canonical constructors carrying `@JsonProperty` on every param** — new DTOs must copy this pattern |
+| Dead code | `dto/TokenResponse.java` — zero usages |
+| Test state | one class, `MonzoBankClientTest` (336 lines, 7 inline JSON text blocks, constructs `new MonzoBankClient(props, restClient)` at line 48); **no fixture files, no mapper test, no auto-config test** |
+| App properties classes | all 5 live in `dev.amfshr.budgeteer.config` (`MonzoTokenRefreshProperties`, `AppProperties`, `JweProperties`, `EncryptionProperties`, `TransactionSyncProperties`) — so `@ConfigurationPropertiesScan` can be narrowed safely |
+| `BudgeteerApplication` | `@SpringBootApplication` + `@ConfigurationPropertiesScan("dev.amfshr.budgeteer")` + `@EnableScheduling` |
+| CI | **builds from repo root** (`mvn install/test/checkstyle:check`, `cache-dependency-path: '**/pom.xml'`) — module renames touch only ci.yml:95 (a comment), dependabot.yml:15, CODEOWNERS:12 |
+| `scripts/dev.sh` | 5 × `cd "$PROJECT_ROOT/budgeteer-api"` (lines 185, 264, 271, 289, 301); no fat-jar filename refs (uses `mvn spring-boot:run`) |
+| `.idea/` | `encodings.xml` (lines 5–7), `compiler.xml` (module names ×4), `runConfigurations/Budgeteer___Local_Dev.xml` (lines 7, 10) reference old module names |
+| Checkstyle | max line **120**; keep methods ≤50 lines (extract helpers where specified below) |
+| neutral-record ctor call sites (tests) | `MonzoControllerTest` ×1, `MonzoOAuthServiceTest` ×2, `MonzoTokenRefreshServiceTest` ×3, `TransactionSyncServiceTest` ×18 — only `new BankTransaction(...)` / `new BankAccount(...)` calls are affected by `rawJson` |
 
 ---
 
-## Target Package Structure
+## Commit 1 — Module renames (pure mechanical)
 
-```
-bank-client-monzo/src/main/java/dev/amfshr/budgeteer/client/monzo/
-  autoconfigure/
-    MonzoAutoConfiguration.java        ← @AutoConfiguration — the single wiring point
-  dto/
-    MonzoAccountResponse.java          ← keep
-    MonzoAccountsResponse.java         ← keep
-    MonzoMerchantResponse.java         ← keep
-    MonzoTransactionResponse.java      ← keep
-    MonzoTransactionsResponse.java     ← keep
-    MonzoWhoAmIResponse.java           ← NEW: typed DTO for /ping/whoami
-    MonzoBalanceResponse.java          ← NEW: typed DTO for /balance
-    (delete TokenResponse.java)
-  MonzoBankClient.java                 ← plain class, no @Component
-  MonzoMapper.java                     ← package-private, keep
-  MonzoProperties.java                 ← keep, fix javadoc
-  package-info.java                    ← keep
+| Old | New | pom `<name>` |
+|-----|-----|--------------|
+| `common` | `bank-client-api` | Bank Client API |
+| `monzo-client` | `bank-client-monzo` | Bank Client — Monzo |
+| `budgeteer-api` | `budgeteer-server` | Budgeteer Server |
 
-bank-client-monzo/src/main/resources/
-  META-INF/spring/
-    org.springframework.boot.autoconfigure.AutoConfiguration.imports  ← NEW
+Steps (macOS; `sed -i ''`):
 
-bank-client-monzo/src/test/java/dev/amfshr/budgeteer/client/monzo/
-  autoconfigure/
-    MonzoAutoConfigurationTest.java    ← NEW: ApplicationContextRunner tests
-  MonzoBankClientTest.java             ← expand: add missing cases, load from fixtures
-  MonzoMapperTest.java                 ← NEW: edge cases for all mapping methods
+1. `git mv common bank-client-api && git mv monzo-client bank-client-monzo && git mv budgeteer-api budgeteer-server`
+2. Root `pom.xml`:
+   - `<modules>`: `common|monzo-client|budgeteer-api` → `bank-client-api|bank-client-monzo|budgeteer-server`
+   - `<dependencyManagement>`: managed artifactIds `common` → `bank-client-api`, `monzo-client` → `bank-client-monzo`
+3. `bank-client-api/pom.xml`: `<artifactId>common</artifactId>` → `bank-client-api`; `<name>Common</name>` → `Bank Client API`
+4. `bank-client-monzo/pom.xml`: `<artifactId>monzo-client</artifactId>` → `bank-client-monzo`; `<name>Monzo Client</name>` → `Bank Client — Monzo`; dependency `<artifactId>common</artifactId>` → `bank-client-api`
+5. `budgeteer-server/pom.xml`: own `<artifactId>` → `budgeteer-server`; `<name>` → `Budgeteer Server`; dependency artifactIds at lines ~19/~23 (`common`, `monzo-client`) → new names
+6. `.github/dependabot.yml:15`: `directory: "/budgeteer-api"` → `"/budgeteer-server"`
+7. `.github/CODEOWNERS:12`: `/budgeteer-api/` → `/budgeteer-server/`
+8. `.github/workflows/ci.yml:95`: update the comment (`budgeteer-api` → `budgeteer-server`)
+9. `scripts/dev.sh` lines 185, 264, 271, 289, 301: `$PROJECT_ROOT/budgeteer-api` → `$PROJECT_ROOT/budgeteer-server`
+10. `.idea/encodings.xml`, `.idea/compiler.xml`, `.idea/runConfigurations/Budgeteer___Local_Dev.xml`: replace the three module names (skip `workspace.xml` — transient)
+11. Straggler check (expect no hits in poms/workflows/scripts; hits in `.agents/tasks/closed/` and historical docs are fine — leave them):
+    `grep -rn 'artifactId>common<\|artifactId>monzo-client<\|artifactId>budgeteer-api<' --include=pom.xml .`
+    `grep -rn 'budgeteer-api' .github scripts compose.yaml README.md docs/README.md`
+12. Update living docs that name modules: `.agents/context/architecture.md`, `.agents/context/commands.md`, `README.md` (module tree / paths, if present)
 
-bank-client-monzo/src/test/resources/
-  wiremock/
-    oauth/
-      exchange-code-success.json
-      refresh-tokens-success.json
-      refresh-tokens-no-rotate.json
-    identity/
-      whoami-success.json
-    accounts/
-      accounts-success.json
-      accounts-empty.json
-      accounts-unknown-fields.json     (raw-capture test: fields NOT in the DTO)
-    balance/
-      balance-success.json
-    transactions/
-      transactions-first-page.json
-      transactions-full-page.json      (100 tx for cursor test)
-      transactions-with-cursor.json
-      transactions-declined.json
-      transactions-unknown-fields.json (raw-capture test)
-```
+**Verify:** `./mvnw clean verify` green from root. `./scripts/dev.sh` still starts (optional smoke).
 
 ---
 
-## 1. Contract Additions (`bank-client-api`)
+## Commit 2 — Package rename `common.bank` → `bank`
 
-### 1a. `getBalance`
+Java packages otherwise do NOT move; this is the single exception, restoring the #6 spec's
+intended `dev.amfshr.budgeteer.bank` and removing the stale "common" segment.
+
+1. `git mv bank-client-api/src/main/java/dev/amfshr/budgeteer/common/bank bank-client-api/src/main/java/dev/amfshr/budgeteer/bank`
+   then delete the now-empty `.../budgeteer/common/` directory.
+2. Sweep declarations + imports (24 edits across the 10 contract files + 14 importers):
+   `grep -rl 'dev\.amfshr\.budgeteer\.common\.bank' --include='*.java' . | xargs sed -i '' 's/dev\.amfshr\.budgeteer\.common\.bank/dev.amfshr.budgeteer.bank/g'`
+3. Straggler check: `grep -rn 'common\.bank' --include='*.java' .` → zero hits.
+
+**Verify:** `./mvnw clean verify` green. No behaviour change possible — pure rename.
+
+---
+
+## Commit 3 — Contract additions (`bank-client-api`)
+
+### 3a. New file `bank-client-api/src/main/java/dev/amfshr/budgeteer/bank/BankBalance.java`
 
 ```java
-// BankClient — new method
+package dev.amfshr.budgeteer.bank;
+
 /**
- * Current balance for one account, as reported by the provider.
- * @throws BankConnectionRevokedException if the connection is revoked (401)
- * @throws BankClientException on any other upstream failure
+ * Provider-neutral account balance snapshot. {@code balanceMinorUnits} is signed
+ * (a credit card in debt is negative). Lean by policy: only what the app persists —
+ * provider extras (available balance, credit limit) arrive later as {@code @Nullable} additions.
  */
-BankBalance getBalance(String accessToken, String accountId);
-
-// new neutral record — dev.amfshr.budgeteer.bank.BankBalance
-public record BankBalance(long balanceMinorUnits, String currency) {}
+public record BankBalance(
+        long balanceMinorUnits,
+        String currency
+) {}
 ```
 
-Lean by policy (Decision #5 of the #6 spec): only what the app will persist (the domain design's
-`Account.balance_minor_units` snapshot; `balance_as_of` is stamped by the caller at fetch time).
-TrueLayer extras (available balance, credit limit) arrive later as `@Nullable` additions.
+### 3b. `BankClient.java` — add one method (after `getAccounts`, before `getTransactions`)
 
-Monzo impl: `GET /balance?account_id={id}` → new `dto/MonzoBalanceResponse(balance, total_balance,
-currency, spend_today)`; map `balance` + `currency`, ignore the rest. Neutral exceptions exactly as
-the other endpoints (401 → revoked, other → `BankClientException`).
+```java
+    /**
+     * Current balance for one account, as reported by the provider. The caller stamps the
+     * fetch time; this record carries no timestamp.
+     *
+     * @throws BankConnectionRevokedException if the connection is revoked (401)
+     * @throws BankClientException on any other upstream failure
+     */
+    BankBalance getBalance(String accessToken, String accountId);
+```
 
-### 1b. `rawJson` raw-capture
+### 3c. `rawJson` on `BankAccount` + `BankTransaction`
 
-`@Nullable String rawJson` becomes the **last component** of `BankTransaction` and `BankAccount`.
-Purpose: audit trail + field backfill without re-fetching (unmapped fields are otherwise lost —
-see Current State #2).
+Add `@Nullable String rawJson` as the **last** component of each record, with this javadoc on
+the component line: `// verbatim provider JSON for this element; null if unavailable`. Target
+`BankTransaction` (unchanged components elided here — keep them exactly as they are):
 
-**Correctness requirement — true raw, not DTO re-serialisation.** Jackson DTOs drop unknown JSON
-properties, so `objectMapper.writeValueAsString(dto)` would silently lose exactly the fields raw
-capture exists to keep. `MonzoBankClient` must instead:
+```java
+public record BankTransaction(
+        String externalId,
+        long amountMinorUnits,
+        String currency,
+        @Nullable String description,
+        @Nullable String merchantName,
+        @Nullable String merchantCategory,
+        @Nullable String notes,
+        boolean declined,
+        Instant createdAt,
+        @Nullable Instant settledAt,
+        @Nullable String rawJson
+) {}
+```
 
-1. Retrieve the accounts / transactions response body as `JsonNode`.
-2. Iterate the array node; for each element take **both**
-   `objectMapper.treeToValue(node, MonzoTransactionResponse.class)` (typed mapping) **and**
-   `node.toString()` (the raw capture).
-3. `MonzoMapper.toBankTransaction` / `toBankAccount` take `(dto, rawJson)` and pass it through.
+`BankAccount` likewise gains `@Nullable String rawJson` after `createdAt`.
 
-The `ObjectMapper` comes via the auto-config — `ObjectProvider<ObjectMapper>` with
-`getIfAvailable(ObjectMapper::new)` fallback — and into `MonzoBankClient`'s constructor
-(`RestClient`, `MonzoProperties`, `ObjectMapper`).
+**Why raw, and why it must be true raw:** Monzo history >90 days is behind a 5-minute SCA
+window — unmapped fields are unrecoverable after sync. Jackson DTOs drop unknown JSON
+properties, so re-serialising a DTO would lose exactly the fields this exists to keep. The
+capture must come from the raw `JsonNode`, per 3e.
 
-**Ripple:** both record constructors gain a component — update `MonzoMapper` and every
-`budgeteer-server` test fixture that constructs neutral records (`TransactionSyncServiceTest`
-etc. — mechanical). Production `budgeteer-server` code **ignores** `rawJson` and `getBalance`
-until #11 persists them; consuming them here is out of scope.
+### 3d. New DTO `bank-client-monzo/.../dto/MonzoBalanceResponse.java`
+
+Copy the existing explicit-`@JsonProperty`-constructor style:
+
+```java
+package dev.amfshr.budgeteer.client.monzo.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public record MonzoBalanceResponse(
+        long balance,
+        long totalBalance,
+        String currency,
+        long spendToday
+) {
+    public MonzoBalanceResponse(
+            @JsonProperty("balance") long balance,
+            @JsonProperty("total_balance") long totalBalance,
+            @JsonProperty("currency") String currency,
+            @JsonProperty("spend_today") long spendToday
+    ) {
+        this.balance = balance;
+        this.totalBalance = totalBalance;
+        this.currency = currency;
+        this.spendToday = spendToday;
+    }
+}
+```
+
+### 3e. `MonzoBankClient` — constructor, `getBalance`, JsonNode-based fetch
+
+**Constructor** gains an `ObjectMapper` (used by the JsonNode mapping):
+
+```java
+    private final MonzoProperties monzoProperties;
+    private final RestClient restClient;
+    private final ObjectMapper objectMapper;
+
+    public MonzoBankClient(MonzoProperties monzoProperties, RestClient monzoRestClient,
+                           ObjectMapper objectMapper) {
+        this.monzoProperties = monzoProperties;
+        this.restClient = monzoRestClient;
+        this.objectMapper = objectMapper;
+    }
+```
+
+**New method `getBalance`** (after `getAccounts`; same error pattern as its siblings):
+
+```java
+    @Override
+    public BankBalance getBalance(String accessToken, String accountId) {
+        log.debug("Fetching Monzo balance [accountId={}]", accountId);
+        try {
+            MonzoBalanceResponse response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/balance")
+                            .queryParam("account_id", accountId).build())
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .body(MonzoBalanceResponse.class);
+
+            if (response == null) {
+                throw new BankClientException("Empty response from Monzo balance endpoint");
+            }
+            return new BankBalance(response.balance(), response.currency());
+
+        } catch (RestClientResponseException e) {
+            handleMonzoError(e, "balance");
+            throw new BankClientException("Failed to fetch Monzo balance: " + e.getMessage(), e);
+        }
+    }
+```
+
+**`getAccounts`** — retrieve `JsonNode` instead of the wrapper DTO; body of the `try` becomes:
+
+```java
+            JsonNode root = restClient.get()
+                    .uri("/accounts")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            if (root == null || !root.path("accounts").isArray()) {
+                throw new BankClientException("Empty response from Monzo accounts endpoint");
+            }
+
+            List<BankAccount> accounts = mapArray(root.get("accounts"),
+                    MonzoAccountResponse.class, MonzoMapper::toBankAccount);
+            log.debug("Fetched {} Monzo accounts", accounts.size());
+            return accounts;
+```
+
+**`getTransactions`** — same change; replace the DTO-bound retrieve + mapping block with:
+
+```java
+            JsonNode root = restClient.get()
+                    .uri(uri.build().toUriString())
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .body(JsonNode.class);
+
+            if (root == null || !root.path("transactions").isArray()) {
+                throw new BankClientException("Empty response from Monzo transactions endpoint");
+            }
+
+            JsonNode array = root.get("transactions");
+            List<BankTransaction> mapped = mapArray(array,
+                    MonzoTransactionResponse.class, MonzoMapper::toBankTransaction);
+
+            String nextCursor = array.size() >= PAGE_SIZE
+                    ? mapped.get(mapped.size() - 1).externalId()
+                    : null;
+```
+
+(cursor-label logging and the return stay as today; note the cursor now reads
+`mapped.get(...).externalId()` instead of the raw DTO list — same value, the tx id.)
+
+**New private helper** (keeps both methods under the 50-line checkstyle limit; place in the
+Private Methods section):
+
+```java
+    /** Map each element of a JSON array via its DTO, capturing the element's verbatim JSON. */
+    private <D, B> List<B> mapArray(JsonNode array, Class<D> dtoType,
+                                    BiFunction<D, String, B> mapper) {
+        List<B> result = new ArrayList<>(array.size());
+        for (JsonNode node : array) {
+            try {
+                D dto = objectMapper.treeToValue(node, dtoType);
+                result.add(mapper.apply(dto, node.toString()));
+            } catch (JsonProcessingException e) {
+                throw new BankClientException("Failed to parse Monzo response element", e);
+            }
+        }
+        return result;
+    }
+```
+
+New imports in `MonzoBankClient`: `com.fasterxml.jackson.core.JsonProcessingException`,
+`com.fasterxml.jackson.databind.JsonNode`, `com.fasterxml.jackson.databind.ObjectMapper`,
+`dev.amfshr.budgeteer.bank.BankBalance`, `dev.amfshr.budgeteer.client.monzo.dto.MonzoBalanceResponse`,
+`java.util.ArrayList`, `java.util.function.BiFunction`. The `MonzoAccountsResponse` /
+`MonzoTransactionsResponse` wrapper imports become unused — remove the imports but **keep the
+DTO files** (they document the wire shape and cost nothing; delete only if checkstyle objects).
+
+### 3f. `MonzoMapper` — signatures gain `rawJson`
+
+```java
+    static BankAccount toBankAccount(MonzoAccountResponse ar, @Nullable String rawJson) {
+        ...
+        return new BankAccount(ar.id(), ar.type(), ar.description(), ar.currency(),
+                ar.closed(), createdAt, rawJson);
+    }
+
+    static BankTransaction toBankTransaction(MonzoTransactionResponse tx, @Nullable String rawJson) {
+        ...
+        return new BankTransaction(tx.id(), tx.amount(), tx.currency(), tx.description(),
+                tx.merchant() != null ? tx.merchant().name() : null,
+                tx.merchant() != null ? tx.merchant().category() : null,
+                tx.notes(), declined, createdAt, settledAt, rawJson);
+    }
+```
+
+`toBankTokens` is unchanged. The method-reference call sites in 3e (`MonzoMapper::toBankAccount`
+etc.) match the new two-arg signatures via `BiFunction`.
+
+### 3g. Ripple — `budgeteer-server` tests (mechanical)
+
+Every `new BankTransaction(...)` / `new BankAccount(...)` in these files gains a trailing
+`null` argument (or a literal like `"{}"` where a test asserts passthrough):
+
+| File | call sites |
+|---|---|
+| `service/monzo/TransactionSyncServiceTest.java` | up to 18 (only the `BankTransaction`/`BankAccount` ones — `BankTokens`/`BankIdentity` calls are untouched) |
+| `service/monzo/MonzoTokenRefreshServiceTest.java` | check its 3 |
+| `service/monzo/MonzoOAuthServiceTest.java` | check its 2 |
+| `api/monzo/MonzoControllerTest.java` | check its 1 |
+
+If `TransactionSyncServiceTest` has a fixture-builder helper, add the arg there once. Production
+`budgeteer-server` code compiles unchanged (it only *reads* the records) and **must not** start
+consuming `rawJson`/`getBalance` — that's #11.
+
+**Verify:** `./mvnw clean verify` green. `MonzoOAuthFlowIT` + `MonzoTokenRefreshIT` (WireMock
+against the real `MonzoBankClient`) are the behaviour-preservation safety net for the JsonNode
+fetch rewrite — they must pass untouched apart from record-ctor updates.
 
 ---
 
-## 2. Auto-Configuration
+## Commit 4 — Auto-configuration + structural cleanup
 
-### Design: consumer-owned `RestClient`
+### 4a. Delete dead code; retype `getIdentity`
 
-The consumer app defines a `@Bean RestClient monzoRestClient(...)` — it owns baseUrl, timeouts,
-logging interceptors, connection pool. The auto-config picks it up via `@Qualifier("monzoRestClient")`
-and uses it to construct `MonzoBankClient`. The jar never creates its own `RestClient`.
+- **Delete** `dto/TokenResponse.java` (zero usages — verified).
+- **New** `dto/MonzoWhoAmIResponse.java` (same explicit-ctor style):
 
 ```java
-// MonzoAutoConfiguration.java
+package dev.amfshr.budgeteer.client.monzo.dto;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
+import org.jspecify.annotations.Nullable;
+
+public record MonzoWhoAmIResponse(
+        boolean authenticated,
+        @Nullable String userId
+) {
+    public MonzoWhoAmIResponse(
+            @JsonProperty("authenticated") boolean authenticated,
+            @JsonProperty("user_id") @Nullable String userId
+    ) {
+        this.authenticated = authenticated;
+        this.userId = userId;
+    }
+}
+```
+
+- `getIdentity`: replace the `Map.class` body (and its `@SuppressWarnings`) with
+  `.body(MonzoWhoAmIResponse.class)`; null response → same "Empty response…" exception;
+  `response.userId()` null **or blank** → `BankClientException("No user_id in Monzo whoami response")`;
+  happy path `return new BankIdentity(response.userId(), null);`. (The token endpoints keep
+  `Map.class` — OAuth token responses stay map-parsed via `MonzoMapper.toBankTokens`.)
+
+### 4b. Auto-configuration
+
+- Remove `@Component` from `MonzoBankClient` (and its now-unused import).
+- **Delete** jar-side `MonzoClientConfig.java`.
+- **New** `bank-client-monzo/src/main/java/dev/amfshr/budgeteer/client/monzo/autoconfigure/MonzoAutoConfiguration.java`:
+
+```java
+package dev.amfshr.budgeteer.client.monzo.autoconfigure;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.amfshr.budgeteer.client.monzo.MonzoBankClient;
+import dev.amfshr.budgeteer.client.monzo.MonzoProperties;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.web.client.RestClient;
+
+/**
+ * Wires a {@link MonzoBankClient} from the consumer's {@code monzoRestClient} bean.
+ * The consumer owns RestClient creation (baseUrl, timeouts, interceptors); this jar never
+ * builds its own.
+ */
 @AutoConfiguration
 @EnableConfigurationProperties(MonzoProperties.class)
-@ConditionalOnClass(MonzoBankClient.class)
 public class MonzoAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
     public MonzoBankClient monzoBankClient(
             @Qualifier("monzoRestClient") RestClient restClient,
-            MonzoProperties props,
+            MonzoProperties properties,
             ObjectProvider<ObjectMapper> objectMapper
     ) {
-        return new MonzoBankClient(restClient, props, objectMapper.getIfAvailable(ObjectMapper::new));
+        return new MonzoBankClient(properties, restClient,
+                objectMapper.getIfAvailable(ObjectMapper::new));
     }
 }
 ```
 
+- **New** `bank-client-monzo/src/main/resources/META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`
+  containing exactly one line:
+
 ```
-# META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
 dev.amfshr.budgeteer.client.monzo.autoconfigure.MonzoAutoConfiguration
 ```
 
+- **New** `budgeteer-server/src/main/java/dev/amfshr/budgeteer/config/MonzoClientConfig.java`
+  (consumer-owned `RestClient`; same bean name the auto-config qualifies on):
+
 ```java
-// budgeteer-server: MonzoClientConfig.java (consumer owns RestClient creation)
+package dev.amfshr.budgeteer.config;
+
+import dev.amfshr.budgeteer.client.monzo.MonzoProperties;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
+
+/**
+ * The app owns the Monzo RestClient — baseUrl, and later timeouts/interceptors/pooling.
+ * MonzoAutoConfiguration (bank-client-monzo jar) picks this bean up by name.
+ */
 @Configuration
 public class MonzoClientConfig {
 
     @Bean
-    public RestClient monzoRestClient(MonzoProperties props, RestClient.Builder builder) {
-        return builder
-            .baseUrl(props.apiBaseUrl())
-            // timeouts, interceptors, logging here — consumer in full control
-            .build();
+    RestClient monzoRestClient(MonzoProperties monzoProperties) {
+        return RestClient.builder()
+                .baseUrl(monzoProperties.apiBaseUrl())
+                .build();
     }
 }
 ```
 
-### What to change
+- `BudgeteerApplication`: narrow `@ConfigurationPropertiesScan("dev.amfshr.budgeteer")` →
+  `@ConfigurationPropertiesScan("dev.amfshr.budgeteer.config")` (all 5 app properties classes
+  live there — verified; `MonzoProperties` is now registered by the auto-config).
+- `MonzoProperties` javadoc: replace the "Registered as a bean via @ConfigurationPropertiesScan
+  in BudgeteerApplication" line with "Registered via {@code MonzoAutoConfiguration}".
 
-| File | Action |
-|------|--------|
-| `MonzoBankClient.java` | Remove `@Component`; constructor gains `ObjectMapper` |
-| `MonzoClientConfig.java` (jar) | **Delete** — consumer app owns `RestClient` creation |
-| `autoconfigure/MonzoAutoConfiguration.java` | **New** |
-| `META-INF/.../AutoConfiguration.imports` | **New** |
-| `MonzoProperties.java` | Fix javadoc (remove "registered via @ConfigurationPropertiesScan") |
-| `BudgeteerApplication.java` | Narrow `@ConfigurationPropertiesScan` back to app-only properties once auto-config handles `MonzoProperties` registration |
-| `budgeteer-server/.../MonzoClientConfig.java` | **New** — replaces the deleted jar-side one |
+**Safety note for the implementer:** the auto-config class lives under the app's component-scan
+root (`dev.amfshr.budgeteer.**`), which is fine *only* because `@SpringBootApplication`'s default
+`AutoConfigurationExcludeFilter` excludes registered auto-configurations from scanning. Do not
+replace `@SpringBootApplication` with a custom `@ComponentScan`, and do not add `@Configuration`
+to `MonzoAutoConfiguration`.
+
+**Verify:** `./mvnw clean verify` green — `MonzoOAuthFlowIT` booting the full context proves the
+auto-config actually wires (it would fail on a missing `MonzoBankClient`/`MonzoProperties` bean).
 
 ---
 
-## 3. Dead Code & DTO Cleanup
+## Commit 5 — Test hardening
 
-- **Delete `dto/TokenResponse.java`** — unused; `MonzoBankClient` uses `Map<String,Object>` →
-  `MonzoMapper.toBankTokens`.
-- **Add `dto/MonzoWhoAmIResponse.java`** — replace raw `Map.class` in `getIdentity`; eliminates
-  `@SuppressWarnings("unchecked")`:
+### 5a. Fixture files — `bank-client-monzo/src/test/resources/wiremock/`
 
-```java
-public record MonzoWhoAmIResponse(
-        @JsonProperty("user_id") String userId,
-        @JsonProperty("authenticated") boolean authenticated
-) {}
+Extract the 7 inline JSON text blocks in `MonzoBankClientTest` into files; add new ones:
+
+```
+wiremock/
+  oauth/exchange-code-success.json        oauth/refresh-tokens-success.json
+  oauth/refresh-tokens-no-rotate.json     identity/whoami-success.json
+  accounts/accounts-success.json          accounts/accounts-empty.json
+  accounts/accounts-unknown-fields.json   balance/balance-success.json
+  transactions/transactions-first-page.json
+  transactions/transactions-full-page.json      (PAGE_SIZE=100 items → cursor present)
+  transactions/transactions-with-cursor.json
+  transactions/transactions-declined.json
+  transactions/transactions-unknown-fields.json
 ```
 
-- **Add `dto/MonzoBalanceResponse.java`** — see §1a.
+Loader helper in the test class (or a small `TestFixtures` util):
 
----
+```java
+    private static String fixture(String path) throws IOException {
+        try (var in = MonzoBankClientTest.class.getResourceAsStream("/wiremock/" + path)) {
+            return new String(Objects.requireNonNull(in).readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+```
 
-## 4. Test Hardening
+`balance/balance-success.json`:
 
-### Fixture-driven approach
+```json
+{"balance": 5000, "total_balance": 6000, "currency": "GBP", "spend_today": -120}
+```
 
-Extract all inline JSON strings to `src/test/resources/wiremock/` files. Tests load them with a
-helper (see the `TestMonzoData` / fixture pattern used in the server module). Inline JSON is fine
-for trivial cases; fixtures are required for any JSON with more than ~5 fields.
+`transactions/transactions-unknown-fields.json` — the raw-capture proof; `local_amount` and
+`category` are deliberately NOT in `MonzoTransactionResponse`:
 
-### `MonzoBankClientTest` — add missing cases
+```json
+{
+  "transactions": [
+    {
+      "id": "tx_unknownfields00000001",
+      "amount": -350,
+      "currency": "GBP",
+      "description": "TEST COFFEE",
+      "merchant": {"name": "Test Coffee", "category": "eating_out"},
+      "notes": "",
+      "created": "2026-06-01T10:00:00.000Z",
+      "settled": "2026-06-02T10:00:00.000Z",
+      "local_amount": -350,
+      "category": "eating_out"
+    }
+  ]
+}
+```
 
-| Method | Missing tests |
-|--------|--------------|
-| `getIdentity` | happy path, 401 → `BankConnectionRevokedException`, 403 → `BankClientException`, empty/null `user_id` → `BankClientException` |
-| `buildAuthorizationUrl` | verify all required query params present (client_id, redirect_uri, response_type, state) |
-| `getAccounts` | 403 → `BankClientException`, 429 → `BankClientException`, empty list returns empty `List` |
-| `getTransactions` | 429 → `BankClientException` |
-| `getBalance` | happy path, 401, 403/429, malformed body |
-| `exchangeCode` | missing access_token in response → `BankClientException` |
-| `refreshTokens` | 403 case |
-| **raw capture** | fixture containing fields **not** in the DTO (`*-unknown-fields.json`) → assert those fields appear verbatim in `rawJson` (proves no unknown-field loss); assert `rawJson` populated on accounts + transactions happy paths |
+(`accounts/accounts-unknown-fields.json` analogous: one account element plus e.g.
+`"sort_code": "040004"` not present in `MonzoAccountResponse`.)
 
-### `MonzoMapperTest` — new
+### 5b. `MonzoBankClientTest` — cases to add
 
-Unit-test all mapper methods in isolation (no WireMock/HTTP):
-- `toBankTokens`: `expiresIn` present, `expiresIn` null, `refreshToken` null
-- `toBankAccount`: normal, `description` null, `created` null / blank / malformed, `rawJson` passthrough
-- `toBankTransaction`: settled null/blank, `declined` true/false, merchant null vs present,
-  `notes` null, `rawJson` passthrough
-- `toBankBalance`: normal, currency present
+| Method | New tests |
+|--------|-----------|
+| `getIdentity` | happy path (fixture); 401 → `BankConnectionRevokedException`; 403 → `BankClientException`; missing/blank `user_id` → `BankClientException` |
+| `buildAuthorizationUrl` | asserts `client_id`, `redirect_uri`, `response_type=code`, `state` all present |
+| `getAccounts` | 403 → `BankClientException`; 429 → `BankClientException`; empty list → empty `List`; **rawJson populated**; **unknown-fields fixture → `rawJson` contains `"sort_code"`** |
+| `getBalance` | happy path (5000/GBP); 401 → revoked; 429 → `BankClientException`; malformed body → `BankClientException` |
+| `getTransactions` | 429 → `BankClientException`; **unknown-fields fixture → `rawJson` contains `"local_amount"` and `"category"`** (proves no unknown-field loss); full-page fixture → `nextCursor` = last tx id; short page → `nextCursor` null |
+| `exchangeCode` | missing `access_token` → `BankClientException` |
+| `refreshTokens` | 403 → `BankClientException` |
 
-### `MonzoAutoConfigurationTest` — new
+Construction updates: `new MonzoBankClient(props, restClient, new ObjectMapper())`.
 
-Use `ApplicationContextRunner` (no server boot):
+### 5c. New `MonzoMapperTest` (plain JUnit, no HTTP)
+
+- `toBankTokens`: `expires_in` present → `expiresAt ≈ now+n`; `expires_in` null → null;
+  `refresh_token` null → null
+- `toBankAccount`: normal; `description` null; `created` null / blank / malformed → `createdAt`
+  null; `rawJson` passthrough
+- `toBankTransaction`: `settled` null and blank → `settledAt` null; `decline_reason` present →
+  `declined=true`, absent/blank → false; `merchant` null → null name/category; `notes` null;
+  `rawJson` passthrough
+
+### 5d. New `autoconfigure/MonzoAutoConfigurationTest` (ApplicationContextRunner, no server)
 
 ```java
 class MonzoAutoConfigurationTest {
@@ -320,96 +560,68 @@ class MonzoAutoConfigurationTest {
     private final ApplicationContextRunner runner = new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(MonzoAutoConfiguration.class))
             .withPropertyValues(
-                "monzo.client-id=cid",
-                "monzo.client-secret=secret",
-                "monzo.redirect-uri=http://localhost/cb",
-                "monzo.auth-url=http://auth",
-                "monzo.token-url=http://token",
-                "monzo.api-base-url=http://api"
-            );
+                    "monzo.client-id=cid", "monzo.client-secret=secret",
+                    "monzo.redirect-uri=http://localhost/cb", "monzo.auth-url=http://auth",
+                    "monzo.token-url=http://token", "monzo.api-base-url=http://api");
 
     @Test
     void registersMonzoBankClientWhenRestClientPresent() {
-        runner
-            .withBean("monzoRestClient", RestClient.class, () -> RestClient.create())
-            .run(ctx -> assertThat(ctx).hasSingleBean(MonzoBankClient.class));
+        runner.withBean("monzoRestClient", RestClient.class, RestClient::create)
+                .run(ctx -> {
+                    assertThat(ctx).hasSingleBean(MonzoBankClient.class);
+                    assertThat(ctx).hasSingleBean(MonzoProperties.class);
+                });
     }
 
     @Test
-    void backOffWhenConsumerDefinesOwnMonzoBankClient() {
-        runner
-            .withBean("monzoRestClient", RestClient.class, () -> RestClient.create())
-            .withBean(MonzoBankClient.class, () -> mock(MonzoBankClient.class))
-            .run(ctx -> assertThat(ctx).hasSingleBean(MonzoBankClient.class));
+    void backsOffWhenConsumerDefinesOwnMonzoBankClient() {
+        MonzoBankClient custom = mock(MonzoBankClient.class);
+        runner.withBean("monzoRestClient", RestClient.class, RestClient::create)
+                .withBean("customClient", MonzoBankClient.class, () -> custom)
+                .run(ctx -> assertThat(ctx.getBean(MonzoBankClient.class)).isSameAs(custom));
+    }
+
+    @Test
+    void failsWithoutMonzoRestClientBean() {
+        runner.run(ctx -> assertThat(ctx).hasFailed());
     }
 }
 ```
 
----
-
-## 5. Token Injection — Confirmed: Keep Parameter Passing
-
-`BankClient` methods take `accessToken` as a plain `String` parameter. One bean, many users —
-token varies per call. Interceptor would need thread-local/request-scoped token passing — more
-complexity, no benefit. Token storage, decryption (AES-256-GCM), and refresh stay in
-`budgeteer-server`. The jar receives plaintext only. **No change.**
+**Verify (final):** `./mvnw clean verify` green from root; boot `budgeteer-server` locally and
+run the Monzo OAuth flow end-to-end (Postman collection); `/check` green before raising the PR.
 
 ---
 
-## 6. Shared OAuth → `bank-client-api`? (Resolved: No)
+## Out of Scope — do NOT do these
 
-The contract lives in `bank-client-api` (`BankClient.buildAuthorizationUrl / exchangeCode / refreshTokens`).
-A shared *impl* in `bank-client-api` would pull `spring-web`/HTTP into a dependency-light jar. Each
-client jar implements its own (Monzo vs TrueLayer OAuth differ). OAuth state orchestration
-(CSRF, DB-backed `OAuthState`, `User` link) stays in `budgeteer-server`. Revisit only if real
-duplication appears once `bank-client-truelayer` exists (rule of three).
-
----
-
-## 7. Multi-Bank Context
-
-Once `bank-client-monzo` auto-configures correctly, `bank-client-truelayer` copies the same
-pattern. With both jars on the classpath there will be two `BankClient` beans. The auto-config
-should use a named qualifier (`@Bean("monzo")`) so the app can select by provider — likely a
-`Map<Provider, BankClient>` registry in `budgeteer-server`. Out of scope here; note for TrueLayer.
+- Consuming `rawJson` / `getBalance` in `budgeteer-server` (persistence, jobs, endpoints) → #11.
+- Any DB migration. Any change to `TransactionSyncService` windowing/commit/cursor logic beyond
+  the record-constructor ripple.
+- Capability interfaces, `BANK_*` error codes, retries/pooling/circuit breaker, `bank-client-truelayer`.
+- Renaming any Java package other than `common.bank` → `bank` (Commit 2).
 
 ---
 
-## Out of Scope
+## Implementer Kickoff Prompt
 
-- Consuming `rawJson` / `getBalance` in `budgeteer-server` (persistence, jobs, endpoints) — that's
-  #11 domain model mapping. This task only updates server test fixtures for the record changes.
-- Capability interfaces (`SupportsCards`, …), `BANK_*` error codes, client resilience — existing
-  backlog items, unchanged.
-- `bank-client-truelayer` scaffolding.
+> Copy-paste to the implementing model/tool.
 
----
+You are implementing **Bank-Client Modules** in the Budgeteer repo (Spring Boot **4.1.0** /
+Java 25; contract package `dev.amfshr.budgeteer.bank` after Commit 2). Read
+`.agents/context/conventions.md`, `.agents/context/testing.md`, and this spec fully before
+writing code. Work on branch `refactor/bank-client-modules` (branched from `main`).
 
-## Implementation Checklist
+Implement **exactly five commits in the order specified**, running the stated verification after
+each; never move to the next commit on a red build. Use `git mv` for all renames. Full target
+code in the spec is authoritative — transcribe it, adjusting only imports/formatting to satisfy
+checkstyle (≤120 cols, ≤50-line methods, no star/unused imports). The spec's Ground Truth section
+tells you the current state of every file you will touch; if a file:line has drifted, re-locate
+by description. `MonzoOAuthFlowIT` and `MonzoTokenRefreshIT` are the behaviour-preservation
+safety net — they must pass without modification beyond the neutral-record constructor ripple.
 
-**Commit 1 — module renames (pure mechanical)**
-- [ ] Everything in §0, ending `./mvnw clean verify` green
+Do not add scope (see *Out of Scope*), do not redesign, do not consume the new contract methods
+in the server. If something is genuinely ambiguous after reading the spec, stop and ask.
 
-**Commit 2 — contract additions**
-- [ ] `BankBalance` record + `BankClient.getBalance` javadoc'd method
-- [ ] `rawJson` component on `BankTransaction` + `BankAccount`
-- [ ] `dto/MonzoBalanceResponse.java`; `getBalance` impl in `MonzoBankClient`
-- [ ] `JsonNode`-based fetch in `getAccounts`/`getTransactions`; `MonzoMapper` takes `(dto, rawJson)`
-- [ ] Update `budgeteer-server` test fixtures for the new record components (mechanical)
-
-**Commit 3 — auto-config + structural cleanup**
-- [ ] Delete `dto/TokenResponse.java`; add `dto/MonzoWhoAmIResponse.java`; retype `getIdentity`
-- [ ] Remove `@Component` from `MonzoBankClient`; delete jar-side `MonzoClientConfig`
-- [ ] `autoconfigure/MonzoAutoConfiguration.java` + `META-INF/.../AutoConfiguration.imports`
-- [ ] `budgeteer-server` `MonzoClientConfig` (consumer-owned `RestClient`)
-- [ ] Fix `MonzoProperties` javadoc; narrow `@ConfigurationPropertiesScan` in `BudgeteerApplication`
-
-**Commit 4 — tests**
-- [ ] `wiremock/` fixture tree (incl. `*-unknown-fields.json` raw-capture fixtures)
-- [ ] `MonzoBankClientTest` — fixtures + all missing cases (incl. `getBalance`, raw capture)
-- [ ] `MonzoMapperTest`, `MonzoAutoConfigurationTest`
-
-**Verify**
-- [ ] `./mvnw test` — all green
-- [ ] Boot `budgeteer-server` locally — Monzo OAuth flow end-to-end still works
-- [ ] `/check` (checkstyle + unit + integration) green before raising the PR
+Done = all five commits green, `/check` passes from the repo root, OAuth flow live-tested, PR
+raised referencing this plan.
