@@ -156,6 +156,31 @@ window — unmapped fields are unrecoverable after sync. Jackson DTOs drop unkno
 properties, so re-serialising a DTO would lose exactly the fields this exists to keep. The
 capture must come from the raw `JsonNode`, per 3e.
 
+**Sensitivity + `toString()` override (required).** `rawJson` can contain provider fields the
+typed model deliberately omits — for Monzo accounts that includes `account_number` and
+`sort_code`. Two rules:
+
+1. Records auto-generate `toString()` including ALL components — a stray `log.debug("{}", tx)`
+   would dump raw payloads (bank identifiers included) into logs. Override `toString()` on BOTH
+   records to redact it. For `BankAccount`:
+
+   ```java
+       @Override
+       public String toString() {
+           return ("BankAccount[externalId=%s, type=%s, description=%s, currency=%s, "
+                   + "closed=%s, createdAt=%s, rawJson=%s]")
+                   .formatted(externalId, type, description, currency, closed, createdAt,
+                           rawJson == null ? "null" : "<redacted>");
+       }
+   ```
+
+   Equivalent for `BankTransaction` (keep every non-raw component in the output). Add a unit
+   test per record asserting `toString()` does NOT contain a sentinel value placed in `rawJson`.
+2. Never log `rawJson` anywhere. In memory it is plaintext — the same trust boundary as the
+   plaintext access tokens this jar already handles. At rest it is persisted ONLY encrypted;
+   that happens in `budgeteer-server` in #11 (AES-256-GCM via the existing `EncryptionService`),
+   never in this jar.
+
 ### 3d. New DTO `bank-client-monzo/.../dto/MonzoBalanceResponse.java`
 
 Copy the existing explicit-`@JsonProperty`-constructor style:

@@ -27,9 +27,16 @@ endpoints. This unblocks every budgeting feature (categories, budgets, virtual p
 - **Account balance = stored snapshot** fetched from the provider via `BankClient.getBalance`
   (lands in #10) — never derived from transactions (windowed history, pending, credit-card
   semantics make derivation wrong, not just slow)
-- **Raw capture**: `raw_payload jsonb` columns on the raw provider tables, populated from the
-  contract's `rawJson` (true raw with unknown fields preserved — #10). Monzo history >90d is
-  behind SCA and unrecoverable, so this is the only future field-backfill source
+- **Raw capture — encrypted at rest**: `raw_payload_encrypted TEXT` columns on the raw provider
+  tables (NOT plaintext `jsonb`), populated from the contract's `rawJson` (true raw with unknown
+  fields preserved — #10) and encrypted with the existing AES-256-GCM `EncryptionService` (same
+  pattern as OAuth tokens) at persistence time in `budgeteer-server`. Raw payloads contain bank
+  identifiers (`account_number`, `sort_code` on Monzo accounts) — strictly more sensitive than
+  the typed columns. Consciously traded away: Postgres JSON operators / GIN indexes on the blob —
+  acceptable because raw blobs are never queried for product features (domain tables serve
+  those); they're read rarely by app code (audit, one-off field-backfill scripts) which decrypts
+  anyway. Monzo history >90d is behind SCA and unrecoverable, so this is the only future
+  field-backfill source
 - **No pre-aggregation** (`ReportSnapshot` deliberately omitted) — totals are computed on read;
   revisit with a materialised view only if measured slow
 - **Mapping code lives in `budgeteer-server`** (`DomainMappingService` + per-provider
@@ -38,7 +45,7 @@ endpoints. This unblocks every budgeting feature (categories, budgets, virtual p
 
 ## Scope — slice 1 (this task)
 
-1. Migrations (take the next free `V*` numbers at build time): `raw_payload jsonb` on
+1. Migrations (take the next free `V*` numbers at build time): `raw_payload_encrypted TEXT` on
    `monzo_accounts` + `monzo_transactions`; create `user_accounts`; create `transactions`
    (indexes per the design doc)
 2. `Account` / `Transaction` entities + repositories (`domain/account`, `domain/transaction`)

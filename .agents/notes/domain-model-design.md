@@ -4,7 +4,7 @@
 > Scope: backend domain only. Auth, Monzo client, and module structure are fixed. No frontend decisions.
 > Grounded against the real schema: raw sync tables are `monzo_accounts` (V7 — **no balance column**) and `monzo_transactions` (V8 — signed minor-unit amounts, `monzo_settled_at` nullable, `is_declined` flag). Next migration is **V11**.
 >
-> **Addendum (2026-07-05, same day):** two contract additions were folded into task #10 to support this design — `BankClient.getBalance` → `BankBalance` (feeds the `Account` balance snapshot) and `@Nullable String rawJson` on `BankTransaction`/`BankAccount` (true raw capture via `JsonNode`, persisted to `raw_payload jsonb` on the **raw** provider tables by the sync layer — the domain `transactions` table stays typed and blob-free). Module names below reflect the 2026-07-05 naming scheme: `bank-client-api` / `bank-client-monzo` / `budgeteer-server`.
+> **Addendum (2026-07-05, same day):** two contract additions were folded into task #10 to support this design — `BankClient.getBalance` → `BankBalance` (feeds the `Account` balance snapshot) and `@Nullable String rawJson` on `BankTransaction`/`BankAccount` (true raw capture via `JsonNode`, persisted **encrypted** — AES-256-GCM via the existing `EncryptionService`, column `raw_payload_encrypted TEXT` — on the **raw** provider tables by the sync layer; raw payloads carry bank identifiers like `account_number`/`sort_code`, so they are never stored plaintext. The domain `transactions` table stays typed and blob-free). Module names below reflect the 2026-07-05 naming scheme: `bank-client-api` / `bank-client-monzo` / `budgeteer-server`.
 
 Conventions used throughout:
 
