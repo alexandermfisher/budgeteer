@@ -4,12 +4,15 @@
 
 Budgeteer is a personal finance app that syncs with Monzo via OAuth, stores and encrypts tokens, and will provide transaction sync, categorisation, and budgeting features. Solo project by @alexandermfisher.
 
-## Current Phase (June 2026)
+## Current Phase (July 2026)
 
-**Phase 4 — Transaction Sync is complete and merged** (PR #55). The `dev.amf` →
-`dev.amfshr` package/groupId rename is also merged (PR #61, pure mechanical — zero
-behaviour change). Next up per the board is the multi-module Maven restructure (#6, P1),
-then source migration, API versioning, and Phase 5 (webhooks).
+**Multi-module restructure is merged** (PR #67): 3-module reactor with the Monzo HTTP client
+extracted into its own jar behind the neutral `BankClient` contract. Module naming scheme decided
+2026-07-05 — `bank-client-api` (contract) / `bank-client-monzo` (impl) / `budgeteer-server` (app);
+renames execute as the first commit of task #10. The backend domain design (accounts, transactions,
+categories, budgets, virtual pots, reports) is complete at `.agents/notes/domain-model-design.md`.
+Next per the board: #10 bank-client modules (renames + contract additions + jar hardening), then
+#11 domain model mapping, then Phase 5 (webhooks).
 
 ## Completed
 
@@ -24,6 +27,7 @@ then source migration, API versioning, and Phase 5 (webhooks).
 - [x] **Phase 3:** Monzo token auto-refresh (background job + eager inline guard, `tokenStatus` on status endpoint)
 - [x] **Phase 4:** Transaction sync — async post-OAuth backfill, windowed historical sync (≤350-day windows, resumable across SCA re-auth via per-window commits), 60-min delta job, `GET /api/monzo/sync/progress`
 - [x] **Package & groupId rename** `dev.amf` → `dev.amfshr` (PR #61) — 145 Java files, `pom.xml`, logback, 4 properties files; done before multi-module split
+- [x] **Multi-module restructure + Monzo client extraction** (PR #67) — 3-module reactor; Monzo HTTP client in its own jar behind the neutral `BankClient` contract; API programs to the interface; behaviour-preserving
 - [x] Structured request logging + LogSanitizer (no PII/tokens in logs)
 - [x] Email service via Resend SMTP (magic link delivery)
 - [x] Input validation hardening (Bean Validation on all user-input boundaries, IP sanitization)
@@ -34,13 +38,14 @@ then source migration, API versioning, and Phase 5 (webhooks).
 
 > The authoritative, prioritised board is `.agents/tasks/tasks.md`. Summary:
 
-1. Multi-module Maven restructure (P1) — `backend/` → 4 modules: `budgeteer-common`, `monzo-client`, `truelayer-client`, `budgeteer-api`
-2. Source migration — Monzo code → `monzo-client` jar
-3. API endpoint versioning (`/api/v1`)
-4. Phase 5: Webhook ingestion (real-time transactions via Cloudflare Tunnel)
-3. OAuth abstraction + TrueLayer (multi-bank) integration
-4. Budgeting / analytics features
-5. Frontend UI (React / Vue / HTMX — not decided)
+1. #10 Bank-client modules (P1) — module renames (`bank-client-api` / `bank-client-monzo` /
+   `budgeteer-server`), contract additions (`getBalance`, `rawJson`), jar auto-config + hardening
+2. #11 Domain model mapping (P2) — raw → provider-agnostic `user_accounts`/`transactions`,
+   mapping pipeline, first product endpoints (design: `.agents/notes/domain-model-design.md`)
+3. #5 Phase 5: Webhook ingestion (real-time transactions via Cloudflare Tunnel) — after #11
+4. TrueLayer (multi-bank) integration — `bank-client-truelayer` as 2nd `BankClient` impl
+5. Budgeting / analytics features (categories, budgets, pots, reports — designed, built in slices)
+6. Frontend UI (React / Vue / HTMX — not decided)
 
 ## Key Docs
 
