@@ -1,0 +1,1 @@
+{"transactions":[{"id":"tx_unknownfields00000001","amount":-350,"currency":"GBP","description":"TEST COFFEE","merchant":{"name":"Test Coffee","category":"eating_out"},"notes":"","created":"2026-06-01T10:00:00.000Z","settled":"2026-06-02T10:00:00.000Z","local_amount":-350,"category":"eating_out"}]}

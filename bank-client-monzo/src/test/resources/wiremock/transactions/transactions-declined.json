@@ -1,0 +1,1 @@
+{"transactions":[{"id":"tx_declined","amount":0,"currency":"GBP","description":"Declined payment","merchant":{"name":"Shop","category":"shopping"},"notes":null,"decline_reason":"insufficient_funds","created":"2024-06-01T10:00:00Z","settled":null}]}

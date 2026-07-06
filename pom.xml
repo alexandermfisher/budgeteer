@@ -18,9 +18,9 @@
     <description>Personal budgeting application with Monzo integration</description>
 
     <modules>
-        <module>common</module>
-        <module>monzo-client</module>
-        <module>budgeteer-api</module>
+        <module>bank-client-api</module>
+        <module>bank-client-monzo</module>
+        <module>budgeteer-server</module>
     </modules>
 
     <properties>
@@ -35,12 +35,12 @@
             <!-- Project modules -->
             <dependency>
                 <groupId>dev.amfshr</groupId>
-                <artifactId>common</artifactId>
+                <artifactId>bank-client-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>dev.amfshr</groupId>
-                <artifactId>monzo-client</artifactId>
+                <artifactId>bank-client-monzo</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <!-- Testcontainers BOM -->

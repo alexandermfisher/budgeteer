@@ -92,7 +92,7 @@ jobs:
           cache: maven
           cache-dependency-path: '**/pom.xml'
 
-      # Install sibling jars first so budgeteer-api can resolve them
+      # Install sibling jars first so budgeteer-server can resolve them
       - name: Install modules
         run: mvn install -DskipTests --batch-mode --no-transfer-progress
 
