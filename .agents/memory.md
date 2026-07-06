@@ -25,8 +25,8 @@ Also add `Referrer-Policy` and `Permissions-Policy` headers to `SecurityConfig` 
 ---
 
 ## 📅 Last Updated
-**Date:** 2026-06-21
-**Session Focus:** Package & groupId rename `dev.amf` → `dev.amfshr` (PR #61, merged June 2026) — 145 Java files (git mv preserves history), `pom.xml` groupId, `logback-spring.xml`, 4 properties files. `@ConfigurationPropertiesScan` string literal caught by blanket replace. All 697 tests green. Pure mechanical refactor, zero behaviour change. Done before the multi-module split (#6) so it's a single sweep. Next: multi-module Maven restructure (branch `refactor/multi-module-maven`).
+**Date:** 2026-07-05
+**Session Focus:** Planning session (no code). (1) #6 multi-module restructure confirmed merged (PR #67) — task closed, folder moved to `closed/`. (2) Backend **domain model design** completed for all product features (accounts / transactions / categories / budgets / virtual pots / reports / settings) → `.agents/notes/domain-model-design.md`. (3) **Module naming scheme decided**: `bank-client-api` (contract), `bank-client-monzo` (impl, family-prefix pattern), `budgeteer-server` (app — frees "api" for the contract jar); packages don't move. (4) Task #10 expanded into **bank-client-modules** (`.agents/tasks/open/bank-client-modules/plan.md`): renames + two contract additions (`getBalance`→`BankBalance`; `rawJson` raw-capture via `JsonNode`, NOT DTO re-serialisation — Monzo >90d history is SCA-locked and unrecoverable, raw blobs are the only future backfill source) + auto-config/test hardening. (5) **#11 domain-model-mapping** promoted from backlog, queued AHEAD of webhooks (#5) — webhooks become a second trigger into the raw→domain pipeline. Next: implement #10 (spec at `.agents/tasks/open/bank-client-modules/plan.md`).
 
 ---
 
@@ -49,8 +49,10 @@ Also add `Referrer-Policy` and `Permissions-Policy` headers to `SecurityConfig` 
 - [x] **Phase 3: Token Auto-Refresh** ✅ COMPLETE (April 2026)
 - [x] **Phase 4: Transaction Sync** ✅ COMPLETE & MERGED (#55, June 2026) — windowed backfill, delta job, SCA-resume, cursor fix
 - [x] **Package & groupId rename** `dev.amf` → `dev.amfshr` ✅ MERGED (#61, June 2026)
-- [ ] Multi-module Maven restructure (P1 — #6, next per board)
-- [ ] Phase 5: Webhooks & Budgeting features
+- [x] **Multi-module Maven restructure** ✅ MERGED (#67, July 2026) — `BankClient` contract + `monzo-client` jar extraction
+- [ ] #10 Bank-client modules (renames + contract additions + hardening) — next
+- [ ] #11 Domain model mapping (design done — `.agents/notes/domain-model-design.md`)
+- [ ] Phase 5: Webhooks, then budgeting features
 
 ### What's Working
 - ✅ Mono-repo structure (`backend/`, `frontend/`, `docs/`)
