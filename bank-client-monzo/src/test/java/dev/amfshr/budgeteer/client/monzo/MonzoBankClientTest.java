@@ -2,8 +2,10 @@ package dev.amfshr.budgeteer.client.monzo;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import dev.amfshr.budgeteer.bank.BankAccount;
+import dev.amfshr.budgeteer.bank.BankBalance;
 import dev.amfshr.budgeteer.bank.BankClientException;
 import dev.amfshr.budgeteer.bank.BankConnectionRevokedException;
+import dev.amfshr.budgeteer.bank.BankIdentity;
 import dev.amfshr.budgeteer.bank.BankReauthRequiredException;
 import dev.amfshr.budgeteer.bank.BankTokens;
 import dev.amfshr.budgeteer.bank.BankTransaction;
@@ -15,8 +17,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.web.client.RestClient;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.*;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
@@ -46,6 +51,39 @@ class MonzoBankClientTest {
         when(props.tokenUrl()).thenReturn(wm.baseUrl() + "/oauth2/token");
 
         client = new MonzoBankClient(props, restClient, new tools.jackson.databind.ObjectMapper());
+    }
+
+    private static String fixture(String path) throws IOException {
+        try (var in = MonzoBankClientTest.class.getResourceAsStream("/wiremock/" + path)) {
+            return new String(Objects.requireNonNull(in).readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    // ============ buildAuthorizationUrl ============
+
+    @Nested
+    @DisplayName("buildAuthorizationUrl")
+    class BuildAuthorizationUrl {
+
+        @Test
+        @DisplayName("includes client_id, redirect_uri, response_type=code, and state")
+        void includesAllParams() {
+            MonzoProperties props = mock(MonzoProperties.class);
+            when(props.authUrl()).thenReturn("https://auth.monzo.com/");
+            when(props.clientId()).thenReturn("client-123");
+            when(props.redirectUri()).thenReturn("http://localhost/cb");
+
+            RestClient restClient = RestClient.builder().baseUrl(wm.baseUrl()).build();
+            MonzoBankClient c = new MonzoBankClient(props, restClient,
+                    new tools.jackson.databind.ObjectMapper());
+
+            String url = c.buildAuthorizationUrl("state-abc");
+
+            assertThat(url).contains("client_id=client-123");
+            assertThat(url).contains("redirect_uri=http://localhost/cb");
+            assertThat(url).contains("response_type=code");
+            assertThat(url).contains("state=state-abc");
+        }
     }
 
     // ============ exchangeCode ============
@@ -81,6 +119,16 @@ class MonzoBankClientTest {
 
             assertThatThrownBy(() -> client.exchangeCode("test-code"))
                     .isInstanceOf(BankConnectionRevokedException.class);
+        }
+
+        @Test
+        @DisplayName("missing access_token throws BankClientException")
+        void missingAccessTokenThrows() {
+            wm.stubFor(post(urlPathEqualTo("/oauth2/token"))
+                    .willReturn(okJson("{\"refresh_token\":\"tok_refresh\",\"expires_in\":21600}")));
+
+            assertThatThrownBy(() -> client.exchangeCode("test-code"))
+                    .isInstanceOf(BankClientException.class);
         }
     }
 
@@ -134,6 +182,74 @@ class MonzoBankClientTest {
             assertThatThrownBy(() -> client.refreshTokens("old-refresh"))
                     .isInstanceOf(BankConnectionRevokedException.class);
         }
+
+        @Test
+        @DisplayName("403 throws BankClientException")
+        void forbiddenThrowsClientException() {
+            wm.stubFor(post(urlPathEqualTo("/oauth2/token"))
+                    .willReturn(forbidden()));
+
+            assertThatThrownBy(() -> client.refreshTokens("old-refresh"))
+                    .isInstanceOf(BankClientException.class);
+        }
+    }
+
+    // ============ getIdentity ============
+
+    @Nested
+    @DisplayName("getIdentity")
+    class GetIdentity {
+
+        @Test
+        @DisplayName("returns BankIdentity on success")
+        void happyPath() {
+            wm.stubFor(get(urlPathEqualTo("/ping/whoami"))
+                    .willReturn(okJson("{\"authenticated\":true,\"user_id\":\"user_abc123\"}")));
+
+            BankIdentity identity = client.getIdentity(ACCESS_TOKEN);
+
+            assertThat(identity.providerUserId()).isEqualTo("user_abc123");
+        }
+
+        @Test
+        @DisplayName("401 throws BankConnectionRevokedException")
+        void unauthorizedThrowsRevoked() {
+            wm.stubFor(get(urlPathEqualTo("/ping/whoami"))
+                    .willReturn(unauthorized()));
+
+            assertThatThrownBy(() -> client.getIdentity(ACCESS_TOKEN))
+                    .isInstanceOf(BankConnectionRevokedException.class);
+        }
+
+        @Test
+        @DisplayName("403 throws BankClientException")
+        void forbiddenThrowsClientException() {
+            wm.stubFor(get(urlPathEqualTo("/ping/whoami"))
+                    .willReturn(forbidden()));
+
+            assertThatThrownBy(() -> client.getIdentity(ACCESS_TOKEN))
+                    .isInstanceOf(BankClientException.class);
+        }
+
+        @Test
+        @DisplayName("missing user_id throws BankClientException")
+        void missingUserIdThrows() {
+            wm.stubFor(get(urlPathEqualTo("/ping/whoami"))
+                    .willReturn(okJson("{\"authenticated\":true}")));
+
+            assertThatThrownBy(() -> client.getIdentity(ACCESS_TOKEN))
+                    .isInstanceOf(BankClientException.class);
+        }
+
+        @Test
+        @DisplayName("blank user_id throws BankClientException")
+        void blankUserIdThrows() {
+            wm.stubFor(get(urlPathEqualTo("/ping/whoami"))
+                    .willReturn(okJson("{\"authenticated\":true,\"user_id\":\"\"}")));
+
+            assertThatThrownBy(() -> client.getIdentity(ACCESS_TOKEN))
+                    .isInstanceOf(BankClientException.class);
+        }
     }
 
     // ============ getAccounts ============
@@ -175,6 +291,117 @@ class MonzoBankClientTest {
 
             assertThatThrownBy(() -> client.getAccounts(ACCESS_TOKEN))
                     .isInstanceOf(BankConnectionRevokedException.class);
+        }
+
+        @Test
+        @DisplayName("403 throws BankClientException")
+        void forbiddenThrowsClientException() {
+            wm.stubFor(get(urlPathEqualTo("/accounts"))
+                    .willReturn(forbidden()));
+
+            assertThatThrownBy(() -> client.getAccounts(ACCESS_TOKEN))
+                    .isInstanceOf(BankClientException.class);
+        }
+
+        @Test
+        @DisplayName("429 throws BankClientException")
+        void rateLimitedThrowsClientException() {
+            wm.stubFor(get(urlPathEqualTo("/accounts"))
+                    .willReturn(aResponse().withStatus(429)));
+
+            assertThatThrownBy(() -> client.getAccounts(ACCESS_TOKEN))
+                    .isInstanceOf(BankClientException.class);
+        }
+
+        @Test
+        @DisplayName("empty list returns empty List")
+        void emptyListReturnsEmpty() {
+            wm.stubFor(get(urlPathEqualTo("/accounts"))
+                    .willReturn(okJson("{\"accounts\":[]}")));
+
+            List<BankAccount> result = client.getAccounts(ACCESS_TOKEN);
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        @DisplayName("rawJson is populated")
+        void rawJsonPopulated() {
+            wm.stubFor(get(urlPathEqualTo("/accounts"))
+                    .willReturn(okJson("""
+                            {"accounts":[{"id":"acc_001","type":"uk_retail","description":"Current","currency":"GBP","closed":false}]}
+                            """)));
+
+            List<BankAccount> result = client.getAccounts(ACCESS_TOKEN);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).rawJson()).isNotNull();
+            assertThat(result.get(0).rawJson()).contains("\"id\":\"acc_001\"");
+        }
+
+        @Test
+        @DisplayName("unknown fields are preserved in rawJson")
+        void unknownFieldsPreserved() throws Exception {
+            wm.stubFor(get(urlPathEqualTo("/accounts"))
+                    .willReturn(okJson(fixture("accounts/accounts-unknown-fields.json"))));
+
+            List<BankAccount> result = client.getAccounts(ACCESS_TOKEN);
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).rawJson()).contains("\"sort_code\":\"040004\"");
+            assertThat(result.get(0).rawJson()).contains("\"account_number\":\"12345678\"");
+        }
+    }
+
+    // ============ getBalance ============
+
+    @Nested
+    @DisplayName("getBalance")
+    class GetBalance {
+
+        @Test
+        @DisplayName("returns BankBalance on success")
+        void happyPath() {
+            wm.stubFor(get(urlPathEqualTo("/balance"))
+                    .withQueryParam("account_id", equalTo("acc_001"))
+                    .willReturn(okJson("{\"balance\":5000,\"total_balance\":6000,\"currency\":\"GBP\",\"spend_today\":-120}")));
+
+            BankBalance balance = client.getBalance(ACCESS_TOKEN, "acc_001");
+
+            assertThat(balance.balanceMinorUnits()).isEqualTo(5000);
+            assertThat(balance.currency()).isEqualTo("GBP");
+        }
+
+        @Test
+        @DisplayName("401 throws BankConnectionRevokedException")
+        void unauthorizedThrowsRevoked() {
+            wm.stubFor(get(urlPathEqualTo("/balance"))
+                    .willReturn(unauthorized()));
+
+            assertThatThrownBy(() -> client.getBalance(ACCESS_TOKEN, "acc_001"))
+                    .isInstanceOf(BankConnectionRevokedException.class);
+        }
+
+        @Test
+        @DisplayName("429 throws BankClientException")
+        void rateLimitedThrowsClientException() {
+            wm.stubFor(get(urlPathEqualTo("/balance"))
+                    .willReturn(aResponse().withStatus(429)));
+
+            assertThatThrownBy(() -> client.getBalance(ACCESS_TOKEN, "acc_001"))
+                    .isInstanceOf(BankClientException.class);
+        }
+
+        @Test
+        @DisplayName("malformed body throws BankClientException")
+        void malformedBodyThrows() {
+            wm.stubFor(get(urlPathEqualTo("/balance"))
+                    .willReturn(aResponse().withStatus(500)
+                            .withHeader("Content-Type", "application/json")
+                            .withBody("{\"error\":\"internal\"}")));
+
+            assertThatThrownBy(() -> client.getBalance(ACCESS_TOKEN, "acc_001"))
+                    .isInstanceOf(BankClientException.class);
         }
     }
 
@@ -331,6 +558,49 @@ class MonzoBankClientTest {
             assertThat(page.transactions()).hasSize(1);
             assertThat(page.transactions().get(0).declined()).isTrue();
             assertThat(page.transactions().get(0).amountMinorUnits()).isEqualTo(0);
+        }
+
+        @Test
+        @DisplayName("429 throws BankClientException")
+        void rateLimitedThrowsClientException() {
+            wm.stubFor(get(urlPathEqualTo("/transactions"))
+                    .willReturn(aResponse().withStatus(429)));
+
+            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null))
+                    .isInstanceOf(BankClientException.class);
+        }
+
+        @Test
+        @DisplayName("unknown fields are preserved in rawJson")
+        void unknownFieldsPreserved() throws Exception {
+            wm.stubFor(get(urlPathEqualTo("/transactions"))
+                    .withQueryParam("since", equalTo("2024-01-01T00:00:00Z"))
+                    .willReturn(okJson(fixture("transactions/transactions-unknown-fields.json"))));
+
+            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null);
+
+            assertThat(page.transactions()).hasSize(1);
+            String raw = page.transactions().get(0).rawJson();
+            assertThat(raw).contains("\"local_amount\":-350");
+            assertThat(raw).contains("\"category\":\"eating_out\"");
+        }
+
+        @Test
+        @DisplayName("short page returns nextCursor null")
+        void shortPageNullCursor() {
+            wm.stubFor(get(urlPathEqualTo("/transactions"))
+                    .withQueryParam("since", equalTo("2024-01-01T00:00:00Z"))
+                    .willReturn(okJson("""
+                            {"transactions":[
+                              {"id":"tx_001","amount":-10,"currency":"GBP","description":"Tx","merchant":null,
+                               "notes":null,"decline_reason":null,
+                               "created":"2024-06-01T10:00:00Z","settled":null}
+                            ]}
+                            """)));
+
+            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null);
+
+            assertThat(page.nextCursor()).isNull();
         }
     }
 }

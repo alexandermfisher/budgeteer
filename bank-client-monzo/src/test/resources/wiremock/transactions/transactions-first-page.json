@@ -1,0 +1,1 @@
+{"transactions":[{"id":"tx_001","amount":-500,"currency":"GBP","description":"Coffee","merchant":{"name":"Starbucks","category":"eating_out"},"notes":"","decline_reason":null,"created":"2024-06-01T10:00:00Z","settled":"2024-06-02T00:00:00Z"}]}
