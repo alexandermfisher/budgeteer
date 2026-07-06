@@ -1,4 +1,4 @@
-package dev.amfshr.budgeteer.common.bank;
+package dev.amfshr.budgeteer.bank;
 
 import org.jspecify.annotations.Nullable;
 

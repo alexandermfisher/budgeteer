@@ -1,4 +1,4 @@
-package dev.amfshr.budgeteer.common.bank;
+package dev.amfshr.budgeteer.bank;
 
 /**
  * Base exception for provider-neutral bank client errors.

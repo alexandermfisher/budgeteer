@@ -1,14 +1,14 @@
 package dev.amfshr.budgeteer.client.monzo;
 
-import dev.amfshr.budgeteer.common.bank.BankAccount;
-import dev.amfshr.budgeteer.common.bank.BankClient;
-import dev.amfshr.budgeteer.common.bank.BankClientException;
-import dev.amfshr.budgeteer.common.bank.BankConnectionRevokedException;
-import dev.amfshr.budgeteer.common.bank.BankIdentity;
-import dev.amfshr.budgeteer.common.bank.BankReauthRequiredException;
-import dev.amfshr.budgeteer.common.bank.BankTokens;
-import dev.amfshr.budgeteer.common.bank.BankTransaction;
-import dev.amfshr.budgeteer.common.bank.BankTransactionPage;
+import dev.amfshr.budgeteer.bank.BankAccount;
+import dev.amfshr.budgeteer.bank.BankClient;
+import dev.amfshr.budgeteer.bank.BankClientException;
+import dev.amfshr.budgeteer.bank.BankConnectionRevokedException;
+import dev.amfshr.budgeteer.bank.BankIdentity;
+import dev.amfshr.budgeteer.bank.BankReauthRequiredException;
+import dev.amfshr.budgeteer.bank.BankTokens;
+import dev.amfshr.budgeteer.bank.BankTransaction;
+import dev.amfshr.budgeteer.bank.BankTransactionPage;
 import dev.amfshr.budgeteer.client.monzo.dto.MonzoAccountResponse;
 import dev.amfshr.budgeteer.client.monzo.dto.MonzoAccountsResponse;
 import dev.amfshr.budgeteer.client.monzo.dto.MonzoTransactionResponse;
