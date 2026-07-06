@@ -29,6 +29,15 @@ public interface BankClient {
     List<BankAccount> getAccounts(String accessToken);
 
     /**
+     * Current balance for one account, as reported by the provider. The caller stamps the
+     * fetch time; this record carries no timestamp.
+     *
+     * @throws BankConnectionRevokedException if the connection is revoked (401)
+     * @throws BankClientException on any other upstream failure
+     */
+    BankBalance getBalance(String accessToken, String accountId);
+
+    /**
      * One page of transactions for an account in the half-open window [from, to). Pass a null
      * pageCursor for the first page; pass the returned nextCursor for each subsequent page until
      * nextCursor is null. The cursor is an OPAQUE provider token — the caller persists and replays

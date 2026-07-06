@@ -19,5 +19,16 @@ public record BankTransaction(
         @Nullable String notes,
         boolean declined,
         Instant createdAt,
-        @Nullable Instant settledAt
-) {}
+        @Nullable Instant settledAt,
+        @Nullable String rawJson     // verbatim provider JSON for this element; null if unavailable
+) {
+    @Override
+    public String toString() {
+        return ("BankTransaction[externalId=%s, amountMinorUnits=%s, currency=%s, "
+                + "description=%s, merchantName=%s, merchantCategory=%s, notes=%s, "
+                + "declined=%s, createdAt=%s, settledAt=%s, rawJson=%s]")
+                .formatted(externalId, amountMinorUnits, currency, description, merchantName,
+                        merchantCategory, notes, declined, createdAt, settledAt,
+                        rawJson == null ? "null" : "<redacted>");
+    }
+}

@@ -1,6 +1,10 @@
 package dev.amfshr.budgeteer.client.monzo;
 
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import dev.amfshr.budgeteer.bank.BankAccount;
+import dev.amfshr.budgeteer.bank.BankBalance;
 import dev.amfshr.budgeteer.bank.BankClient;
 import dev.amfshr.budgeteer.bank.BankClientException;
 import dev.amfshr.budgeteer.bank.BankConnectionRevokedException;
@@ -9,10 +13,7 @@ import dev.amfshr.budgeteer.bank.BankReauthRequiredException;
 import dev.amfshr.budgeteer.bank.BankTokens;
 import dev.amfshr.budgeteer.bank.BankTransaction;
 import dev.amfshr.budgeteer.bank.BankTransactionPage;
-import dev.amfshr.budgeteer.client.monzo.dto.MonzoAccountResponse;
-import dev.amfshr.budgeteer.client.monzo.dto.MonzoAccountsResponse;
-import dev.amfshr.budgeteer.client.monzo.dto.MonzoTransactionResponse;
-import dev.amfshr.budgeteer.client.monzo.dto.MonzoTransactionsResponse;
+import dev.amfshr.budgeteer.client.monzo.dto.MonzoBalanceResponse;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,8 +27,10 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 
 /**
  * Monzo API HTTP client — implements the provider-neutral {@link BankClient} contract.
@@ -47,10 +50,13 @@ public class MonzoBankClient implements BankClient {
 
     private final MonzoProperties monzoProperties;
     private final RestClient restClient;
+    private final ObjectMapper objectMapper;
 
-    public MonzoBankClient(MonzoProperties monzoProperties, RestClient monzoRestClient) {
+    public MonzoBankClient(MonzoProperties monzoProperties, RestClient monzoRestClient,
+                           ObjectMapper objectMapper) {
         this.monzoProperties = monzoProperties;
         this.restClient = monzoRestClient;
+        this.objectMapper = objectMapper;
     }
 
     // ============ BankClient implementation ============
@@ -160,24 +166,47 @@ public class MonzoBankClient implements BankClient {
         log.debug("Fetching Monzo accounts");
 
         try {
-            MonzoAccountsResponse response = restClient.get()
+            JsonNode root = restClient.get()
                     .uri("/accounts")
                     .header("Authorization", "Bearer " + accessToken)
                     .retrieve()
-                    .body(MonzoAccountsResponse.class);
+                    .body(JsonNode.class);
 
-            if (response == null) {
+            if (root == null || !root.path("accounts").isArray()) {
                 throw new BankClientException("Empty response from Monzo accounts endpoint");
             }
 
-            log.debug("Fetched {} Monzo accounts", response.accounts().size());
-            return response.accounts().stream()
-                    .map(MonzoMapper::toBankAccount)
-                    .toList();
+            List<BankAccount> accounts = mapArray(root.get("accounts"),
+                    dev.amfshr.budgeteer.client.monzo.dto.MonzoAccountResponse.class,
+                    MonzoMapper::toBankAccount);
+            log.debug("Fetched {} Monzo accounts", accounts.size());
+            return accounts;
 
         } catch (RestClientResponseException e) {
             handleMonzoError(e, "accounts");
             throw new BankClientException("Failed to fetch Monzo accounts: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public BankBalance getBalance(String accessToken, String accountId) {
+        log.debug("Fetching Monzo balance [accountId={}]", accountId);
+        try {
+            MonzoBalanceResponse response = restClient.get()
+                    .uri(uriBuilder -> uriBuilder.path("/balance")
+                            .queryParam("account_id", accountId).build())
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve()
+                    .body(MonzoBalanceResponse.class);
+
+            if (response == null) {
+                throw new BankClientException("Empty response from Monzo balance endpoint");
+            }
+            return new BankBalance(response.balance(), response.currency());
+
+        } catch (RestClientResponseException e) {
+            handleMonzoError(e, "balance");
+            throw new BankClientException("Failed to fetch Monzo balance: " + e.getMessage(), e);
         }
     }
 
@@ -214,23 +243,23 @@ public class MonzoBankClient implements BankClient {
                     .queryParam("since", since)
                     .queryParam("before", before);
 
-            MonzoTransactionsResponse response = restClient.get()
+            JsonNode root = restClient.get()
                     .uri(uri.build().toUriString())
                     .header("Authorization", "Bearer " + accessToken)
                     .retrieve()
-                    .body(MonzoTransactionsResponse.class);
+                    .body(JsonNode.class);
 
-            if (response == null) {
+            if (root == null || !root.path("transactions").isArray()) {
                 throw new BankClientException("Empty response from Monzo transactions endpoint");
             }
 
-            List<MonzoTransactionResponse> raw = response.transactions();
-            List<BankTransaction> mapped = raw.stream()
-                    .map(MonzoMapper::toBankTransaction)
-                    .toList();
+            JsonNode array = root.get("transactions");
+            List<BankTransaction> mapped = mapArray(array,
+                    dev.amfshr.budgeteer.client.monzo.dto.MonzoTransactionResponse.class,
+                    MonzoMapper::toBankTransaction);
 
-            String nextCursor = raw.size() >= PAGE_SIZE
-                    ? raw.get(raw.size() - 1).id()
+            String nextCursor = array.size() >= PAGE_SIZE
+                    ? mapped.get(mapped.size() - 1).externalId()
                     : null;
 
             String cursorLabel = nextCursor != null && nextCursor.length() > 8
@@ -276,6 +305,21 @@ public class MonzoBankClient implements BankClient {
         }
     }
 
+    /** Map each element of a JSON array via its DTO, capturing the element's verbatim JSON. */
+    private <D, B> List<B> mapArray(JsonNode array, Class<D> dtoType,
+                                    BiFunction<D, String, B> mapper) {
+        List<B> result = new ArrayList<>(array.size());
+        for (JsonNode node : array) {
+            try {
+                D dto = objectMapper.treeToValue(node, dtoType);
+                result.add(mapper.apply(dto, node.toString()));
+            } catch (JacksonException e) {
+                throw new BankClientException("Failed to parse Monzo response element", e);
+            }
+        }
+        return result;
+    }
+
     /**
      * Handles Monzo API errors, throwing provider-neutral exceptions.
      */
@@ -291,7 +335,8 @@ public class MonzoBankClient implements BankClient {
         if (status.value() == 403) {
             String body = e.getResponseBodyAsString();
             if (body.contains("forbidden.verification_required")) {
-                log.warn("Monzo API returned 403 verification_required for {} - SCA window has expired", endpoint);
+                log.warn("Monzo API returned 403 verification_required for {} - "
+                        + "SCA window has expired", endpoint);
                 throw new BankReauthRequiredException(
                         "Monzo requires re-authentication to access older transactions.");
             }
@@ -304,6 +349,7 @@ public class MonzoBankClient implements BankClient {
             throw new BankClientException("Monzo API rate limit reached. Please try again later.");
         }
 
-        log.error("Monzo API error for {}: {} - {}", endpoint, status.value(), e.getResponseBodyAsString());
+        log.error("Monzo API error for {}: {} - {}", endpoint, status.value(),
+                e.getResponseBodyAsString());
     }
 }

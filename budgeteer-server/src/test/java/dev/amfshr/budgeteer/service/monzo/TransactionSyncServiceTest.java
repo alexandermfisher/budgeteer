@@ -82,9 +82,9 @@ class TransactionSyncServiceTest {
             when(connectionService.getDecryptedAccessToken(connectionId, userId)).thenReturn(ACCESS_TOKEN);
 
             BankAccount openAccount = new BankAccount(
-                    "acc_open", "uk_retail", "Current", "GBP", false, java.time.Instant.parse("2024-01-01T00:00:00Z"));
+                    "acc_open", "uk_retail", "Current", "GBP", false, java.time.Instant.parse("2024-01-01T00:00:00Z"), null);
             BankAccount closedAccount = new BankAccount(
-                    "acc_closed", "uk_retail", "Old Account", "GBP", true, java.time.Instant.parse("2020-01-01T00:00:00Z"));
+                    "acc_closed", "uk_retail", "Old Account", "GBP", true, java.time.Instant.parse("2020-01-01T00:00:00Z"), null);
 
             when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(openAccount, closedAccount));
 
@@ -121,7 +121,7 @@ class TransactionSyncServiceTest {
             when(connectionService.getDecryptedAccessToken(connectionId, userId)).thenReturn(ACCESS_TOKEN);
 
             BankAccount account = new BankAccount(
-                    "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2024-01-01T00:00:00Z"));
+                    "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2024-01-01T00:00:00Z"), null);
             when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(account));
 
             MonzoAccount savedAccount = mockAccount("acc_001");
@@ -206,7 +206,7 @@ class TransactionSyncServiceTest {
             when(connectionService.getDecryptedAccessToken(connectionId, userId)).thenReturn(ACCESS_TOKEN);
 
             BankAccount ar = new BankAccount(
-                    "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2024-01-01T00:00:00Z"));
+                    "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2024-01-01T00:00:00Z"), null);
             when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
 
             MonzoAccount account = mockAccount("acc_001");
@@ -235,7 +235,7 @@ class TransactionSyncServiceTest {
 
             // Account opened recently — one short window gets us to the floor
             BankAccount ar = new BankAccount(
-                    "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2025-12-01T00:00:00Z"));
+                    "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2025-12-01T00:00:00Z"), null);
             when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
 
             MonzoAccount account = mockAccount("acc_001");
@@ -264,7 +264,7 @@ class TransactionSyncServiceTest {
             Instant progressAt = Instant.parse("2025-12-01T00:00:00Z");
 
             BankAccount ar = new BankAccount(
-                    "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2025-10-01T00:00:00Z"));
+                    "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2025-10-01T00:00:00Z"), null);
             when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
 
             MonzoAccount account = mockAccount("acc_001");
@@ -293,7 +293,7 @@ class TransactionSyncServiceTest {
             String savedCursor = "tx_previously_saved";
 
             BankAccount ar = new BankAccount(
-                    "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2025-12-01T00:00:00Z"));
+                    "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2025-12-01T00:00:00Z"), null);
             when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
 
             MonzoAccount account = mockAccount("acc_001");
@@ -331,7 +331,8 @@ class TransactionSyncServiceTest {
         return new BankTransaction(
                 id, -500, "GBP", "Test", null, null, null, false,
                 java.time.Instant.parse("2024-01-01T10:00:00Z"),
-                java.time.Instant.parse("2024-01-02T00:00:00Z")
+                java.time.Instant.parse("2024-01-02T00:00:00Z"),
+                null
         );
     }
 

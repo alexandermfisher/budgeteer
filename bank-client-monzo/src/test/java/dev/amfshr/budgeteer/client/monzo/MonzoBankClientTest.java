@@ -45,7 +45,7 @@ class MonzoBankClientTest {
         MonzoProperties props = mock(MonzoProperties.class);
         when(props.tokenUrl()).thenReturn(wm.baseUrl() + "/oauth2/token");
 
-        client = new MonzoBankClient(props, restClient);
+        client = new MonzoBankClient(props, restClient, new tools.jackson.databind.ObjectMapper());
     }
 
     // ============ exchangeCode ============
