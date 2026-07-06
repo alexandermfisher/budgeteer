@@ -14,12 +14,13 @@ import dev.amfshr.budgeteer.bank.BankTokens;
 import dev.amfshr.budgeteer.bank.BankTransaction;
 import dev.amfshr.budgeteer.bank.BankTransactionPage;
 import dev.amfshr.budgeteer.client.monzo.dto.MonzoBalanceResponse;
+import dev.amfshr.budgeteer.client.monzo.dto.MonzoWhoAmIResponse;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
-import org.springframework.stereotype.Component;
+
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
@@ -43,7 +44,6 @@ import java.util.function.BiFunction;
  *   <li>Centralized error handling (401 → {@link BankConnectionRevokedException})</li>
  * </ul>
  */
-@Component
 public class MonzoBankClient implements BankClient {
 
     private static final Logger log = LoggerFactory.getLogger(MonzoBankClient.class);
@@ -136,19 +136,18 @@ public class MonzoBankClient implements BankClient {
         log.debug("Fetching Monzo user ID");
 
         try {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> response = restClient.get()
+            MonzoWhoAmIResponse response = restClient.get()
                     .uri("/ping/whoami")
                     .header("Authorization", "Bearer " + accessToken)
                     .retrieve()
-                    .body(Map.class);
+                    .body(MonzoWhoAmIResponse.class);
 
             if (response == null) {
                 throw new BankClientException("Empty response from Monzo whoami endpoint");
             }
 
-            String userId = (String) response.get("user_id");
-            if (userId == null) {
+            String userId = response.userId();
+            if (userId == null || userId.isBlank()) {
                 throw new BankClientException("No user_id in Monzo whoami response");
             }
 

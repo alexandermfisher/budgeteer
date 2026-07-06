@@ -1,11 +1,13 @@
-package dev.amfshr.budgeteer.client.monzo;
+package dev.amfshr.budgeteer.config;
 
+import dev.amfshr.budgeteer.client.monzo.MonzoProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 /**
- * Configuration for the Monzo API RestClient.
+ * The app owns the Monzo RestClient — baseUrl, and later timeouts/interceptors/pooling.
+ * MonzoAutoConfiguration (bank-client-monzo jar) picks this bean up by name.
  */
 @Configuration
 public class MonzoClientConfig {

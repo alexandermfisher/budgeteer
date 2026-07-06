@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * Configuration properties for Monzo OAuth integration.
  * Values are loaded from application.properties or environment variables.
  * 
- * Registered as a bean via @ConfigurationPropertiesScan in BudgeteerApplication.
+ * Registered via {@code MonzoAutoConfiguration}.
  */
 @ConfigurationProperties(prefix = "monzo")
 public record MonzoProperties(
