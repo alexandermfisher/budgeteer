@@ -1,5 +1,6 @@
 package dev.amfshr.budgeteer.integration;
 
+import org.junit.jupiter.api.Tag;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
@@ -38,6 +39,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
  * 
  * <p><strong>Note:</strong> Requires Docker to be running.</p>
  */
+@Tag("integration")
 @SpringBootTest
 @ActiveProfiles("integration-test")
 public abstract class AbstractPostgresIntegrationTest {
