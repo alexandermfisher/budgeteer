@@ -8,14 +8,14 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>monzo-client</artifactId>
-    <name>Monzo Client</name>
+    <artifactId>bank-client-monzo</artifactId>
+    <name>Bank Client — Monzo</name>
     <description>Monzo API HTTP client — implements the BankClient contract</description>
 
     <dependencies>
         <dependency>
             <groupId>dev.amfshr</groupId>
-            <artifactId>common</artifactId>
+            <artifactId>bank-client-api</artifactId>
         </dependency>
 
         <!-- Spring Web for RestClient (NOT the full starter) -->

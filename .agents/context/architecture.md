@@ -6,7 +6,7 @@
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Spring Boot 3.4, Java 25 |
+| Backend | Spring Boot 4.1.0, Java 25 |
 | Database | PostgreSQL 16 (Alpine via Docker) |
 | Migrations | Flyway — `backend/src/main/resources/db/migration/` |
 | Auth | Magic links + JWE tokens (JOSE library) |

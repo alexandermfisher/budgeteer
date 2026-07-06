@@ -8,19 +8,19 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>budgeteer-api</artifactId>
-    <name>Budgeteer API</name>
+    <artifactId>budgeteer-server</artifactId>
+    <name>Budgeteer Server</name>
     <description>Personal budgeting application with Monzo integration</description>
 
     <dependencies>
         <!-- Project modules -->
         <dependency>
             <groupId>dev.amfshr</groupId>
-            <artifactId>common</artifactId>
+            <artifactId>bank-client-api</artifactId>
         </dependency>
         <dependency>
             <groupId>dev.amfshr</groupId>
-            <artifactId>monzo-client</artifactId>
+            <artifactId>bank-client-monzo</artifactId>
         </dependency>
 
         <!-- Web -->

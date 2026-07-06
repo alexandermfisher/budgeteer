@@ -8,8 +8,8 @@
         <version>0.0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>common</artifactId>
-    <name>Common</name>
+    <artifactId>bank-client-api</artifactId>
+    <name>Bank Client API</name>
     <description>Provider-neutral bank integration contracts and shared types</description>
 
     <dependencies>

@@ -4,10 +4,10 @@
     <envs>
       <env name="SPRING_PROFILES_ACTIVE" value="dev" />
     </envs>
-    <module name="budgeteer-api" />
+    <module name="budgeteer-server" />
     <shortenClasspath name="NONE" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="dev.amfshr.budgeteer.BudgeteerApplication" />
-    <option name="WORKING_DIRECTORY" value="file://$PROJECT_DIR$/budgeteer-api" />
+    <option name="WORKING_DIRECTORY" value="file://$PROJECT_DIR$/budgeteer-server" />
     <extension name="net.ashald.envfile">
       <option name="IS_ENABLED" value="true" />
       <option name="IS_SUBST" value="false" />

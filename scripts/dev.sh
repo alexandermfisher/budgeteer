@@ -182,7 +182,7 @@ cmd_start() {
     print_status "Starting Budgeteer API on port $APP_PORT..."
     echo ""
 
-    cd "$PROJECT_ROOT/budgeteer-api"
+    cd "$PROJECT_ROOT/budgeteer-server"
     mvn spring-boot:run
 }
 
@@ -261,14 +261,14 @@ cmd_test() {
     fi
 
     print_status "Running all tests (unit + integration)..."
-    cd "$PROJECT_ROOT/budgeteer-api"
+    cd "$PROJECT_ROOT/budgeteer-server"
     mvn test
     print_success "All tests completed"
 }
 
 cmd_unit() {
     print_status "Running unit tests only..."
-    cd "$PROJECT_ROOT/budgeteer-api"
+    cd "$PROJECT_ROOT/budgeteer-server"
     mvn test -DexcludedGroups=integration
     print_success "Unit tests completed"
 }
@@ -286,7 +286,7 @@ cmd_it() {
     echo "   ℹ️  This requires Docker - Testcontainers will spin up PostgreSQL"
     echo ""
     
-    cd "$PROJECT_ROOT/budgeteer-api"
+    cd "$PROJECT_ROOT/budgeteer-server"
     mvn test -Dtest="$test_pattern"
     print_success "Integration tests completed"
 }
@@ -298,7 +298,7 @@ cmd_test_all() {
     fi
 
     print_status "Running all tests (unit + integration)..."
-    cd "$PROJECT_ROOT/budgeteer-api"
+    cd "$PROJECT_ROOT/budgeteer-server"
     mvn verify
     print_success "All tests completed"
 }
