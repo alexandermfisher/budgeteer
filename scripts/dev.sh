@@ -182,7 +182,8 @@ cmd_start() {
     print_status "Starting Budgeteer API on port $APP_PORT..."
     echo ""
 
-    mvn -pl budgeteer-server -am spring-boot:run
+    mvn install -DskipTests -q
+    cd "$PROJECT_ROOT/budgeteer-server" && mvn spring-boot:run
 }
 
 cmd_stop() {
