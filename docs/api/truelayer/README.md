@@ -29,16 +29,22 @@ The two versions differ fundamentally:
 |---|---|---|
 | Auth model | Classic per-user OAuth: auth-code exchange → user access token + refresh token; app manages 90-day consent + refresh | Client-credentials access token (`data` scope) + per-user **`Connection-Id` header**; user consents via a TrueLayer-hosted journey that yields a Connection ID |
 | Endpoints | `/accounts`, `/accounts/{id}/balance`, `/transactions` (+`/pending`), `/standing_orders`, `/direct_debits`, `/cards/**`, `/me`, `/info`, `/connections/extend`, `/batch/**` | `/v3/data-connections`, `/v3/data-connections/{id}/user-info`, `/v3/connected-accounts`, `/v3/connected-accounts/{id}/transactions/requests` (async request/poll pattern) |
-| Transactions | Sync GET with `from`/`to` date window (optional async mode) | Async only: create a transactions *request*, then poll it by `request_id` |
-| Standing orders / direct debits / cards | ✅ Dedicated endpoints | ❌ Not in the spec (as of 2026-08-17) |
+| Transactions | Sync GET with `from`/`to` date window (optional async mode); rich fields inline (`merchant_name`, `transaction_category`, `running_balance`) | Async only: create a *request* (`from`/`to` dates, **cursor pagination**, `page_size` ≤500), then poll by `request_id`. Lean fields (`amount_in_minor`, `currency`, `description`, `id`, `status`, `timestamp`); merchant + category only via opt-in `enrichment` |
+| Balance | ✅ `/accounts/{id}/balance`, `/cards/{id}/balance` | ❌ **No balance data anywhere in the spec** — a `balance` scope is defined but no endpoint or response field exists yet |
+| Standing orders / direct debits | ✅ Dedicated endpoints | ❌ Absent |
+| Cards | ✅ Full card endpoints | 🚧 `Card` schema is an explicit stub: *"card-specific fields will be added when card support is introduced in a future release"* |
 | Coverage | UK + IE (+ EU beta) | UK only (as of 2026-08-17) |
 
-**Implication for `bank-client-truelayer`:** the existing `BankClient` contract (per-user
-tokens, `exchangeCode`/`refreshTokens`, windowed `getTransactions`) maps naturally onto **v1**.
-v3's connection-based model would push token/consent management largely onto TrueLayer but
-loses standing orders / direct debits / cards — which the June 2026 suitability assessment
-counted as requirements. Decide v1 vs v3 (or v1-now, v3-later) during the TrueLayer task's
-planning phase; re-check whether v3 has gained the missing endpoints by then.
+**Implication for `bank-client-truelayer`:** as of 2026-08-17, **v1 is the only version that
+can serve Budgeteer's data requirements** — v3 lacks balance entirely and standing orders /
+direct debits / cards (the Card stub shows the surface is still being ported). The existing
+`BankClient` contract (per-user tokens, `exchangeCode`/`refreshTokens`, windowed
+`getTransactions`) also maps naturally onto v1 and reuses the token-encryption + refresh
+infrastructure built for Monzo. v3 is where TrueLayer is heading, and its cursor-paginated
+transactions actually fit `BankTransactionPage` well — so re-check v3's surface when the
+TrueLayer task is picked up; if it has reached parity by then, v3 may be the better target.
+Either way a later v1→v3 move is a new impl behind the same `BankClient` contract, invisible
+to the domain layer.
 
 ## Refreshing the specs
 
