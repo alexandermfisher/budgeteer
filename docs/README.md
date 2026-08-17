@@ -63,7 +63,9 @@ docs/
 
 | Document | Description |
 |----------|-------------|
-| [api/monzo-api.pdf](api/monzo-api.pdf) | Official Monzo API documentation |
+| [api/monzo/monzo-api.pdf](api/monzo/monzo-api.pdf) | Official Monzo API documentation |
+| [api/truelayer/README.md](api/truelayer/README.md) | TrueLayer API overview — spec index + Data API v1 vs v3 comparison |
+| [api/truelayer/openapi/](api/truelayer/openapi/) | TrueLayer OpenAPI specs (auth server, Data v1/v3, Payments v3, Verification, Signup+, Client Tracking) |
 
 ---
 
