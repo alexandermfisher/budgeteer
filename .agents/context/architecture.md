@@ -59,6 +59,34 @@ Next migration will be **V7**.
 - **Database-backed OAuth state**: State tokens linked to `user_id` for CSRF protection + user binding.
 - **Soft delete on `monzo_connections`**: `disconnected_at` instead of hard delete, preserves audit trail.
 
+## Glossary: Provider vs Institution (decided 2026-08-22)
+
+Two distinct concepts — never conflate them:
+
+- **Provider** — the external service we integrate with: it holds the OAuth/consent connection
+  and answers our API calls. Values: `MONZO`, `TRUELAYER`. In code/schema: the `Provider` enum,
+  `provider`, `provider_account_id`, `provider_transaction_id` columns.
+- **Institution** — the real bank behind an account: Monzo, Lloyds, HSBC. In schema:
+  `institution_name` on `user_accounts`. For Monzo, provider == institution. A single TrueLayer
+  connection can yield accounts at many institutions. **TrueLayer is never called a bank.**
+
+Provider capability interfaces follow PSD2 vocabulary (AIS / PIS):
+
+- `AccountInformationProvider` — accounts, balances, transactions, tokens. This is the target
+  name for today's `BankClient` (rename is a board chore, executes as commit 1 of the TrueLayer
+  task: `MonzoBankClient` → `MonzoAccountInformationProvider`, exceptions → `ProviderException` /
+  `ProviderConnectionRevokedException` / `ProviderReauthRequiredException`, error codes →
+  `PROVIDER_*`, jars → `provider-api` / `provider-monzo` / `provider-truelayer`).
+- `PaymentInitiationProvider` — future capability if we adopt TrueLayer payments. One impl class
+  may implement both interfaces (e.g. `TrueLayerClient`).
+
+Data records stay `Bank*` (`BankAccount`, `BankTransaction`, `BankBalance`) — they describe the
+**institution's** artifacts, which genuinely are bank things; only the provider was mislabelled.
+
+Raw→domain promotion is **ingest**: `IngestService.ingestAll()` orchestrates per-provider
+`ProviderIngestor` impls (`MonzoIngestor`) in `budgeteer-server`. The client jars never touch
+the database.
+
 ## Environment Profiles
 
 - `dev` — DEBUG logging, show SQL, hot reload via `./scripts/dev.sh`
