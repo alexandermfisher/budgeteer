@@ -2,12 +2,12 @@ package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
 import dev.amfshr.budgeteer.api.monzo.dto.MonzoSyncProgressResponse;
-import dev.amfshr.budgeteer.bank.BankAccount;
-import dev.amfshr.budgeteer.bank.AccountInformationProvider;
-import dev.amfshr.budgeteer.bank.ProviderException;
-import dev.amfshr.budgeteer.bank.ProviderReauthRequiredException;
-import dev.amfshr.budgeteer.bank.BankTransaction;
-import dev.amfshr.budgeteer.bank.BankTransactionPage;
+import dev.amfshr.budgeteer.provider.BankAccount;
+import dev.amfshr.budgeteer.provider.AccountInformationProvider;
+import dev.amfshr.budgeteer.provider.ProviderException;
+import dev.amfshr.budgeteer.provider.ProviderReauthRequiredException;
+import dev.amfshr.budgeteer.provider.BankTransaction;
+import dev.amfshr.budgeteer.provider.BankTransactionPage;
 import dev.amfshr.budgeteer.domain.monzo.MonzoAccount;
 import dev.amfshr.budgeteer.domain.monzo.MonzoConnection;
 import dev.amfshr.budgeteer.domain.user.User;

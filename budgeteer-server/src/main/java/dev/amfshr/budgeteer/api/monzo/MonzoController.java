@@ -6,7 +6,7 @@ import dev.amfshr.budgeteer.api.monzo.dto.MonzoConnectInitResponse;
 import dev.amfshr.budgeteer.api.monzo.dto.MonzoConnectionResponse;
 import dev.amfshr.budgeteer.api.monzo.dto.MonzoStatusResponse;
 import dev.amfshr.budgeteer.api.monzo.dto.MonzoSyncProgressResponse;
-import dev.amfshr.budgeteer.bank.BankTokens;
+import dev.amfshr.budgeteer.provider.BankTokens;
 import dev.amfshr.budgeteer.domain.monzo.MonzoConnection;
 import dev.amfshr.budgeteer.domain.user.User;
 import dev.amfshr.budgeteer.exception.ApiException;

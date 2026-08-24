@@ -3,7 +3,7 @@ package dev.amfshr.budgeteer.integration;
 import dev.amfshr.budgeteer.api.common.ErrorCode;
 import dev.amfshr.budgeteer.domain.monzo.MonzoConnection;
 import dev.amfshr.budgeteer.domain.user.User;
-import dev.amfshr.budgeteer.bank.ProviderException;
+import dev.amfshr.budgeteer.provider.ProviderException;
 import dev.amfshr.budgeteer.exception.ApiException;
 import dev.amfshr.budgeteer.repository.MonzoConnectionRepository;
 import dev.amfshr.budgeteer.service.common.EncryptionService;

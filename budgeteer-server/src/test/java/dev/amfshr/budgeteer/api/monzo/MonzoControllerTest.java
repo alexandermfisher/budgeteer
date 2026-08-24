@@ -2,7 +2,7 @@ package dev.amfshr.budgeteer.api.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
 import dev.amfshr.budgeteer.api.common.GlobalExceptionHandler;
-import dev.amfshr.budgeteer.bank.BankTokens;
+import dev.amfshr.budgeteer.provider.BankTokens;
 import dev.amfshr.budgeteer.config.SecurityConfig;
 import dev.amfshr.budgeteer.config.WebMvcConfig;
 import dev.amfshr.budgeteer.domain.monzo.MonzoConnection;

@@ -1,6 +1,6 @@
 package dev.amfshr.budgeteer.config;
 
-import dev.amfshr.budgeteer.client.monzo.MonzoProperties;
+import dev.amfshr.budgeteer.provider.monzo.MonzoProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
