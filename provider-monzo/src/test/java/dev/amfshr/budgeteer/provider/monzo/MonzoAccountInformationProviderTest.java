@@ -1,15 +1,15 @@
 package dev.amfshr.budgeteer.provider.monzo;
 
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
-import dev.amfshr.budgeteer.provider.BankAccount;
-import dev.amfshr.budgeteer.provider.BankBalance;
-import dev.amfshr.budgeteer.provider.ProviderException;
-import dev.amfshr.budgeteer.provider.ProviderConnectionRevokedException;
-import dev.amfshr.budgeteer.provider.BankIdentity;
-import dev.amfshr.budgeteer.provider.ProviderReauthRequiredException;
-import dev.amfshr.budgeteer.provider.BankTokens;
-import dev.amfshr.budgeteer.provider.BankTransaction;
-import dev.amfshr.budgeteer.provider.BankTransactionPage;
+import dev.amfshr.budgeteer.provider.model.BankAccount;
+import dev.amfshr.budgeteer.provider.model.BankBalance;
+import dev.amfshr.budgeteer.provider.exception.ProviderException;
+import dev.amfshr.budgeteer.provider.exception.ProviderConnectionRevokedException;
+import dev.amfshr.budgeteer.provider.model.BankIdentity;
+import dev.amfshr.budgeteer.provider.exception.ProviderReauthRequiredException;
+import dev.amfshr.budgeteer.provider.model.BankTokens;
+import dev.amfshr.budgeteer.provider.model.BankTransaction;
+import dev.amfshr.budgeteer.provider.model.BankTransactionPage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

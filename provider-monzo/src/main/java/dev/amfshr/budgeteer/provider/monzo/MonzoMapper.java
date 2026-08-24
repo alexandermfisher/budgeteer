@@ -1,8 +1,8 @@
 package dev.amfshr.budgeteer.provider.monzo;
 
-import dev.amfshr.budgeteer.provider.BankAccount;
-import dev.amfshr.budgeteer.provider.BankTokens;
-import dev.amfshr.budgeteer.provider.BankTransaction;
+import dev.amfshr.budgeteer.provider.model.BankAccount;
+import dev.amfshr.budgeteer.provider.model.BankTokens;
+import dev.amfshr.budgeteer.provider.model.BankTransaction;
 import dev.amfshr.budgeteer.provider.monzo.dto.MonzoAccountResponse;
 import dev.amfshr.budgeteer.provider.monzo.dto.MonzoTransactionResponse;
 import org.jspecify.annotations.Nullable;

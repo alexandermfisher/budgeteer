@@ -1,4 +1,4 @@
-package dev.amfshr.budgeteer.provider;
+package dev.amfshr.budgeteer.provider.model;
 
 import org.jspecify.annotations.Nullable;
 

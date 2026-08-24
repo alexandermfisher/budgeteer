@@ -2,7 +2,7 @@ package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
 import dev.amfshr.budgeteer.provider.AccountInformationProvider;
-import dev.amfshr.budgeteer.provider.BankTokens;
+import dev.amfshr.budgeteer.provider.model.BankTokens;
 import dev.amfshr.budgeteer.domain.oauth.OAuthState;
 import dev.amfshr.budgeteer.repository.OAuthStateRepository;
 import dev.amfshr.budgeteer.domain.user.User;

@@ -1,4 +1,4 @@
-package dev.amfshr.budgeteer.provider;
+package dev.amfshr.budgeteer.provider.exception;
 
 /**
  * Base exception for provider-neutral errors.

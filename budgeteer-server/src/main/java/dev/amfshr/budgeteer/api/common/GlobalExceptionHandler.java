@@ -1,8 +1,8 @@
 package dev.amfshr.budgeteer.api.common;
 
-import dev.amfshr.budgeteer.provider.ProviderException;
-import dev.amfshr.budgeteer.provider.ProviderConnectionRevokedException;
-import dev.amfshr.budgeteer.provider.ProviderReauthRequiredException;
+import dev.amfshr.budgeteer.provider.exception.ProviderException;
+import dev.amfshr.budgeteer.provider.exception.ProviderConnectionRevokedException;
+import dev.amfshr.budgeteer.provider.exception.ProviderReauthRequiredException;
 import dev.amfshr.budgeteer.exception.ApiException;
 import dev.amfshr.budgeteer.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletRequest;

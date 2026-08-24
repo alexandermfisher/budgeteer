@@ -1,4 +1,4 @@
-package dev.amfshr.budgeteer.provider;
+package dev.amfshr.budgeteer.provider.model;
 
 /**
  * Provider-neutral account balance snapshot. {@code balanceMinorUnits} is signed
