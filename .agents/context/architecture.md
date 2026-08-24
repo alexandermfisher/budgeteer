@@ -72,11 +72,13 @@ Two distinct concepts — never conflate them:
 
 Provider capability interfaces follow PSD2 vocabulary (AIS / PIS):
 
-- `AccountInformationProvider` — accounts, balances, transactions, tokens. This is the target
-  name for today's `BankClient` (rename is a board chore, executes as commit 1 of the TrueLayer
-  task: `MonzoBankClient` → `MonzoAccountInformationProvider`, exceptions → `ProviderException` /
-  `ProviderConnectionRevokedException` / `ProviderReauthRequiredException`, error codes →
-  `PROVIDER_*`, jars → `provider-api` / `provider-monzo` / `provider-truelayer`).
+- `AccountInformationProvider` — accounts, balances, transactions, tokens. Rename from the old
+  `BankClient` **executed 2026-08-24 (PR #80)**: impl is `MonzoAccountInformationProvider`,
+  exceptions are `ProviderException` / `ProviderConnectionRevokedException` /
+  `ProviderReauthRequiredException`, error codes are `PROVIDER_*`, jars are `provider-api` /
+  `provider-monzo` (future `provider-truelayer`). Packages align with the jars:
+  `dev.amfshr.budgeteer.provider` (contracts at root, data records in `.model`, exceptions in
+  `.exception`) and `dev.amfshr.budgeteer.provider.monzo` (with `.dto` / `.autoconfigure`).
 - `PaymentInitiationProvider` — future capability if we adopt TrueLayer payments. One impl class
   may implement both interfaces (e.g. `TrueLayerClient`).
 
