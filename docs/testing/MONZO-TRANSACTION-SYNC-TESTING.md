@@ -386,7 +386,7 @@ WARN  ... Monzo API returned 403 verification_required for transactions - SCA wi
 INFO  ... Backfill paused — SCA verification required [accountId=..., progressAt=..., cursor=...]
 ```
 
-> **Important:** the previous "8 retries with 2s delay storm" should NOT happen. `MONZO_VERIFICATION_REQUIRED` falls outside the `MONZO_API_ERROR` retry guard, and `backfillAccount` catches it cleanly on the first occurrence.
+> **Important:** the previous "8 retries with 2s delay storm" should NOT happen. `PROVIDER_REAUTH_REQUIRED` falls outside the `PROVIDER_API_ERROR` retry guard, and `backfillAccount` catches it cleanly on the first occurrence.
 
 ### Inspect the checkpoint
 

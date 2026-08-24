@@ -199,7 +199,7 @@ flowchart TD
     M -->|No| N[400 Bad Request<br/>TOKEN_EXCHANGE_FAILED]
     M -->|Yes| O[Get Monzo user ID]
     O --> P{Whoami successful?}
-    P -->|No| Q[500 Internal Error<br/>MONZO_API_ERROR]
+    P -->|No| Q[500 Internal Error<br/>PROVIDER_API_ERROR]
     P -->|Yes| R[Create connection]
     R --> S[200 OK<br/>Connection created]
     
@@ -545,7 +545,7 @@ stateDiagram-v2
 | `OAUTH_STATE_INVALID` | 400 | State not found or already used |
 | `OAUTH_STATE_EXPIRED` | 400 | State older than 10 minutes |
 | `TOKEN_EXCHANGE_FAILED` | 400 | Monzo rejected code exchange |
-| `MONZO_API_ERROR` | 500 | Error calling Monzo API |
+| `PROVIDER_API_ERROR` | 500 | Error calling Monzo API |
 | `CONNECTION_NOT_FOUND` | 404 | Connection doesn't exist or wrong user |
 | `ENCRYPTION_ERROR` | 500 | Failed to encrypt/decrypt tokens |
 

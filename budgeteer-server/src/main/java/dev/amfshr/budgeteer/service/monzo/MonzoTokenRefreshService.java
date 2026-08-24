@@ -1,9 +1,9 @@
 package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
-import dev.amfshr.budgeteer.bank.BankClient;
-import dev.amfshr.budgeteer.bank.BankConnectionRevokedException;
-import dev.amfshr.budgeteer.bank.BankTokens;
+import dev.amfshr.budgeteer.provider.AccountInformationProvider;
+import dev.amfshr.budgeteer.provider.exception.ProviderConnectionRevokedException;
+import dev.amfshr.budgeteer.provider.model.BankTokens;
 import dev.amfshr.budgeteer.domain.monzo.MonzoConnection;
 import dev.amfshr.budgeteer.exception.ApiException;
 import dev.amfshr.budgeteer.repository.MonzoConnectionRepository;
@@ -41,16 +41,16 @@ public class MonzoTokenRefreshService {
     private static final long FALLBACK_EXPIRES_SECONDS = 21_600L;
 
     private final MonzoConnectionRepository connectionRepository;
-    private final BankClient bankClient;
+    private final AccountInformationProvider provider;
     private final EncryptionService encryptionService;
 
     public MonzoTokenRefreshService(
             MonzoConnectionRepository connectionRepository,
-            BankClient bankClient,
+            AccountInformationProvider provider,
             EncryptionService encryptionService
     ) {
         this.connectionRepository = connectionRepository;
-        this.bankClient = bankClient;
+        this.provider = provider;
         this.encryptionService = encryptionService;
     }
 
@@ -72,7 +72,7 @@ public class MonzoTokenRefreshService {
         String plainRefreshToken = encryptionService.decrypt(connection.getRefreshTokenEncrypted());
 
         try {
-            BankTokens tokens = bankClient.refreshTokens(plainRefreshToken);
+            BankTokens tokens = provider.refreshTokens(plainRefreshToken);
 
             String newAccessTokenEncrypted = encryptionService.encrypt(tokens.accessToken());
             String newRefreshTokenEncrypted = encryptionService.encrypt(
@@ -88,7 +88,7 @@ public class MonzoTokenRefreshService {
             log.info("Refreshed tokens for connection {} [expiresAt={}]", connectionId, newExpiresAt);
             return saved;
 
-        } catch (BankConnectionRevokedException e) {
+        } catch (ProviderConnectionRevokedException e) {
             log.warn("Connection {} revoked by Monzo during refresh - disconnecting", connectionId);
             connection.disconnect();
             connectionRepository.save(connection);

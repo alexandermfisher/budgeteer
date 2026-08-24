@@ -130,7 +130,7 @@ don't apply (say so). After each branch, give a one-line recap of what was decid
 >
 > **D. External integration (Monzo / future banks)** — New `MonzoClient` methods + signatures.
 > Client DTOs (sparse — expand field-by-field as needed). Error handling (`handleMonzoError`,
-> 401 → `MONZO_CONNECTION_REVOKED`). Pagination / cursors. Rate limits, timeouts, retries.
+> 401 → `PROVIDER_CONNECTION_REVOKED`). Pagination / cursors. Rate limits, timeouts, retries.
 >
 > **E. Configuration & properties** — New `@ConfigurationProperties` class? `application.properties`
 > keys + defaults. Dev vs prod profile differences. New secrets / env vars (and the reminder that

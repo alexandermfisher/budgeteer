@@ -396,7 +396,7 @@ public class MonzoConnectionService {
         MonzoConnection refreshed = tokenRefreshService.refresh(connection.getId());
         if (!refreshed.isActive()) {
             throw new ApiException(
-                    ErrorCode.MONZO_CONNECTION_REVOKED,
+                    ErrorCode.PROVIDER_CONNECTION_REVOKED,
                     "Monzo connection was revoked. Please reconnect your account."
             );
         }

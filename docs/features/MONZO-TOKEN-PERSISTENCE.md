@@ -211,7 +211,7 @@ CREATE TABLE oauth_states (
 | CSRF protection | Random 32-byte state, 10-min expiry, single use |
 | Replay prevention | State marked used immediately on callback |
 | User isolation | All queries scoped to authenticated user |
-| 401 detection | MonzoClient throws `MONZO_CONNECTION_REVOKED` |
+| 401 detection | MonzoClient throws `PROVIDER_CONNECTION_REVOKED` |
 | No token exposure | Tokens never in API responses or logs |
 
 ---
@@ -249,7 +249,7 @@ CREATE TABLE oauth_states (
    - Allows cleanup without affecting connections
 
 ### Error Handling
-- `MONZO_CONNECTION_REVOKED` - Token was revoked in Monzo app
+- `PROVIDER_CONNECTION_REVOKED` - Token was revoked in Monzo app
 - `OAUTH_STATE_INVALID` - Replay attack or tampered state
 - `OAUTH_STATE_EXPIRED` - User took >10 min at Monzo
 - `OAUTH_ACCESS_DENIED` - User clicked "Deny" in Monzo app

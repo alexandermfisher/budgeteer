@@ -2,12 +2,12 @@ package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
 import dev.amfshr.budgeteer.api.monzo.dto.MonzoSyncProgressResponse;
-import dev.amfshr.budgeteer.bank.BankAccount;
-import dev.amfshr.budgeteer.bank.BankClient;
-import dev.amfshr.budgeteer.bank.BankClientException;
-import dev.amfshr.budgeteer.bank.BankReauthRequiredException;
-import dev.amfshr.budgeteer.bank.BankTransaction;
-import dev.amfshr.budgeteer.bank.BankTransactionPage;
+import dev.amfshr.budgeteer.provider.model.BankAccount;
+import dev.amfshr.budgeteer.provider.AccountInformationProvider;
+import dev.amfshr.budgeteer.provider.exception.ProviderException;
+import dev.amfshr.budgeteer.provider.exception.ProviderReauthRequiredException;
+import dev.amfshr.budgeteer.provider.model.BankTransaction;
+import dev.amfshr.budgeteer.provider.model.BankTransactionPage;
 import dev.amfshr.budgeteer.domain.monzo.MonzoAccount;
 import dev.amfshr.budgeteer.domain.monzo.MonzoConnection;
 import dev.amfshr.budgeteer.domain.user.User;
@@ -39,7 +39,7 @@ public class TransactionSyncService {
     private static final Instant ABSOLUTE_BACKFILL_FLOOR = Instant.parse("2015-01-01T00:00:00Z");
     private static final Duration BACKFILL_WINDOW = Duration.ofDays(350);
 
-    private final BankClient bankClient;
+    private final AccountInformationProvider provider;
     private final MonzoConnectionService connectionService;
     private final MonzoConnectionRepository connectionRepository;
     private final MonzoAccountRepository accountRepository;
@@ -47,14 +47,14 @@ public class TransactionSyncService {
     private final TransactionTemplate txTemplate;
 
     public TransactionSyncService(
-            BankClient bankClient,
+            AccountInformationProvider provider,
             MonzoConnectionService connectionService,
             MonzoConnectionRepository connectionRepository,
             MonzoAccountRepository accountRepository,
             MonzoTransactionRepository transactionRepository,
             PlatformTransactionManager txManager
     ) {
-        this.bankClient = bankClient;
+        this.provider = provider;
         this.connectionService = connectionService;
         this.connectionRepository = connectionRepository;
         this.accountRepository = accountRepository;
@@ -84,8 +84,8 @@ public class TransactionSyncService {
                 log.info("Backfill attempt {}/{} [connectionId={}]", attempt, maxRetries, connectionId);
                 backfill(connectionId);
                 return;
-            } catch (BankClientException e) {
-                if (!(e instanceof BankReauthRequiredException) && attempt < maxRetries) {
+            } catch (ProviderException e) {
+                if (!(e instanceof ProviderReauthRequiredException) && attempt < maxRetries) {
                     log.warn("Backfill attempt {}/{} failed — Monzo permissions not ready yet, retrying [connectionId={}]",
                             attempt, maxRetries, connectionId);
                     try {
@@ -106,7 +106,7 @@ public class TransactionSyncService {
 
     public void backfill(UUID connectionId) {
         MonzoConnection connection = connectionRepository.findById(connectionId)
-                .orElseThrow(() -> new ApiException(ErrorCode.MONZO_SYNC_ERROR,
+                .orElseThrow(() -> new ApiException(ErrorCode.PROVIDER_SYNC_ERROR,
                         "Connection not found for backfill: " + connectionId));
 
         UUID userId = connection.getUser().getId();
@@ -114,7 +114,7 @@ public class TransactionSyncService {
 
         String accessToken = connectionService.getDecryptedAccessToken(connectionId, userId);
 
-        List<BankAccount> accountResponses = bankClient.getAccounts(accessToken);
+        List<BankAccount> accountResponses = provider.getAccounts(accessToken);
         log.info("Found {} accounts [connectionId={}]", accountResponses.size(), connectionId);
 
         for (BankAccount ar : accountResponses) {
@@ -143,7 +143,7 @@ public class TransactionSyncService {
     @Transactional
     public void deltaSync(String accountId) {
         MonzoAccount account = accountRepository.findById(accountId)
-                .orElseThrow(() -> new ApiException(ErrorCode.MONZO_SYNC_ERROR,
+                .orElseThrow(() -> new ApiException(ErrorCode.PROVIDER_SYNC_ERROR,
                         "Account not found for delta sync: " + accountId));
 
         UUID connectionId = account.getConnection().getId();
@@ -266,7 +266,7 @@ public class TransactionSyncService {
             log.info("Backfill complete [account={}, windows={}, elapsed={}s]",
                     label(account), windowCount, Duration.between(startTime, Instant.now()).toSeconds());
 
-        } catch (BankReauthRequiredException e) {
+        } catch (ProviderReauthRequiredException e) {
             // SCA window expired — pause with progress saved
             int pct = progressPercent(floor, windowEnd);
             final Instant pausedAt = windowEnd;
@@ -314,7 +314,7 @@ public class TransactionSyncService {
         Instant to = Instant.parse(before);
 
         while (true) {
-            BankTransactionPage page = bankClient.getTransactions(
+            BankTransactionPage page = provider.getTransactions(
                     accessToken, account.getId(), from, to, cursor
             );
 
@@ -364,7 +364,7 @@ public class TransactionSyncService {
         Instant to = before != null ? Instant.parse(before) : Instant.now();
 
         while (true) {
-            BankTransactionPage page = bankClient.getTransactions(
+            BankTransactionPage page = provider.getTransactions(
                     accessToken, account.getId(), from, to, cursor
             );
 

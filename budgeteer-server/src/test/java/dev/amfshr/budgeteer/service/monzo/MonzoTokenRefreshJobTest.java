@@ -117,7 +117,7 @@ class MonzoTokenRefreshJobTest {
             when(tokenRefreshService.refresh(id1))
                     .thenAnswer(inv -> connectionWithId(id1));
             when(tokenRefreshService.refresh(id2))
-                    .thenThrow(new ApiException(ErrorCode.MONZO_API_ERROR, "Monzo error"));
+                    .thenThrow(new ApiException(ErrorCode.PROVIDER_API_ERROR, "Monzo error"));
             when(tokenRefreshService.refresh(id3))
                     .thenAnswer(inv -> connectionWithId(id3));
 
