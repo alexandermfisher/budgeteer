@@ -63,7 +63,7 @@ public class GlobalExceptionHandler {
         }
 
         log.warn("Provider exception [code={}, uri={}, message={}]",
-                code, request.getRequestURI(), ex.getMessage());
+                code, LogSanitizer.sanitize(request.getRequestURI()), LogSanitizer.sanitize(ex.getMessage()));
 
         ApiError error = ApiError.of(code, ex.getMessage(), request.getRequestURI());
 
