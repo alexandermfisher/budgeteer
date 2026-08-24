@@ -1,6 +1,6 @@
 package dev.amfshr.budgeteer.service.monzo;
 
-import dev.amfshr.budgeteer.bank.BankClient;
+import dev.amfshr.budgeteer.bank.AccountInformationProvider;
 import dev.amfshr.budgeteer.bank.BankIdentity;
 import dev.amfshr.budgeteer.bank.BankTokens;
 import dev.amfshr.budgeteer.api.common.ErrorCode;
@@ -37,7 +37,7 @@ class MonzoOAuthServiceTest {
     private OAuthStateRepository stateRepository;
 
     @Mock
-    private BankClient bankClient;
+    private AccountInformationProvider provider;
 
     @Mock
     private SecureRandom secureRandom;
@@ -51,7 +51,7 @@ class MonzoOAuthServiceTest {
     void setUp() {
         oauthService = new MonzoOAuthService(
                 stateRepository,
-                bankClient,
+                provider,
                 secureRandom
         );
 
@@ -76,7 +76,7 @@ class MonzoOAuthServiceTest {
         @DisplayName("should generate state and return authorization URL")
         void shouldGenerateStateAndReturnAuthUrl() {
             // Given
-            when(bankClient.buildAuthorizationUrl(any())).thenReturn("https://auth.monzo.com/?client_id=client-123&redirect_uri=http://localhost:8080/callback&response_type=code&state=test-state");
+            when(provider.buildAuthorizationUrl(any())).thenReturn("https://auth.monzo.com/?client_id=client-123&redirect_uri=http://localhost:8080/callback&response_type=code&state=test-state");
             when(stateRepository.save(any(OAuthState.class))).thenAnswer(inv -> inv.getArgument(0));
 
             // When
@@ -104,7 +104,7 @@ class MonzoOAuthServiceTest {
         @DisplayName("should generate unique states for each call")
         void shouldGenerateUniqueStates() {
             // Given
-            when(bankClient.buildAuthorizationUrl(any())).thenReturn("https://auth.monzo.com/?client_id=client-123&redirect_uri=http://localhost:8080/callback&response_type=code&state=test-state");
+            when(provider.buildAuthorizationUrl(any())).thenReturn("https://auth.monzo.com/?client_id=client-123&redirect_uri=http://localhost:8080/callback&response_type=code&state=test-state");
             when(stateRepository.save(any(OAuthState.class))).thenAnswer(inv -> inv.getArgument(0));
 
             // When
@@ -207,7 +207,7 @@ class MonzoOAuthServiceTest {
                     "refresh-token-abc",
                     expiresAt
             );
-            when(bankClient.exchangeCode("auth-code-123")).thenReturn(clientResponse);
+            when(provider.exchangeCode("auth-code-123")).thenReturn(clientResponse);
 
             // When
             BankTokens result = oauthService.exchangeCodeForTokens("auth-code-123");
@@ -216,7 +216,7 @@ class MonzoOAuthServiceTest {
             assertThat(result.accessToken()).isEqualTo("access-token-xyz");
             assertThat(result.refreshToken()).isEqualTo("refresh-token-abc");
             assertThat(result.expiresAt()).isEqualTo(expiresAt);
-            verify(bankClient).exchangeCode("auth-code-123");
+            verify(provider).exchangeCode("auth-code-123");
         }
     }
 
@@ -227,17 +227,17 @@ class MonzoOAuthServiceTest {
     class GetMonzoUserId {
 
         @Test
-        @DisplayName("should return user ID from BankClient")
-        void shouldReturnUserIdFromBankClient() {
+        @DisplayName("should return user ID from AccountInformationProvider")
+        void shouldReturnUserIdFromAccountInformationProvider() {
             // Given
-            when(bankClient.getIdentity("access-token")).thenReturn(new BankIdentity("user_abc123", null));
+            when(provider.getIdentity("access-token")).thenReturn(new BankIdentity("user_abc123", null));
 
             // When
             String result = oauthService.getMonzoUserId("access-token");
 
             // Then
             assertThat(result).isEqualTo("user_abc123");
-            verify(bankClient).getIdentity("access-token");
+            verify(provider).getIdentity("access-token");
         }
     }
 

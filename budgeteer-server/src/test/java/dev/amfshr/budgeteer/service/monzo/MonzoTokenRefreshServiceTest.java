@@ -1,9 +1,9 @@
 package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
-import dev.amfshr.budgeteer.bank.BankClient;
-import dev.amfshr.budgeteer.bank.BankClientException;
-import dev.amfshr.budgeteer.bank.BankConnectionRevokedException;
+import dev.amfshr.budgeteer.bank.AccountInformationProvider;
+import dev.amfshr.budgeteer.bank.ProviderException;
+import dev.amfshr.budgeteer.bank.ProviderConnectionRevokedException;
 import dev.amfshr.budgeteer.bank.BankTokens;
 import dev.amfshr.budgeteer.domain.monzo.MonzoConnection;
 import dev.amfshr.budgeteer.domain.user.User;
@@ -45,7 +45,7 @@ class MonzoTokenRefreshServiceTest {
     private MonzoConnectionRepository connectionRepository;
 
     @Mock
-    private BankClient bankClient;
+    private AccountInformationProvider provider;
 
     @Mock
     private EncryptionService encryptionService;
@@ -98,7 +98,7 @@ class MonzoTokenRefreshServiceTest {
 
             when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(activeConnection));
             when(encryptionService.decrypt(REFRESH_TOKEN_ENC)).thenReturn(REFRESH_TOKEN_PLAIN);
-            when(bankClient.refreshTokens(REFRESH_TOKEN_PLAIN)).thenReturn(response);
+            when(provider.refreshTokens(REFRESH_TOKEN_PLAIN)).thenReturn(response);
             when(encryptionService.encrypt(newAccessTokenPlain)).thenReturn(newAccessTokenEnc);
             when(encryptionService.encrypt(newRefreshTokenPlain)).thenReturn(newRefreshTokenEnc);
             when(connectionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -130,7 +130,7 @@ class MonzoTokenRefreshServiceTest {
 
             when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(activeConnection));
             when(encryptionService.decrypt(REFRESH_TOKEN_ENC)).thenReturn(REFRESH_TOKEN_PLAIN);
-            when(bankClient.refreshTokens(REFRESH_TOKEN_PLAIN)).thenReturn(response);
+            when(provider.refreshTokens(REFRESH_TOKEN_PLAIN)).thenReturn(response);
             when(encryptionService.encrypt("new_access")).thenReturn("enc_new_access");
             when(encryptionService.encrypt(rotatedRefreshToken)).thenReturn(rotatedRefreshTokenEnc);
             when(connectionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -153,7 +153,7 @@ class MonzoTokenRefreshServiceTest {
 
             when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(activeConnection));
             when(encryptionService.decrypt(REFRESH_TOKEN_ENC)).thenReturn(REFRESH_TOKEN_PLAIN);
-            when(bankClient.refreshTokens(REFRESH_TOKEN_PLAIN)).thenReturn(response);
+            when(provider.refreshTokens(REFRESH_TOKEN_PLAIN)).thenReturn(response);
             when(encryptionService.encrypt(anyString())).thenReturn("some_enc");
             when(connectionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -170,13 +170,13 @@ class MonzoTokenRefreshServiceTest {
         @DisplayName("should soft-delete connection and return when Monzo returns 401 (revoked)")
         void shouldDisconnectConnectionWhenMonzoReturns401() {
             // Given
-            BankConnectionRevokedException revokedException = new BankConnectionRevokedException(
+            ProviderConnectionRevokedException revokedException = new ProviderConnectionRevokedException(
                     "Your Monzo connection has been revoked."
             );
 
             when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(activeConnection));
             when(encryptionService.decrypt(REFRESH_TOKEN_ENC)).thenReturn(REFRESH_TOKEN_PLAIN);
-            when(bankClient.refreshTokens(REFRESH_TOKEN_PLAIN)).thenThrow(revokedException);
+            when(provider.refreshTokens(REFRESH_TOKEN_PLAIN)).thenThrow(revokedException);
             when(connectionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
             // When
@@ -195,19 +195,19 @@ class MonzoTokenRefreshServiceTest {
         @DisplayName("should re-throw and NOT disconnect connection on non-401 Monzo errors")
         void shouldRethrowOnNonRevocationError() {
             // Given
-            BankClientException monzoError = new BankClientException(
+            ProviderException monzoError = new ProviderException(
                     "Monzo API rate limit reached."
             );
 
             when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(activeConnection));
             when(encryptionService.decrypt(REFRESH_TOKEN_ENC)).thenReturn(REFRESH_TOKEN_PLAIN);
-            when(bankClient.refreshTokens(REFRESH_TOKEN_PLAIN)).thenThrow(monzoError);
+            when(provider.refreshTokens(REFRESH_TOKEN_PLAIN)).thenThrow(monzoError);
 
             // When/Then
             assertThatThrownBy(() -> service.refresh(connectionId))
-                    .isInstanceOf(BankClientException.class)
+                    .isInstanceOf(ProviderException.class)
                     .satisfies(ex -> {
-                        BankClientException apiEx = (BankClientException) ex;
+                        ProviderException apiEx = (ProviderException) ex;
                         assertThat(apiEx.getMessage()).isEqualTo("Monzo API rate limit reached.");
                     });
 
@@ -231,7 +231,7 @@ class MonzoTokenRefreshServiceTest {
                         assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
                     });
 
-            verify(bankClient, never()).refreshTokens(anyString());
+            verify(provider, never()).refreshTokens(anyString());
         }
 
         @Test
@@ -247,7 +247,7 @@ class MonzoTokenRefreshServiceTest {
 
             // Then
             assertThat(result.isActive()).isFalse();
-            verify(bankClient, never()).refreshTokens(anyString());
+            verify(provider, never()).refreshTokens(anyString());
             verify(connectionRepository, never()).save(any());
         }
     }

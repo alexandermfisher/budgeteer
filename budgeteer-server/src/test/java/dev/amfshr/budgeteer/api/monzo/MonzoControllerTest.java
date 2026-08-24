@@ -278,14 +278,14 @@ class MonzoControllerTest {
             // Given
             when(oauthService.verifyStateAndGetUser("valid-state")).thenReturn(testUser);
             when(oauthService.exchangeCodeForTokens("code"))
-                    .thenThrow(new ApiException(ErrorCode.MONZO_API_ERROR, "Token exchange failed"));
+                    .thenThrow(new ApiException(ErrorCode.PROVIDER_API_ERROR, "Token exchange failed"));
 
             // When/Then
             mockMvc.perform(get("/api/v1/monzo/callback")
                             .param("code", "code")
                             .param("state", "valid-state"))
                     .andExpect(status().isBadGateway())
-                    .andExpect(jsonPath("$.error.code").value("MONZO_API_ERROR"));
+                    .andExpect(jsonPath("$.error.code").value("PROVIDER_API_ERROR"));
         }
     }
 

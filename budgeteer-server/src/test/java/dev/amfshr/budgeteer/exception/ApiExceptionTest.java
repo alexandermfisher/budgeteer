@@ -56,7 +56,7 @@ class ApiExceptionTest {
         @DisplayName("should include cause")
         void shouldIncludeCause() {
             RuntimeException cause = new RuntimeException("Original error");
-            ApiException ex = new ApiException(ErrorCode.MONZO_API_ERROR, "Monzo call failed", cause);
+            ApiException ex = new ApiException(ErrorCode.PROVIDER_API_ERROR, "Monzo call failed", cause);
 
             assertThat(ex.getMessage()).isEqualTo("Monzo call failed");
             assertThat(ex.getCause()).isEqualTo(cause);

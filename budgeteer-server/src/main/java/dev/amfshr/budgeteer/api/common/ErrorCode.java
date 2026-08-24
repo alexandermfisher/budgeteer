@@ -40,10 +40,10 @@ public enum ErrorCode {
     TOKEN_ALREADY_USED(HttpStatus.CONFLICT, "Token has already been used"),
 
     // ============ External Service Errors (502) ============
-    MONZO_API_ERROR(HttpStatus.BAD_GATEWAY, "Monzo API error"),
-    MONZO_CONNECTION_REVOKED(HttpStatus.UNAUTHORIZED, "Monzo connection was revoked - please reconnect"),
-    MONZO_SYNC_ERROR(HttpStatus.BAD_GATEWAY, "Failed to sync Monzo transactions"),
-    MONZO_VERIFICATION_REQUIRED(HttpStatus.FORBIDDEN, "Monzo requires re-authentication to access older transactions"),
+    PROVIDER_API_ERROR(HttpStatus.BAD_GATEWAY, "Bank provider API error"),
+    PROVIDER_CONNECTION_REVOKED(HttpStatus.UNAUTHORIZED, "Bank connection was revoked - please reconnect"),
+    PROVIDER_SYNC_ERROR(HttpStatus.BAD_GATEWAY, "Failed to sync transactions"),
+    PROVIDER_REAUTH_REQUIRED(HttpStatus.FORBIDDEN, "Bank requires re-authentication to access older transactions"),
     EMAIL_SERVICE_ERROR(HttpStatus.BAD_GATEWAY, "Email service error"),
 
     // ============ Server Errors (500) ============

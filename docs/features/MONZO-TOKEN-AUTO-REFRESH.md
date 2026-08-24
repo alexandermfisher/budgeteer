@@ -125,7 +125,7 @@ is intentional: background jobs run as the system, not as a specific user.
 1. Decrypt refresh token using EncryptionService
 2. Call MonzoClient.refreshTokens(plainTextRefreshToken)
 3a. Success → re-encrypt both tokens → connection.updateTokens(...) → save
-3b. 401 (MONZO_CONNECTION_REVOKED) → connection.disconnect() → save → log WARN
+3b. 401 (PROVIDER_CONNECTION_REVOKED) → connection.disconnect() → save → log WARN
 3c. Other exception → log ERROR, skip this connection, continue with others
 ```
 

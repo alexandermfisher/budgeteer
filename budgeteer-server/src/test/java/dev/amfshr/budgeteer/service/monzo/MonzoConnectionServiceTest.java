@@ -470,7 +470,7 @@ class MonzoConnectionServiceTest {
         }
 
         @Test
-        @DisplayName("should throw MONZO_CONNECTION_REVOKED when eager refresh disconnects the connection")
+        @DisplayName("should throw PROVIDER_CONNECTION_REVOKED when eager refresh disconnects the connection")
         void shouldThrowWhenEagerRefreshDisconnectsConnection() {
             // Given - token expiring soon
             MonzoConnection expiringSoonConnection = new MonzoConnection(
@@ -496,7 +496,7 @@ class MonzoConnectionServiceTest {
                     .isInstanceOf(ApiException.class)
                     .satisfies(ex -> {
                         ApiException apiEx = (ApiException) ex;
-                        assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.MONZO_CONNECTION_REVOKED);
+                        assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.PROVIDER_CONNECTION_REVOKED);
                     });
 
             verify(encryptionService, never()).decrypt(anyString());

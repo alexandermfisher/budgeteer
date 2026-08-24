@@ -3,7 +3,7 @@ package dev.amfshr.budgeteer.integration;
 import dev.amfshr.budgeteer.api.common.ErrorCode;
 import dev.amfshr.budgeteer.domain.monzo.MonzoConnection;
 import dev.amfshr.budgeteer.domain.user.User;
-import dev.amfshr.budgeteer.bank.BankClientException;
+import dev.amfshr.budgeteer.bank.ProviderException;
 import dev.amfshr.budgeteer.exception.ApiException;
 import dev.amfshr.budgeteer.repository.MonzoConnectionRepository;
 import dev.amfshr.budgeteer.service.common.EncryptionService;
@@ -172,7 +172,7 @@ class MonzoTokenRefreshIT extends AbstractMonzoWireMockIT {
 
             // When/Then - should throw
             assertThatThrownBy(() -> tokenRefreshService.refresh(connection.getId()))
-                    .isInstanceOf(BankClientException.class);
+                    .isInstanceOf(ProviderException.class);
 
             // Then - connection still active in DB
             MonzoConnection fromDb = connectionRepository.findById(connection.getId()).orElseThrow();
@@ -328,7 +328,7 @@ class MonzoTokenRefreshIT extends AbstractMonzoWireMockIT {
         }
 
         @Test
-        @DisplayName("getDecryptedAccessToken() should throw MONZO_CONNECTION_REVOKED if eager refresh disconnects connection")
+        @DisplayName("getDecryptedAccessToken() should throw PROVIDER_CONNECTION_REVOKED if eager refresh disconnects connection")
         void shouldThrowWhenEagerRefreshRevealsRevocation() {
             // Given
             User user = testData.createVerifiedUser();
@@ -345,7 +345,7 @@ class MonzoTokenRefreshIT extends AbstractMonzoWireMockIT {
                     .isInstanceOf(ApiException.class)
                     .satisfies(ex -> {
                         ApiException apiEx = (ApiException) ex;
-                        assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.MONZO_CONNECTION_REVOKED);
+                        assertThat(apiEx.getErrorCode()).isEqualTo(ErrorCode.PROVIDER_CONNECTION_REVOKED);
                     });
 
             // Connection should be disconnected in DB

@@ -2,8 +2,8 @@ package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
 import dev.amfshr.budgeteer.bank.BankAccount;
-import dev.amfshr.budgeteer.bank.BankClient;
-import dev.amfshr.budgeteer.bank.BankReauthRequiredException;
+import dev.amfshr.budgeteer.bank.AccountInformationProvider;
+import dev.amfshr.budgeteer.bank.ProviderReauthRequiredException;
 import dev.amfshr.budgeteer.bank.BankTransaction;
 import dev.amfshr.budgeteer.bank.BankTransactionPage;
 import dev.amfshr.budgeteer.domain.monzo.MonzoAccount;
@@ -41,7 +41,7 @@ import static org.mockito.Mockito.*;
 @DisplayName("TransactionSyncService")
 class TransactionSyncServiceTest {
 
-    @Mock private BankClient bankClient;
+    @Mock private AccountInformationProvider provider;
     @Mock private MonzoConnectionService connectionService;
     @Mock private MonzoConnectionRepository connectionRepository;
     @Mock private MonzoAccountRepository accountRepository;
@@ -86,7 +86,7 @@ class TransactionSyncServiceTest {
             BankAccount closedAccount = new BankAccount(
                     "acc_closed", "uk_retail", "Old Account", "GBP", true, java.time.Instant.parse("2020-01-01T00:00:00Z"), null);
 
-            when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(openAccount, closedAccount));
+            when(provider.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(openAccount, closedAccount));
 
             MonzoAccount savedOpenAccount = mockAccount("acc_open");
             MonzoAccount savedClosedAccount = mockAccount("acc_closed");
@@ -97,7 +97,7 @@ class TransactionSyncServiceTest {
             // Backfill walks back through ~12 ≤350-day windows from now → 2015-01-01.
             // The first window (most recent) returns our test tx; all older windows return empty.
             BankTransaction tx = makeTx("tx_001");
-            when(bankClient.getTransactions(
+            when(provider.getTransactions(
                     eq(ACCESS_TOKEN), eq("acc_open"), any(Instant.class), any(Instant.class), isNull()))
                     .thenReturn(new BankTransactionPage(List.of(tx), null),
                             new BankTransactionPage(List.of(), null));
@@ -107,9 +107,9 @@ class TransactionSyncServiceTest {
 
             // Then — every backfill call must include both `since` AND `before` (windowed range),
             // and `sinceId` must start null for each window.
-            verify(bankClient, atLeastOnce())
+            verify(provider, atLeastOnce())
                     .getTransactions(eq(ACCESS_TOKEN), eq("acc_open"), any(Instant.class), any(Instant.class), isNull());
-            verify(bankClient, never())
+            verify(provider, never())
                     .getTransactions(any(), eq("acc_closed"), any(Instant.class), any(Instant.class), any(String.class));
             verify(transactionRepository, times(1)).upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
         }
@@ -122,7 +122,7 @@ class TransactionSyncServiceTest {
 
             BankAccount account = new BankAccount(
                     "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2024-01-01T00:00:00Z"), null);
-            when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(account));
+            when(provider.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(account));
 
             MonzoAccount savedAccount = mockAccount("acc_001");
             when(accountRepository.findById("acc_001")).thenReturn(Optional.empty());
@@ -135,14 +135,14 @@ class TransactionSyncServiceTest {
 
             // First window: returns 100 (forces cursor pagination). All older windows: empty.
             // Start-of-window calls have a timestamp `since` and a null cursor.
-            when(bankClient.getTransactions(
+            when(provider.getTransactions(
                     eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), isNull()))
                     .thenReturn(new BankTransactionPage(firstPage, "tx_page1_099"),
                             new BankTransactionPage(List.of(), null));
 
             // Cursor follow-up within the window: `since` (timestamp) drops to null, the cursor is the
             // last-seen tx id, and `before` stays pinned to the window end (no longer dropped).
-            when(bankClient.getTransactions(
+            when(provider.getTransactions(
                     eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), eq("tx_page1_099")))
                     .thenReturn(new BankTransactionPage(secondPage, null));
 
@@ -151,7 +151,7 @@ class TransactionSyncServiceTest {
             // All 105 transactions upserted, cursor follow-up happened exactly once.
             verify(transactionRepository, times(105))
                     .upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
-            verify(bankClient, times(1))
+            verify(provider, times(1))
                     .getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), eq("tx_page1_099"));
         }
     }
@@ -169,12 +169,12 @@ class TransactionSyncServiceTest {
             when(connectionService.getDecryptedAccessToken(any(), any())).thenReturn(ACCESS_TOKEN);
 
             BankTransaction tx = makeTx("tx_new");
-            when(bankClient.getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), eq("tx_existing_cursor")))
+            when(provider.getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), eq("tx_existing_cursor")))
                     .thenReturn(new BankTransactionPage(List.of(tx), null));
 
             service.deltaSync("acc_001");
 
-            verify(bankClient).getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), eq("tx_existing_cursor"));
+            verify(provider).getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), eq("tx_existing_cursor"));
             verify(transactionRepository, times(1)).upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
         }
 
@@ -186,12 +186,12 @@ class TransactionSyncServiceTest {
             when(accountRepository.findById("acc_001")).thenReturn(Optional.of(account));
             when(connectionService.getDecryptedAccessToken(any(), any())).thenReturn(ACCESS_TOKEN);
 
-            when(bankClient.getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), isNull()))
+            when(provider.getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), isNull()))
                     .thenReturn(new BankTransactionPage(List.of(), null));
 
             service.deltaSync("acc_001");
 
-            verify(bankClient).getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), isNull());
+            verify(provider).getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), isNull());
         }
     }
 
@@ -207,16 +207,16 @@ class TransactionSyncServiceTest {
 
             BankAccount ar = new BankAccount(
                     "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2024-01-01T00:00:00Z"), null);
-            when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
+            when(provider.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
 
             MonzoAccount account = mockAccount("acc_001");
             when(accountRepository.findById("acc_001")).thenReturn(Optional.empty());
             when(accountRepository.save(any())).thenReturn(account);
 
             // First window throws verification_required
-            when(bankClient.getTransactions(eq(ACCESS_TOKEN), eq("acc_001"),
+            when(provider.getTransactions(eq(ACCESS_TOKEN), eq("acc_001"),
                     any(Instant.class), any(Instant.class), isNull()))
-                    .thenThrow(new BankReauthRequiredException("SCA expired"));
+                    .thenThrow(new ProviderReauthRequiredException("SCA expired"));
 
             // Should not throw
             service.backfill(connectionId);
@@ -236,7 +236,7 @@ class TransactionSyncServiceTest {
             // Account opened recently — one short window gets us to the floor
             BankAccount ar = new BankAccount(
                     "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2025-12-01T00:00:00Z"), null);
-            when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
+            when(provider.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
 
             MonzoAccount account = mockAccount("acc_001");
             when(account.getMonzoCreatedAt()).thenReturn(Instant.parse("2025-12-01T00:00:00Z"));
@@ -244,7 +244,7 @@ class TransactionSyncServiceTest {
             when(accountRepository.save(any())).thenReturn(account);
 
             // All windows return empty
-            when(bankClient.getTransactions(any(), any(), any(Instant.class), any(Instant.class), any()))
+            when(provider.getTransactions(any(), any(), any(Instant.class), any(Instant.class), any()))
                     .thenReturn(new BankTransactionPage(List.of(), null));
 
             service.backfill(connectionId);
@@ -265,7 +265,7 @@ class TransactionSyncServiceTest {
 
             BankAccount ar = new BankAccount(
                     "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2025-10-01T00:00:00Z"), null);
-            when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
+            when(provider.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
 
             MonzoAccount account = mockAccount("acc_001");
             when(account.getMonzoCreatedAt()).thenReturn(Instant.parse("2025-10-01T00:00:00Z"));
@@ -273,13 +273,13 @@ class TransactionSyncServiceTest {
             when(account.getBackfillProgressCursor()).thenReturn(null);
             when(accountRepository.findById("acc_001")).thenReturn(Optional.empty());
             when(accountRepository.save(any())).thenReturn(account);
-            when(bankClient.getTransactions(any(), any(), any(Instant.class), any(Instant.class), any()))
+            when(provider.getTransactions(any(), any(), any(Instant.class), any(Instant.class), any()))
                     .thenReturn(new BankTransactionPage(List.of(), null));
 
             service.backfill(connectionId);
 
             // The `before` on the first call must not exceed progressAt (we resume from there)
-            verify(bankClient, atLeastOnce()).getTransactions(
+            verify(provider, atLeastOnce()).getTransactions(
                     eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class), isNull());
         }
 
@@ -294,7 +294,7 @@ class TransactionSyncServiceTest {
 
             BankAccount ar = new BankAccount(
                     "acc_001", "uk_retail", null, "GBP", false, java.time.Instant.parse("2025-12-01T00:00:00Z"), null);
-            when(bankClient.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
+            when(provider.getAccounts(ACCESS_TOKEN)).thenReturn(List.of(ar));
 
             MonzoAccount account = mockAccount("acc_001");
             when(account.getMonzoCreatedAt()).thenReturn(Instant.parse("2025-12-01T00:00:00Z"));
@@ -302,14 +302,14 @@ class TransactionSyncServiceTest {
             when(account.getBackfillProgressCursor()).thenReturn(savedCursor);
             when(accountRepository.findById("acc_001")).thenReturn(Optional.empty());
             when(accountRepository.save(any())).thenReturn(account);
-            when(bankClient.getTransactions(any(), any(), any(Instant.class), any(Instant.class), any()))
+            when(provider.getTransactions(any(), any(), any(Instant.class), any(Instant.class), any()))
                     .thenReturn(new BankTransactionPage(List.of(), null));
 
             service.backfill(connectionId);
 
             // The first call within the resumed window uses the saved cursor (sent via `since`),
             // with `before` pinned to the window end (the resume point) rather than dropped.
-            verify(bankClient, atLeastOnce()).getTransactions(
+            verify(provider, atLeastOnce()).getTransactions(
                     eq(ACCESS_TOKEN), eq("acc_001"), any(Instant.class), any(Instant.class),
                     eq(savedCursor));
         }

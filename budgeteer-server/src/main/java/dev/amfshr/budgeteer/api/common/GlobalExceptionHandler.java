@@ -1,8 +1,8 @@
 package dev.amfshr.budgeteer.api.common;
 
-import dev.amfshr.budgeteer.bank.BankClientException;
-import dev.amfshr.budgeteer.bank.BankConnectionRevokedException;
-import dev.amfshr.budgeteer.bank.BankReauthRequiredException;
+import dev.amfshr.budgeteer.bank.ProviderException;
+import dev.amfshr.budgeteer.bank.ProviderConnectionRevokedException;
+import dev.amfshr.budgeteer.bank.ProviderReauthRequiredException;
 import dev.amfshr.budgeteer.exception.ApiException;
 import dev.amfshr.budgeteer.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletRequest;
@@ -49,21 +49,20 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Handle provider-neutral bank client exceptions, mapping subclasses to the existing
-     * {@code MONZO_*} error codes (behaviour-preserving).
+     * Handle provider-neutral exceptions, mapping subclasses to the {@code PROVIDER_*} error codes.
      */
-    @ExceptionHandler(BankClientException.class)
-    public ResponseEntity<ApiError> handleBankClientException(BankClientException ex, HttpServletRequest request) {
+    @ExceptionHandler(ProviderException.class)
+    public ResponseEntity<ApiError> handleProviderException(ProviderException ex, HttpServletRequest request) {
         ErrorCode code;
-        if (ex instanceof BankConnectionRevokedException) {
-            code = ErrorCode.MONZO_CONNECTION_REVOKED;
-        } else if (ex instanceof BankReauthRequiredException) {
-            code = ErrorCode.MONZO_VERIFICATION_REQUIRED;
+        if (ex instanceof ProviderConnectionRevokedException) {
+            code = ErrorCode.PROVIDER_CONNECTION_REVOKED;
+        } else if (ex instanceof ProviderReauthRequiredException) {
+            code = ErrorCode.PROVIDER_REAUTH_REQUIRED;
         } else {
-            code = ErrorCode.MONZO_API_ERROR;
+            code = ErrorCode.PROVIDER_API_ERROR;
         }
 
-        log.warn("Bank client exception [code={}, uri={}, message={}]",
+        log.warn("Provider exception [code={}, uri={}, message={}]",
                 code, request.getRequestURI(), ex.getMessage());
 
         ApiError error = ApiError.of(code, ex.getMessage(), request.getRequestURI());
