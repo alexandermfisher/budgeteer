@@ -258,7 +258,7 @@ public class MonzoBankClient implements BankClient {
                     MonzoMapper::toBankTransaction);
 
             String nextCursor = array.size() >= PAGE_SIZE
-                    ? mapped.get(mapped.size() - 1).externalId()
+                    ? mapped.getLast().externalId()
                     : null;
 
             String cursorLabel = nextCursor != null && nextCursor.length() > 8
