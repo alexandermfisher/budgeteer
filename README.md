@@ -18,7 +18,7 @@ budgeteer/
 ├── frontend/         # Web UI (coming soon)
 ├── docs/             # Documentation
 ├── scripts/          # Development scripts
-├── provider-api/   # Provider-neutral contract (AccountInformationProvider interface)
+├── provider-api/   # Provider-neutral capability contracts (auth, accounts, balance, transactions)
 ├── provider-monzo/ # Monzo implementation
 ├── budgeteer-server/  # Spring Boot application
 └── compose.yaml      # Docker services

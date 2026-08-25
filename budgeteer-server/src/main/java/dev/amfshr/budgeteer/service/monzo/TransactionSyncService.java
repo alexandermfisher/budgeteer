@@ -2,8 +2,9 @@ package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
 import dev.amfshr.budgeteer.api.monzo.dto.MonzoSyncProgressResponse;
+import dev.amfshr.budgeteer.provider.AccountsCapability;
+import dev.amfshr.budgeteer.provider.TransactionsCapability;
 import dev.amfshr.budgeteer.provider.model.BankAccount;
-import dev.amfshr.budgeteer.provider.AccountInformationProvider;
 import dev.amfshr.budgeteer.provider.exception.ProviderException;
 import dev.amfshr.budgeteer.provider.exception.ProviderReauthRequiredException;
 import dev.amfshr.budgeteer.provider.model.BankTransaction;
@@ -39,7 +40,8 @@ public class TransactionSyncService {
     private static final Instant ABSOLUTE_BACKFILL_FLOOR = Instant.parse("2015-01-01T00:00:00Z");
     private static final Duration BACKFILL_WINDOW = Duration.ofDays(350);
 
-    private final AccountInformationProvider provider;
+    private final AccountsCapability accountsCapability;
+    private final TransactionsCapability transactionsCapability;
     private final MonzoConnectionService connectionService;
     private final MonzoConnectionRepository connectionRepository;
     private final MonzoAccountRepository accountRepository;
@@ -47,14 +49,16 @@ public class TransactionSyncService {
     private final TransactionTemplate txTemplate;
 
     public TransactionSyncService(
-            AccountInformationProvider provider,
+            AccountsCapability accountsCapability,
+            TransactionsCapability transactionsCapability,
             MonzoConnectionService connectionService,
             MonzoConnectionRepository connectionRepository,
             MonzoAccountRepository accountRepository,
             MonzoTransactionRepository transactionRepository,
             PlatformTransactionManager txManager
     ) {
-        this.provider = provider;
+        this.accountsCapability = accountsCapability;
+        this.transactionsCapability = transactionsCapability;
         this.connectionService = connectionService;
         this.connectionRepository = connectionRepository;
         this.accountRepository = accountRepository;
@@ -114,7 +118,7 @@ public class TransactionSyncService {
 
         String accessToken = connectionService.getDecryptedAccessToken(connectionId, userId);
 
-        List<BankAccount> accountResponses = provider.getAccounts(accessToken);
+        List<BankAccount> accountResponses = accountsCapability.getAccounts(accessToken);
         log.info("Found {} accounts [connectionId={}]", accountResponses.size(), connectionId);
 
         for (BankAccount ar : accountResponses) {
@@ -314,7 +318,7 @@ public class TransactionSyncService {
         Instant to = Instant.parse(before);
 
         while (true) {
-            BankTransactionPage page = provider.getTransactions(
+            BankTransactionPage page = transactionsCapability.getTransactions(
                     accessToken, account.getId(), from, to, cursor
             );
 
@@ -364,7 +368,7 @@ public class TransactionSyncService {
         Instant to = before != null ? Instant.parse(before) : Instant.now();
 
         while (true) {
-            BankTransactionPage page = provider.getTransactions(
+            BankTransactionPage page = transactionsCapability.getTransactions(
                     accessToken, account.getId(), from, to, cursor
             );
 

@@ -3,9 +3,12 @@ package dev.amfshr.budgeteer.provider.monzo;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import dev.amfshr.budgeteer.provider.AccountsCapability;
+import dev.amfshr.budgeteer.provider.BalanceCapability;
+import dev.amfshr.budgeteer.provider.ProviderConnectionAuth;
+import dev.amfshr.budgeteer.provider.TransactionsCapability;
 import dev.amfshr.budgeteer.provider.model.BankAccount;
 import dev.amfshr.budgeteer.provider.model.BankBalance;
-import dev.amfshr.budgeteer.provider.AccountInformationProvider;
 import dev.amfshr.budgeteer.provider.exception.ProviderException;
 import dev.amfshr.budgeteer.provider.exception.ProviderConnectionRevokedException;
 import dev.amfshr.budgeteer.provider.model.BankIdentity;
@@ -34,7 +37,9 @@ import java.util.Map;
 import java.util.function.BiFunction;
 
 /**
- * Monzo API HTTP client — implements the provider-neutral {@link AccountInformationProvider} contract.
+ * Monzo API HTTP client — implements the full set of provider-neutral capability contracts
+ * ({@link ProviderConnectionAuth}, {@link AccountsCapability}, {@link BalanceCapability},
+ * {@link TransactionsCapability}).
  *
  * <p>Handles all HTTP communication with the Monzo API, providing:
  * <ul>
@@ -44,7 +49,8 @@ import java.util.function.BiFunction;
  *   <li>Centralized error handling (401 → {@link ProviderConnectionRevokedException})</li>
  * </ul>
  */
-public class MonzoAccountInformationProvider implements AccountInformationProvider {
+public class MonzoAccountInformationProvider
+        implements ProviderConnectionAuth, AccountsCapability, BalanceCapability, TransactionsCapability {
 
     private static final Logger log = LoggerFactory.getLogger(MonzoAccountInformationProvider.class);
 
@@ -59,7 +65,7 @@ public class MonzoAccountInformationProvider implements AccountInformationProvid
         this.objectMapper = objectMapper;
     }
 
-    // ============ AccountInformationProvider implementation ============
+    // ============ Capability implementations ============
 
     /**
      * Builds the Monzo authorization URL with all required parameters.

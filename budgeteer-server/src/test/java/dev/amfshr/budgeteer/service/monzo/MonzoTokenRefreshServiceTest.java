@@ -1,7 +1,7 @@
 package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
-import dev.amfshr.budgeteer.provider.AccountInformationProvider;
+import dev.amfshr.budgeteer.provider.ProviderConnectionAuth;
 import dev.amfshr.budgeteer.provider.exception.ProviderException;
 import dev.amfshr.budgeteer.provider.exception.ProviderConnectionRevokedException;
 import dev.amfshr.budgeteer.provider.model.BankTokens;
@@ -45,7 +45,7 @@ class MonzoTokenRefreshServiceTest {
     private MonzoConnectionRepository connectionRepository;
 
     @Mock
-    private AccountInformationProvider provider;
+    private ProviderConnectionAuth provider;
 
     @Mock
     private EncryptionService encryptionService;

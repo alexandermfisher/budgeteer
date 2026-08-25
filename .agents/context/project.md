@@ -8,7 +8,8 @@ Budgeteer is a personal finance app that syncs with Monzo via OAuth, stores and 
 
 **Provider-contract naming is in place** (2026-08-24): 3-module reactor — `provider-api`
 (contract) / `provider-monzo` (impl) / `budgeteer-server` (app). The Monzo HTTP client lives in
-its own jar behind the neutral `AccountInformationProvider` contract (PSD2 AIS vocabulary; see
+its own jar behind neutral per-capability contracts — `ProviderConnectionAuth`,
+`AccountsCapability`, `BalanceCapability`, `TransactionsCapability` (PSD2 AIS vocabulary; see
 the Provider-vs-Institution glossary in `architecture.md`). Provider-neutral exceptions are
 `ProviderException` / `ProviderConnectionRevokedException` / `ProviderReauthRequiredException`,
 surfaced as `PROVIDER_*` error codes. Data records stay `Bank*` — they describe the
@@ -44,7 +45,7 @@ then Phase 5 (webhooks).
 1. #11 Domain model mapping (P2) — raw → provider-agnostic `user_accounts`/`transactions`,
    ingest pipeline, first product endpoints (spec: `.agents/tasks/open/domain-model-mapping/plan.md`)
 2. #5 Phase 5: Webhook ingestion (real-time transactions via Cloudflare Tunnel) — after #11
-3. TrueLayer (multi-bank) integration — `provider-truelayer` as 2nd `AccountInformationProvider` impl
+3. TrueLayer (multi-bank) integration — `provider-truelayer` as 2nd implementation of the provider capability contracts
 5. Budgeting / analytics features (categories, budgets, pots, reports — designed, built in slices)
 6. Frontend UI (React / Vue / HTMX — not decided)
 

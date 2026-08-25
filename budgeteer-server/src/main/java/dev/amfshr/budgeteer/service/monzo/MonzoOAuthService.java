@@ -1,7 +1,7 @@
 package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
-import dev.amfshr.budgeteer.provider.AccountInformationProvider;
+import dev.amfshr.budgeteer.provider.ProviderConnectionAuth;
 import dev.amfshr.budgeteer.provider.model.BankTokens;
 import dev.amfshr.budgeteer.domain.oauth.OAuthState;
 import dev.amfshr.budgeteer.repository.OAuthStateRepository;
@@ -23,7 +23,7 @@ import java.util.Base64;
  * <p>This service manages:
  * <ul>
  *   <li>OAuth state generation and verification (CSRF protection)</li>
- *   <li>Token exchange and identity lookup (via {@link AccountInformationProvider})</li>
+ *   <li>Token exchange and identity lookup (via {@link ProviderConnectionAuth})</li>
  * </ul>
  */
 @Service
@@ -37,13 +37,13 @@ public class MonzoOAuthService {
     private static final int STATE_BYTES = 32;
 
     private final OAuthStateRepository stateRepository;
-    private final AccountInformationProvider provider;
+    private final ProviderConnectionAuth provider;
     private final SecureRandom secureRandom;
 
     @Autowired
     public MonzoOAuthService(
             OAuthStateRepository stateRepository,
-            AccountInformationProvider provider
+            ProviderConnectionAuth provider
     ) {
         this.stateRepository = stateRepository;
         this.provider = provider;
@@ -55,7 +55,7 @@ public class MonzoOAuthService {
      */
     public MonzoOAuthService(
             OAuthStateRepository stateRepository,
-            AccountInformationProvider provider,
+            ProviderConnectionAuth provider,
             SecureRandom secureRandom
     ) {
         this.stateRepository = stateRepository;
@@ -121,7 +121,7 @@ public class MonzoOAuthService {
     /**
      * Exchanges an authorization code for access and refresh tokens.
      *
-     * <p>Delegates to {@link AccountInformationProvider} for the actual API call.
+     * <p>Delegates to {@link ProviderConnectionAuth} for the actual API call.
      *
      * @param code the authorization code from the OAuth callback
      * @return the token response containing access_token, refresh_token, expires_at
@@ -134,7 +134,7 @@ public class MonzoOAuthService {
     /**
      * Gets the Monzo user ID by calling the bank's identity endpoint.
      *
-     * <p>Delegates to {@link AccountInformationProvider} for the actual API call.
+     * <p>Delegates to {@link ProviderConnectionAuth} for the actual API call.
      *
      * @param accessToken the access token
      * @return the provider user ID
