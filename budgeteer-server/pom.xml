@@ -16,11 +16,11 @@
         <!-- Project modules -->
         <dependency>
             <groupId>dev.amfshr</groupId>
-            <artifactId>bank-client-api</artifactId>
+            <artifactId>provider-api</artifactId>
         </dependency>
         <dependency>
             <groupId>dev.amfshr</groupId>
-            <artifactId>bank-client-monzo</artifactId>
+            <artifactId>provider-monzo</artifactId>
         </dependency>
 
         <!-- Web -->

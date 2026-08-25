@@ -34,7 +34,7 @@
 - [x] `TransactionSyncJob` — `@Scheduled` 60-minute delta sync
 - [x] Publish `MonzoConnectionCreatedEvent` in `MonzoController.handleCallback()`
 - [x] Dev retrigger endpoint: `POST /api/dev/monzo/backfill`
-- [x] `ErrorCode.MONZO_SYNC_ERROR` (502)
+- [x] `ErrorCode.PROVIDER_SYNC_ERROR` (502)
 - [x] DTO refactor: `TokenResponse` → `client/monzo/dto/`; `ConnectionStatus` → `api/monzo/dto/MonzoStatusResponse`
 - [x] 575 tests (unit + integration, all green)
 
@@ -302,7 +302,7 @@ Delta — JPA save() (simplicity)
 | `client/monzo/MonzoClient.java` | Add `getAccounts()`, `getTransactions()`; import `TokenResponse` from dto package |
 | `api/monzo/MonzoController.java` | Inject `ApplicationEventPublisher`; publish event post-callback; use `MonzoStatusResponse` |
 | `api/dev/DevAuthController.java` | Add `POST /api/dev/monzo/backfill` (dev profile only) |
-| `api/common/ErrorCode.java` | Add `MONZO_SYNC_ERROR` (502) |
+| `api/common/ErrorCode.java` | Add `PROVIDER_SYNC_ERROR` (502) |
 | `application.properties` | Add `monzo.transaction-sync.*` properties |
 
 ---

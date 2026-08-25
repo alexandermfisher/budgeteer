@@ -1,7 +1,7 @@
 # Budgeteer
 
-[![Build & Test](https://github.com/alexandermfisher/budgeteer/actions/workflows/ci.yml/badge.svg)](https://github.com/alexandermfisher/budgeteer/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/alexandermfisher/budgeteer/actions/workflows/codeql.yml/badge.svg)](https://github.com/alexandermfisher/budgeteer/actions/workflows/codeql.yml)
+[![Build & Test](https://github.com/amfshr/budgeteer/actions/workflows/ci.yml/badge.svg)](https://github.com/amfshr/budgeteer/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/amfshr/budgeteer/actions/workflows/codeql.yml/badge.svg)](https://github.com/amfshr/budgeteer/actions/workflows/codeql.yml)
 [![Java](https://img.shields.io/badge/Java-25-orange?logo=openjdk)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.5-brightgreen?logo=springboot)](https://spring.io/projects/spring-boot)
 [![License](https://img.shields.io/badge/License-Private-red)](LICENSE)
@@ -18,8 +18,8 @@ budgeteer/
 ├── frontend/         # Web UI (coming soon)
 ├── docs/             # Documentation
 ├── scripts/          # Development scripts
-├── bank-client-api/   # Provider-neutral contract (BankClient interface)
-├── bank-client-monzo/ # Monzo implementation
+├── provider-api/   # Provider-neutral contract (AccountInformationProvider interface)
+├── provider-monzo/ # Monzo implementation
 ├── budgeteer-server/  # Spring Boot application
 └── compose.yaml      # Docker services
 ```
@@ -37,7 +37,7 @@ budgeteer/
 
 1. **Clone and configure:**
    ```bash
-   git clone https://github.com/alexandermfisher/budgeteer.git
+   git clone https://github.com/amfshr/budgeteer.git
    cd budgeteer
    cp .env.example .env
    # Edit .env with your credentials

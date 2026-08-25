@@ -5,19 +5,19 @@
 # Learn more: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 # =============================================================================
 
-# Default: All files require approval from @alexandermfisher
-* @alexandermfisher
+# Default: All files require approval from @amfshr
+* @amfshr
 
 # Backend code
-/budgeteer-server/ @alexandermfisher
+/budgeteer-server/ @amfshr
 
 # Frontend code (future)
-/frontend/ @alexandermfisher
+/frontend/ @amfshr
 
 # Infrastructure & DevOps
-/.github/ @alexandermfisher
-/compose.yaml @alexandermfisher
-/scripts/ @alexandermfisher
+/.github/ @amfshr
+/compose.yaml @amfshr
+/scripts/ @amfshr
 
 # Documentation
-/docs/ @alexandermfisher
+/docs/ @amfshr
