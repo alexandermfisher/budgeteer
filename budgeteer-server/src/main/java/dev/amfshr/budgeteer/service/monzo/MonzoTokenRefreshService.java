@@ -1,7 +1,7 @@
 package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.api.common.ErrorCode;
-import dev.amfshr.budgeteer.provider.AccountInformationProvider;
+import dev.amfshr.budgeteer.provider.ProviderConnectionAuth;
 import dev.amfshr.budgeteer.provider.exception.ProviderConnectionRevokedException;
 import dev.amfshr.budgeteer.provider.model.BankTokens;
 import dev.amfshr.budgeteer.domain.monzo.MonzoConnection;
@@ -41,12 +41,12 @@ public class MonzoTokenRefreshService {
     private static final long FALLBACK_EXPIRES_SECONDS = 21_600L;
 
     private final MonzoConnectionRepository connectionRepository;
-    private final AccountInformationProvider provider;
+    private final ProviderConnectionAuth provider;
     private final EncryptionService encryptionService;
 
     public MonzoTokenRefreshService(
             MonzoConnectionRepository connectionRepository,
-            AccountInformationProvider provider,
+            ProviderConnectionAuth provider,
             EncryptionService encryptionService
     ) {
         this.connectionRepository = connectionRepository;

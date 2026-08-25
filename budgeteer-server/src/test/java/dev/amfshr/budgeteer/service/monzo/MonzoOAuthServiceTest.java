@@ -1,6 +1,6 @@
 package dev.amfshr.budgeteer.service.monzo;
 
-import dev.amfshr.budgeteer.provider.AccountInformationProvider;
+import dev.amfshr.budgeteer.provider.ProviderConnectionAuth;
 import dev.amfshr.budgeteer.provider.model.BankIdentity;
 import dev.amfshr.budgeteer.provider.model.BankTokens;
 import dev.amfshr.budgeteer.api.common.ErrorCode;
@@ -37,7 +37,7 @@ class MonzoOAuthServiceTest {
     private OAuthStateRepository stateRepository;
 
     @Mock
-    private AccountInformationProvider provider;
+    private ProviderConnectionAuth provider;
 
     @Mock
     private SecureRandom secureRandom;
@@ -227,8 +227,8 @@ class MonzoOAuthServiceTest {
     class GetMonzoUserId {
 
         @Test
-        @DisplayName("should return user ID from AccountInformationProvider")
-        void shouldReturnUserIdFromAccountInformationProvider() {
+        @DisplayName("should return user ID from ProviderConnectionAuth")
+        void shouldReturnUserIdFromProviderConnectionAuth() {
             // Given
             when(provider.getIdentity("access-token")).thenReturn(new BankIdentity("user_abc123", null));
 
