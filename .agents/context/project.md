@@ -2,7 +2,7 @@
 
 ## What It Is
 
-Budgeteer is a personal finance app that syncs with Monzo via OAuth, stores and encrypts tokens, and will provide transaction sync, categorisation, and budgeting features. Solo project by @alexandermfisher.
+Budgeteer is a personal finance app that syncs with Monzo via OAuth, stores and encrypts tokens, and will provide transaction sync, categorisation, and budgeting features. Solo project by @amfshr.
 
 ## Current Phase (August 2026)
 
