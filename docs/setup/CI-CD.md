@@ -72,15 +72,15 @@ The Budgeteer project uses **GitHub Actions** for continuous integration and del
 
 ## 👥 Code Ownership (`.github/CODEOWNERS`)
 
-All code requires approval from `@alexandermfisher` before merging.
+All code requires approval from `@amfshr` before merging.
 
 | Path | Owner |
 |------|-------|
-| `*` (default) | @alexandermfisher |
-| `/backend/` | @alexandermfisher |
-| `/frontend/` | @alexandermfisher |
-| `/.github/` | @alexandermfisher |
-| `/docs/` | @alexandermfisher |
+| `*` (default) | @amfshr |
+| `/backend/` | @amfshr |
+| `/frontend/` | @amfshr |
+| `/.github/` | @amfshr |
+| `/docs/` | @amfshr |
 
 ---
 
