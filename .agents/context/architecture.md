@@ -72,7 +72,10 @@ Two distinct concepts — never conflate them:
 
 Provider capability interfaces follow PSD2 vocabulary (AIS / PIS):
 
-- `AccountInformationProvider` — accounts, balances, transactions, tokens. Rename from the old
+- Capability contracts (split from the single `AccountInformationProvider` **2026-08-25, PR #84**):
+  `ProviderConnectionAuth` (OAuth lifecycle + identity), `AccountsCapability`,
+  `BalanceCapability`, `TransactionsCapability` — implementations pick the set they support.
+  Rename from the old
   `BankClient` **executed 2026-08-24 (PR #80)**: impl is `MonzoAccountInformationProvider`,
   exceptions are `ProviderException` / `ProviderConnectionRevokedException` /
   `ProviderReauthRequiredException`, error codes are `PROVIDER_*`, jars are `provider-api` /
