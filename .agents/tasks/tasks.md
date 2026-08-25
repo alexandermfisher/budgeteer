@@ -8,20 +8,24 @@
 
 ## 🚀 In Progress
 
-*Nothing — #10 is next up from the queue.*
+| # | Task | Priority | Estimate | Plan |
+|---|------|----------|----------|------|
+| 12 | 🔧 Provider Contract Hardening — explicit delta capability (`TransactionsSinceIdCapability`, Monzo-implemented; ends the lastTransactionId-as-pageCursor trick) + `Sourced<T>` raw-JSON envelope (domain records go transport-free; pair session — Alexander writes the envelope, Claude reviews). **Lands before #11** so ingest builds on the final contract. Branch: `refactor/provider-delta-and-sourced` | 🟡 P2 | 0.5–1d | [plan](open/provider-contract-hardening/plan.md) |
+| 11 | 🧱 Domain Model Mapping — raw→domain ingest + first product endpoints. **Spec ready** (grilled 2026-08-22, implementation-ready `plan.md`): V11–V13 migrations, encrypted raw capture, `MonzoIngestor` + `IngestService` (cursor on raw `updated_at`), chained sync→ingest→balance run, `GET /api/v1/accounts` + `/accounts/{id}/summary` + `/transactions` (paged). Hand the plan's Implementer Kickoff Prompt to the implementing model. Unblocks all budgeting features. Branch: `feature/domain-model-mapping` | 🟡 P2 | 2–3d | [plan](open/domain-model-mapping/plan.md) |
 
 ---
 
 ## 📋 Queue (Next Up)
 
-> Execution order: **#10 → #11 → #5**. #11 depends on #10's contract additions (`rawJson`,
-> `getBalance`); #5 moved behind #11 so webhook payloads drop into an existing raw→domain ingest
-> pipeline instead of being wired to the raw-only world and reworked later.
+> Execution order: **#12 → #11 → #5 → TrueLayer smoke test**. #12 (contract hardening) first —
+> #11's ingest consumes `BankTransactionPage`/`rawJson`, so the `Sourced<T>` reshaping and the
+> delta capability must settle before that code is written. #5 sits behind #11 so webhook payloads
+> drop into an existing raw→domain ingest pipeline instead of being wired to the raw-only world
+> and reworked later. The TrueLayer Console signup + own-account smoke test is deliberately
+> deferred until #11 is done (decided 2026-08-17).
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 10 | 🧩 Bank-Client Modules — **module renames** (`common`→`bank-client-api`, `monzo-client`→`bank-client-monzo`, `budgeteer-api`→`budgeteer-server`, decided 2026-07-05); **contract additions** for the domain layer (`getBalance`→`BankBalance`; `rawJson` raw-capture on `BankTransaction`/`BankAccount` — true raw via `JsonNode`, not DTO re-serialisation); **jar hardening** (auto-config + `META-INF` wiring, consumer-owned `RestClient`, dead `TokenResponse`, typed `MonzoWhoAmIResponse`, fixture-driven tests, `MonzoMapperTest`, `MonzoAutoConfigurationTest`, 401/403/429 gaps). Template for `bank-client-truelayer`. | 🔴 P1 | ~2–2.5d | [plan](open/bank-client-modules/plan.md) |
-| 11 | 🧱 Domain Model Mapping — raw→domain ingest + first product endpoints. Design complete (`.agents/notes/domain-model-design.md`): provider-agnostic `user_accounts`/`transactions`, `MonzoDomainMapper` + `DomainMappingService`, mapping + balance-refresh jobs, `GET /api/v1/accounts` + `/transactions`. Run `/grill-me domain-model-mapping` to spec slice 1 before building. Unblocks all budgeting features (categories, budgets, pots, reports). | 🟡 P2 | 2–3d | [plan](open/domain-model-mapping/plan.md) |
 | 5 | 🪝 Phase 5: Webhooks — after #11: a webhook becomes a second trigger into the existing raw→domain pipeline + near-real-time balance refresh | 🟢 P3 | TBD | [plan](open/webhooks/plan.md) |
 
 ---
@@ -33,8 +37,7 @@
 | Feature | Priority | Effort | Notes |
 |---------|----------|--------|-------|
 | 📣 Event-driven post-sync hooks | P3 | 0.5d | [plan](closed/oauth-callback-events/plan.md) — `BackfillCompletedEvent` / `BackfillPausedEvent` + listeners (email, domain mapping, webhook registration). Natural fit alongside #11's `DomainMappingJob` |
-| 🏦 TrueLayer Integration (Lloyds/HSBC/Barclays) | P2 | 3–4d | [plan](open/truelayer-integration/plan.md) — add `bank-client-truelayer` jar as a 2nd `BankClient` impl (+ capability interfaces for cards/standing-orders/direct-debits), copying the `bank-client-monzo` template from #10. Interface already validated against TrueLayer's Data API in the #6 plan |
-| 🧯 Generalise bank error codes (`MONZO_*` → `BANK_*`) | P3 | 0.5d | Neutral exceptions (`BankConnectionRevokedException` / `BankReauthRequiredException` / `BankClientException`) currently map to `MONZO_*` `ErrorCode`s in `GlobalExceptionHandler`. Replace with provider-agnostic `BANK_*` codes so a TrueLayer revocation isn't labelled "Monzo". Land with or before TrueLayer |
+| 🏦 TrueLayer Integration (Lloyds/HSBC/Barclays) | P2 | 3–4d | [plan](open/truelayer-integration/plan.md) — add `provider-truelayer` jar as a 2nd implementation of the capability contracts (`ProviderConnectionAuth` + `AccountsCapability`/`BalanceCapability`/`TransactionsCapability`, split in PR #84; cards/standing-orders/direct-debits land as further capability interfaces), copying the `provider-monzo` template from #10. Interface already validated against TrueLayer's Data API in the #6 plan. **Aug 2026 re-check:** Data API still active (now positioned as an "add-on" product — mild vendor-risk signal); Console signup is self-serve, sandbox free, live own-account testing looks viable for a solo dev — **first action when picked up: Console signup + live smoke test (deferred until after #11)**. Token model: 90-day consent, reconfirmation-of-consent renewal, refresh token must be used within a 30-day sliding window. Transactions are date-windowed (`from`/`to`), no page cursor → impl returns null `nextCursor`. ⚠️ plan.md predates the multi-module split (BankAdapter pattern, old paths, V7 migration) — rewrite around the provider contract before build. Provider-contract rename (PR #80) + capability split (PR #84) already executed: jar lands as `provider-truelayer` implementing the capability interfaces. ⚠️ Delta sync: after #12, id-based delta is the explicit `TransactionsSinceIdCapability` (Monzo-only). TrueLayer won't implement it — this task must add the time-window delta fallback (`from = last synced − overlap`, idempotent upserts) incl. the persisted last-synced timestamp (column + migration) and the routing in `TransactionSyncService`. Future payments = separate `PaymentInitiationProvider` interface; one TrueLayer class implements both |
 | 🧩 Per-page backfill commits (true mid-window resume) | P3 | 0.5d | Backfill commits one `TransactionTemplate` tx per ≤350-day window; an SCA 403 mid-window rolls the whole window back, so resume re-fetches it. `backfill_progress_cursor` is written per page but rolled back with the window — it never actually resumes mid-window. Commit each page (`REQUIRES_NEW`) so partial progress in a large window survives re-auth. Only bites if a single >90-day-old window can't be pulled within one 5-min SCA budget — low urgency for personal accounts |
 | 🔌 REST Client Refactoring & Config Consolidation | P2 | 1.5–2d | [plan](closed/rest-client-refactoring/plan.md) — Eliminate config sprawl, create `BankRestClient` base class, organize under `config/clients/` & `config/properties/`. Foundation for TrueLayer. Phase: after transaction sync + webhooks |
 | 🔄 MonzoClient Resilience | P3 | 0.5d | Connection pooling, timeouts, retries, circuit breaker |
@@ -74,7 +77,24 @@
 
 ## ✅ Done
 
+### August 2026
+- [x] **Provider-contract rename** (PR #80, 2026-08-24) — pulled forward from "commit 1 of
+      TrueLayer" so #11's ingest code is born with the final names. `BankClient` →
+      `AccountInformationProvider`, `MonzoBankClient` → `MonzoAccountInformationProvider`,
+      exceptions → `ProviderException` family, `MONZO_*` codes → `PROVIDER_*`
+      (`MONZO_VERIFICATION_REQUIRED` → `PROVIDER_REAUTH_REQUIRED`), jars → `provider-api` /
+      `provider-monzo` with packages aligned (`dev.amfshr.budgeteer.provider[.monzo]`) and
+      `provider-api` structured into `model/` + `exception/` subpackages (contracts at root).
+      Data records stay `Bank*`. Zero behaviour change; full gate green.
+
 ### July 2026
+- [x] **#10 Bank-Client Modules** (PR #72, merged 2026-07-06) — module renames
+      (`bank-client-api` / `bank-client-monzo` / `budgeteer-server`), contract additions
+      (`getBalance`→`BankBalance`, `rawJson` raw-capture on `BankTransaction`/`BankAccount`),
+      jar auto-config + test hardening. Template for `bank-client-truelayer`.
+      [plan](closed/bank-client-modules/plan.md)
+- [x] **Repo tidy-up** (PRs #73/#74, 2026-07-08) — `frontend/` renamed to `budgeteer-web/`;
+      `spring-boot:run` scripts fixed for the multi-module reactor
 - [x] **Multi-Module Restructure + Monzo Client Extraction** (PR #67, merged) — 3-module reactor
       (`common`, `monzo-client`, `budgeteer-api`); Monzo HTTP client extracted into its own jar
       behind the neutral `BankClient` contract; API services program to the interface (zero Monzo
@@ -143,4 +163,7 @@
 
 ---
 
-*Last updated: 2026-07-05 — #6 merged (PR #67) and closed; module naming scheme locked; #10 expanded (renames + contract additions + hardening); #11 domain-model-mapping promoted from backlog, queued ahead of webhooks.*
+*Last updated: 2026-08-25 — Capability split executed (PR #84: `ProviderConnectionAuth` +
+`AccountsCapability`/`BalanceCapability`/`TransactionsCapability`). #12 provider-contract
+hardening opened (explicit delta capability + `Sourced<T>` envelope) and ordered ahead of #11;
+#11 stays In Progress on `feature/domain-model-mapping`, implementation starts once #12 merges.*
