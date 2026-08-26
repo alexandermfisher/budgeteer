@@ -422,3 +422,74 @@ transaction to its **absolute** amount (`Math.abs`). One extra line in `Main`.
 *Lesson 2 (later, once this feels boring): why library code writes
 `Function<? super T, ? extends U>` — the invariance problem and PECS.
 Nothing in this lesson is wrong without it; the wildcards only widen who's allowed to call.*
+
+---
+
+## Appendix — Q&A from the read-through
+
+Questions Alexander asked while reading, kept here as reference.
+
+### Q1: What does "factories can return a hidden implementation" really mean?
+
+`List` is an interface; `new` forces you to name a concrete class and always gives exactly
+that class. A factory's declared return type is the interface, so it may return anything
+that implements it — including classes you cannot name:
+
+```java
+System.out.println(new ArrayList<>().getClass()); // class java.util.ArrayList
+System.out.println(List.of(1, 2).getClass());     // class java.util.ImmutableCollections$ListN — package-private!
+```
+
+Three powers `new` lacks: (1) choose the best implementation per situation and swap it in
+later JDK releases without breaking callers; (2) return an existing object instead of
+allocating (`Optional.empty()` is one shared singleton; `Integer.valueOf(7)` is cached);
+(3) enforce invariants at the only entrance (`List.of` results reject `add` — immutability
+guaranteed because the factory is the sole door). `Sourced` is a record (implicitly final,
+no subtypes) so power 1 doesn't apply to `Sourced.of` — ours earns its keep via validation
+and readability.
+
+### Q2: When does a method need the leading `<X>` declaration?
+
+> **A method declares a leading `<X>` exactly when it introduces a placeholder that isn't
+> already in scope.**
+
+- Instance method using only the record's `T` → declares nothing (`T` is in scope, fixed at
+  construction: `public Sourced<T> something(T arg)`).
+- Instance method introducing a new result type → declares only the new one (`map`'s `<U>`).
+- Static method → declares everything it uses; the record's `T` is *not in scope* in static
+  context (no instance exists to give it meaning). The `T` in `static <T> Sourced<T> of(...)`
+  is an unrelated placeholder that merely reuses the name — rename it `<P>` and nothing changes.
+
+### Q3: Should `Sourced` have a `withPayload(T newPayload)` method?
+
+No — and the reason is the most important design idea in the series so far. `Sourced`'s
+meaning is a claim: *"this payload was derived from this rawJson."* `map` preserves the claim
+(the new payload is computed **from** the old one: `fn.apply(payload)` — the derivation chain
+`merchant name ← transaction ← JSON` stays intact). `withPayload` accepts a value from
+anywhere, severing the chain — it lets you build a `Sourced` whose claim is a lie. Rule:
+**a type's methods should be the operations that keep its meaning true.**
+
+Related: records give **shallow** immutability — the field can't be re-pointed, but a mutable
+payload can still be mutated *through* the reference (`Sourced<List<String>>` →
+`s.payload().add(...)` compiles and runs). Deep immutability requires the whole type tree to
+be immutable — which `Sourced<BankTransaction>` is. And since immutable types can't be
+edited, all "modification" is construction of new instances: `map` (and `String.toUpperCase`,
+and every "wither") are instance methods that act as little factories.
+
+### Q4: How do `map` and `Function` divide the work?
+
+**The box provides `map`, you provide the function; `map` does the plumbing, the function
+does the thinking.** `map` knows the box (how to open, rebuild, what context to carry) and
+nothing about the transformation; the `Function` knows the transformation and has never heard
+of the box. Because the function is box-ignorant, one function works with every box that has
+a `map` — and each box's `map` preserves *its own* context:
+
+| Box | Context preserved | Its `map`'s behaviour |
+|---|---|---|
+| `Sourced<T>` | provenance | copies `rawJson` across; always applies the fn |
+| `Optional<T>` | presence | applies fn only if present; empty flows through **retyped** (`Optional<String>` even when empty, so chains still type-check) |
+| `Stream<T>` | the sequence | applies fn per element, keeps ordering |
+
+Contractually `map` returns the same *wrapper*, never necessarily the same *payload type* —
+the result's type argument is decided by the function's **output slot** (`Function<T, U>`'s
+`U` is the same `U` as in the returned `Sourced<U>`).

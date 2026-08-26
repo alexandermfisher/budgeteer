@@ -22,8 +22,8 @@ activity. Two goals, per Alexander:
 
 | # | Lesson | Project tie-in | Status |
 |---|--------|----------------|--------|
-| 01 | [Generics, functions, and `map`](01-generics-functions-map.md) — type parameters, the generic-wrapper pattern, `Function`/`apply`, static factories (`.of`), `map` | `Sourced<T>` envelope for task #12 | ✅ delivered; exercises pending review |
-| 02 | Wildcards & PECS — invariance, `? super T` / `? extends R`, reading JDK signatures | Upgrading `Sourced.map` to the library-grade signature | 📋 planned |
+| 01 | [Generics, functions, and `map`](01-generics-functions-map.md) — type parameters, the generic-wrapper pattern, `Function`/`apply`, static factories (`.of`), `map`. Appendix: Q&A from the read-through (hidden-impl factories, `<T>` scoping rule, invariant-preserving methods, shallow immutability, map×Function division of labour) | `Sourced<T>` envelope for task #12 | ✅ delivered; exercise A reviewed (4/5 — record-accessor naming was the gap), B & C pending |
+| 02 | [Wildcards & PECS](02-wildcards-and-pecs.md) — invariance, `? super T` / `? extends U`, reading JDK signatures; upgrades `Sourced.map` to the library-grade shape | Exercise C **is** the #12 `Sourced<T>` implementation | ✅ drafted — start after Lesson 1 exercises B & C |
 
 *Ideas for future lessons as the project surfaces them: interfaces & default methods (capability
 contracts), exceptions & the provider exception hierarchy, Streams (ingest pipeline), Optional
