@@ -10,16 +10,15 @@
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 12 | 🔧 Provider Contract Hardening — sealed `SyncPosition` (`FromTime` \| `AfterTransaction` \| `NextPage`) replaces the from/to+cursor params on `TransactionsCapability.getTransactions` (design revised from `TransactionsSinceIdCapability` to Alexander's polymorphic-position proposal; ends the lastTransactionId-as-pageCursor trick) + `Sourced<T>` raw-JSON envelope (domain records go transport-free). **Lands before #11** so ingest builds on the final contract. Branch: `refactor/provider-delta-and-sourced` | 🟡 P2 | 0.5–1d | [plan](open/provider-contract-hardening/plan.md) |
 | 11 | 🧱 Domain Model Mapping — raw→domain ingest + first product endpoints. **Spec ready** (grilled 2026-08-22, implementation-ready `plan.md`): V11–V13 migrations, encrypted raw capture, `MonzoIngestor` + `IngestService` (cursor on raw `updated_at`), chained sync→ingest→balance run, `GET /api/v1/accounts` + `/accounts/{id}/summary` + `/transactions` (paged). Hand the plan's Implementer Kickoff Prompt to the implementing model. Unblocks all budgeting features. Branch: `feature/domain-model-mapping` | 🟡 P2 | 2–3d | [plan](open/domain-model-mapping/plan.md) |
 
 ---
 
 ## 📋 Queue (Next Up)
 
-> Execution order: **#12 → #11 → #5 → TrueLayer smoke test**. #12 (contract hardening) first —
-> #11's ingest consumes `BankTransactionPage`/`rawJson`, so the `Sourced<T>` reshaping and the
-> delta capability must settle before that code is written. #5 sits behind #11 so webhook payloads
+> Execution order: **#11 → #5 → TrueLayer smoke test** (#12 done 2026-08-31, PR #85 — the
+> contract #11 builds on is final: `Sourced<T>` envelopes + sealed `SyncPosition`).
+> #5 sits behind #11 so webhook payloads
 > drop into an existing raw→domain ingest pipeline instead of being wired to the raw-only world
 > and reworked later. The TrueLayer Console signup + own-account smoke test is deliberately
 > deferred until #11 is done (decided 2026-08-17).
@@ -78,6 +77,15 @@
 ## ✅ Done
 
 ### August 2026
+- [x] **#12 Provider Contract Hardening** (PR #85, merged 2026-08-31) — sealed `SyncPosition`
+      (`FromTime` | `AfterTransaction` | `NextPage`) replaces `getTransactions`' from/to+cursor
+      params (design revised in-session from `TransactionsSinceIdCapability` to Alexander's
+      polymorphic-position proposal — Monzo's `since` accepts all three shapes; exhaustive
+      switch beats silent capability absence); deltaSync seeds `AfterTransaction(lastTransactionId)`
+      contractually. `Sourced<T>` raw-JSON envelope (redacting `toString`, PECS `map`) carries
+      provenance; `BankTransaction`/`BankAccount` are pure domain values again.
+      `feature/domain-model-mapping` rebased on top; #11 spec repointed.
+      [plan](closed/provider-contract-hardening/plan.md)
 - [x] **Provider-contract rename** (PR #80, 2026-08-24) — pulled forward from "commit 1 of
       TrueLayer" so #11's ingest code is born with the final names. `BankClient` →
       `AccountInformationProvider`, `MonzoBankClient` → `MonzoAccountInformationProvider`,
@@ -163,7 +171,8 @@
 
 ---
 
-*Last updated: 2026-08-25 — Capability split executed (PR #84: `ProviderConnectionAuth` +
-`AccountsCapability`/`BalanceCapability`/`TransactionsCapability`). #12 provider-contract
-hardening opened (explicit delta capability + `Sourced<T>` envelope) and ordered ahead of #11;
-#11 stays In Progress on `feature/domain-model-mapping`, implementation starts once #12 merges.*
+*Last updated: 2026-08-31 — #12 provider-contract hardening executed and merged (PR #85: sealed
+`SyncPosition` + `Sourced<T>` envelope; design pivoted from a second capability interface to
+Alexander's polymorphic-position proposal). `feature/domain-model-mapping` rebased onto the new
+contract, #11 spec current — **next: hand #11's Implementer Kickoff Prompt to the implementing
+model.***

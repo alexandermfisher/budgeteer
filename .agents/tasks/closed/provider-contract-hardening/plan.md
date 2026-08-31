@@ -1,7 +1,7 @@
 # Provider Contract Hardening — explicit delta capability + `Sourced<T>` envelope
 
-> **Priority:** 🟡 P2 | **Estimate:** 0.5–1d | **Status:** In Progress
-> **Branch:** `refactor/provider-delta-and-sourced` (off `main`) | **Lands before #11**
+> **Priority:** 🟡 P2 | **Estimate:** 0.5–1d | **Status:** ✅ Done — PR #85 merged 2026-08-31
+> **Branch:** `refactor/provider-delta-and-sourced` (off `main`) | **Landed before #11**
 
 ## Goal
 
@@ -68,6 +68,9 @@ public record Sourced<T>(T payload, @Nullable String rawJson) {
       exercise C now reads as a review exercise)
 - [x] `rawJson` off `BankTransaction`/`BankAccount`; `BankTransactionPage` + `getAccounts`
       carry `Sourced<…>`; `MonzoAccountInformationProvider.mapArray` returns envelopes
-- [ ] Update provider + server tests; `mvn verify` green
-- [ ] PR → auto-merge to `main`; rebase `feature/domain-model-mapping`; touch up #11 spec
-      (`rawJson` consumption becomes `sourced.rawJson()`, `tx` becomes `sourced.payload()`)
+- [x] Update provider + server tests; `mvn verify` green (587 server tests + provider modules;
+      redaction coverage moved to `SourcedTest`, new `AfterTransaction → since` WireMock test)
+- [x] PR → auto-merge to `main` (PR #85, squash-merged 2026-08-31); `feature/domain-model-mapping`
+      rebased (board-doc commits resolved toward main's newer copies; unique content — TrueLayer
+      OpenAPI docs, glossary, log-sanitize fix — preserved); #11 spec touched up
+      (`rawJson` consumption is `sourced.rawJson()`, fetch start is sealed `SyncPosition`)
