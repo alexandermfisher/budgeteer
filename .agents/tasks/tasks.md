@@ -10,7 +10,7 @@
 
 | # | Task | Priority | Estimate | Plan |
 |---|------|----------|----------|------|
-| 11 | 🧱 Domain Model Mapping — raw→domain ingest + first product endpoints. **Spec ready** (grilled 2026-08-22, implementation-ready `plan.md`): V11–V13 migrations, encrypted raw capture, `MonzoIngestor` + `IngestService` (cursor on raw `updated_at`), chained sync→ingest→balance run, `GET /api/v1/accounts` + `/accounts/{id}/summary` + `/transactions` (paged). Hand the plan's Implementer Kickoff Prompt to the implementing model. Unblocks all budgeting features. Branch: `feature/domain-model-mapping` | 🟡 P2 | 2–3d | [plan](open/domain-model-mapping/plan.md) |
+| 11 | 🧱 Domain Model Mapping — raw→domain ingest + first product endpoints. **Implementation complete 2026-08-31, PR raised — awaiting Alexander's review/merge.** Built in three reviewed slices: V11 raw capture (encrypted `Sourced.rawJson()`), V12/V13 domain schema (`bank_accounts` — renamed from `user_accounts` in review — + `transactions`) with `MonzoIngestor`/`IngestService`/`BalanceRefreshService` + job/backfill chaining, then the read path (`GET /api/v1/accounts`, `/accounts/{id}/summary`, `/transactions` on `PageResponse`). 654 tests green incl. `IngestIT`/`SyncPipelineIT`/endpoint ITs. Noted in-flight: unauthenticated = **403** app-wide (no `AuthenticationEntryPoint`; spec said 401 — candidate ticket). Branch: `feature/domain-model-mapping` | 🟡 P2 | 2–3d | [plan](open/domain-model-mapping/plan.md) |
 
 ---
 

@@ -17,19 +17,19 @@ any.
 
 ## Acceptance Criteria
 
-- [ ] After OAuth + backfill + one ingest run, `GET /api/v1/accounts`, `GET /api/v1/accounts/{id}/summary`
+- [x] After OAuth + backfill + one ingest run, `GET /api/v1/accounts`, `GET /api/v1/accounts/{id}/summary`
       and `GET /api/v1/transactions` return real synced data, user-scoped
-- [ ] Re-running the ingest creates zero duplicates, flips `PENDING → SETTLED` when raw learns of
+- [x] Re-running the ingest creates zero duplicates, flips `PENDING → SETTLED` when raw learns of
       settlement, and never overwrites `notes` or `excluded_from_analytics` on existing domain rows
-- [ ] Declined raw transactions are never mapped
-- [ ] `raw_payload_encrypted` is populated (AES-256-GCM) on both raw tables during sync; NULL when
+- [x] Declined raw transactions are never mapped
+- [x] `raw_payload_encrypted` is populated (AES-256-GCM) on both raw tables during sync; NULL when
       the provider gave no `rawJson`; never logged
-- [ ] Balance snapshots land on `bank_accounts` with `balance_as_of` stamped, refreshed hourly and
+- [x] Balance snapshots land on `bank_accounts` with `balance_as_of` stamped, refreshed hourly and
       after backfill
-- [ ] Closed raw accounts / disconnected connections surface as `archived_at` set; reopened
+- [x] Closed raw accounts / disconnected connections surface as `archived_at` set; reopened
       accounts un-archive
-- [ ] User A cannot read user B's accounts or transactions (asserted by an IT)
-- [ ] `/check` green (checkstyle + unit + integration)
+- [x] User A cannot read user B's accounts or transactions (asserted by an IT)
+- [x] `/check` green (checkstyle + unit + integration)
 
 ## Out of Scope
 
