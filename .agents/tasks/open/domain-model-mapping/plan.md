@@ -70,8 +70,12 @@ Verified against the repo 2026-08-22 (context docs are stale — trust these):
   `TransactionTemplate`; `MonzoAccountRepository.findAllSyncable()` = non-closed accounts
 - `MonzoTransactionRepository.upsert` is a native `ON CONFLICT (id) DO UPDATE` query — the exact
   pattern the domain upsert copies
-- `BankTransaction.rawJson` / `BankAccount.rawJson` exist (#10, `toString` redacts) but are
-  **dropped on persistence** — no raw columns exist yet
+- Raw JSON travels on the `Sourced<T>` envelope since #12 (2026-08-31): `BankTransactionPage`
+  carries `List<Sourced<BankTransaction>>`, `getAccounts` returns `List<Sourced<BankAccount>>`;
+  `sourced.rawJson()` is `@Nullable`, `Sourced.toString` redacts. Domain records no longer have
+  a `rawJson` field. Still **dropped on persistence** — no raw columns exist yet. #12 also
+  replaced `getTransactions(from, to, pageCursor)` with a sealed
+  `SyncPosition (FromTime | AfterTransaction | NextPage)` + `to`
 - `EncryptionService` (`service/common`): `encrypt(String)` / `decrypt(String)`;
   **`encrypt` THROWS `IllegalArgumentException` on null/empty** — null-guard required
 - `BalanceCapability.getBalance(accessToken, accountId)` → `BankBalance(balanceMinorUnits, currency)`;
@@ -128,7 +132,7 @@ Three new migrations. **Never modify V1–V10.** All lowercase keywords per hous
 
 ```sql
 -- Encrypted verbatim provider JSON (AES-256-GCM via EncryptionService), populated by the sync
--- layer from BankAccount.rawJson / BankTransaction.rawJson. NULL when the provider gave none.
+-- layer from Sourced<BankAccount>/Sourced<BankTransaction> rawJson(). NULL when the provider gave none.
 -- Never stored plaintext: raw payloads carry bank identifiers (account_number, sort_code).
 alter table monzo_accounts
     add column raw_payload_encrypted text null;
@@ -408,8 +412,10 @@ private String encryptRaw(@Nullable String rawJson) {
 ```
 
 (`EncryptionService.encrypt` throws on null/empty — the guard is mandatory.)
-`upsertTransaction` passes `encryptRaw(tx.rawJson())` as the new upsert param. `upsertAccount`
-sets `account.setRawPayloadEncrypted(encryptRaw(ar.rawJson()))` on both the new and existing
+Since #12 the sync loops iterate `Sourced<BankTransaction>` / `Sourced<BankAccount>` envelopes:
+`upsertTransaction` passes `encryptRaw(sourced.rawJson())` as the new upsert param (thread the
+envelope, or the rawJson alongside the payload, into the helper). `upsertAccount` sets
+`account.setRawPayloadEncrypted(encryptRaw(sourced.rawJson()))` on both the new and existing
 branches (JPA-managed save). `MonzoAccount` and `MonzoTransaction` entities gain the nullable
 `rawPayloadEncrypted` field (`@Column(name = "raw_payload_encrypted")`). Never log the value —
 plaintext or ciphertext.
@@ -573,7 +579,8 @@ calls `ingestAll()` then `refreshAll()`, returns `ApiResponse.ok()`.
 ## External Integration
 
 No new provider-contract methods — `getBalance` and `rawJson` landed in #10 (contract now split by
-capability, PR #84: balance lives on `BalanceCapability`). New WireMock file stub
+capability, PR #84: balance lives on `BalanceCapability`; reshaped by #12: rawJson on `Sourced<T>`
+envelopes, fetch start as sealed `SyncPosition`). New WireMock file stub
 required: `src/test/resources/wiremock/mappings/monzo/balance/balance-success.json` for
 `GET /balance?account_id=...` returning Monzo's shape `{"balance": 12345, "total_balance": 12345,
 "currency": "GBP", "spend_today": 0}` (check `MonzoBalanceResponse` for the exact fields the
@@ -747,7 +754,7 @@ Each step compiles green and is separately committable:
 | `budgeteer-server/.../service/common/EncryptionService.java` | Throws on null/empty — the guard contract |
 | `budgeteer-server/.../api/monzo/MonzoController.java` | Controller + `ApiResponse` + `@CurrentUserId` idiom |
 | `budgeteer-server/.../api/dev/DevMonzoController.java` | Dev-trigger pattern for `/ingest` |
-| `provider-api/.../provider/BalanceCapability.java` + `TransactionsCapability.java` + `model/BankBalance.java` + `model/BankTransaction.java` | The contracts you consume (`getBalance`, `rawJson`) |
+| `provider-api/.../provider/BalanceCapability.java` + `TransactionsCapability.java` + `model/BankBalance.java` + `model/BankTransaction.java` + `model/Sourced.java` + `model/SyncPosition.java` | The contracts you consume (`getBalance`, `sourced.rawJson()`, sealed fetch positions) |
 | `provider-monzo/.../dto/MonzoBalanceResponse.java` | Exact fields for the balance WireMock stub |
 | `.agents/context/testing.md` | `@WebMvcTest` import set, IT base classes, stub-file conventions |
 | `.agents/tasks/closed/transaction-sync/plan.md` | Spec-depth gold standard; background on sync semantics |
