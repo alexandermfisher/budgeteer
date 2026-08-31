@@ -76,6 +76,12 @@ public class TestDataFactory {
     private MonzoTransactionRepository monzoTransactionRepository;
 
     @Autowired
+    private dev.amfshr.budgeteer.repository.AccountRepository accountRepository;
+
+    @Autowired
+    private dev.amfshr.budgeteer.repository.TransactionRepository transactionRepository;
+
+    @Autowired
     private dev.amfshr.budgeteer.service.common.EncryptionService encryptionService;
 
     // ========================================================================
@@ -382,6 +388,36 @@ public class TestDataFactory {
                 false, Instant.now(), null
         );
         return monzoTransactionRepository.save(tx);
+    }
+
+    // ========================================================================
+    // Domain (bank_accounts / transactions) creation
+    // ========================================================================
+
+    public dev.amfshr.budgeteer.domain.account.Account createBankAccount(User user) {
+        return createBankAccount(user, "acc_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16));
+    }
+
+    /** Active MONZO CURRENT domain account. */
+    public dev.amfshr.budgeteer.domain.account.Account createBankAccount(User user, String providerAccountId) {
+        dev.amfshr.budgeteer.domain.account.Account account = new dev.amfshr.budgeteer.domain.account.Account(
+                user, dev.amfshr.budgeteer.domain.account.Provider.MONZO, providerAccountId,
+                dev.amfshr.budgeteer.domain.account.AccountType.CURRENT, "Monzo", "Current Account", "GBP");
+        return accountRepository.save(account);
+    }
+
+    /**
+     * Settled domain transaction via the native upsert (the only write path — the entity has no
+     * public constructor). Returns the generated provider transaction id.
+     */
+    public String createDomainTransaction(dev.amfshr.budgeteer.domain.account.Account account, User user,
+                                          long amountMinorUnits, Instant occurredAt) {
+        String providerTxId = "tx_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        transactionRepository.upsert(
+                user.getId(), account.getId(), "MONZO", providerTxId,
+                amountMinorUnits, "GBP", "SETTLED",
+                "Test transaction", null, null, null, occurredAt, occurredAt);
+        return providerTxId;
     }
 
     // ========================================================================
