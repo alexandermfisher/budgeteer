@@ -40,7 +40,7 @@ final class MonzoMapper {
     /**
      * Map a Monzo account response to a {@link BankAccount}.
      */
-    static BankAccount toBankAccount(MonzoAccountResponse ar, @Nullable String rawJson) {
+    static BankAccount toBankAccount(MonzoAccountResponse ar) {
         Instant createdAt = parseInstant(ar.created());
         return new BankAccount(
                 ar.id(),
@@ -48,15 +48,14 @@ final class MonzoMapper {
                 ar.description(),
                 ar.currency(),
                 ar.closed(),
-                createdAt,
-                rawJson
+                createdAt
         );
     }
 
     /**
      * Map a Monzo transaction response to a {@link BankTransaction}.
      */
-    static BankTransaction toBankTransaction(MonzoTransactionResponse tx, @Nullable String rawJson) {
+    static BankTransaction toBankTransaction(MonzoTransactionResponse tx) {
         Instant settledAt = (tx.settled() != null && !tx.settled().isBlank())
                 ? Instant.parse(tx.settled())
                 : null;
@@ -76,8 +75,7 @@ final class MonzoMapper {
                 tx.notes(),
                 declined,
                 createdAt,
-                settledAt,
-                rawJson
+                settledAt
         );
     }
 

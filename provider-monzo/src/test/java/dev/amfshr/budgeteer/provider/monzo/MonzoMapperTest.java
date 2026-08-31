@@ -66,7 +66,7 @@ class MonzoMapperTest {
             MonzoAccountResponse ar = new MonzoAccountResponse(
                     "acc_001", "uk_retail", "Current", "GBP", false, "2024-01-01T00:00:00Z");
 
-            BankAccount account = MonzoMapper.toBankAccount(ar, "{\"raw\":true}");
+            BankAccount account = MonzoMapper.toBankAccount(ar);
 
             assertThat(account.externalId()).isEqualTo("acc_001");
             assertThat(account.type()).isEqualTo("uk_retail");
@@ -82,7 +82,7 @@ class MonzoMapperTest {
             MonzoAccountResponse ar = new MonzoAccountResponse(
                     "acc_001", "uk_retail", null, "GBP", false, null);
 
-            BankAccount account = MonzoMapper.toBankAccount(ar, null);
+            BankAccount account = MonzoMapper.toBankAccount(ar);
 
             assertThat(account.description()).isNull();
         }
@@ -93,7 +93,7 @@ class MonzoMapperTest {
             MonzoAccountResponse ar = new MonzoAccountResponse(
                     "acc_001", "uk_retail", null, "GBP", false, null);
 
-            BankAccount account = MonzoMapper.toBankAccount(ar, null);
+            BankAccount account = MonzoMapper.toBankAccount(ar);
 
             assertThat(account.createdAt()).isNull();
         }
@@ -104,22 +104,11 @@ class MonzoMapperTest {
             MonzoAccountResponse ar = new MonzoAccountResponse(
                     "acc_001", "uk_retail", null, "GBP", false, "");
 
-            BankAccount account = MonzoMapper.toBankAccount(ar, null);
+            BankAccount account = MonzoMapper.toBankAccount(ar);
 
             assertThat(account.createdAt()).isNull();
         }
 
-        @Test
-        @DisplayName("rawJson passthrough")
-        void rawJsonPassthrough() {
-            MonzoAccountResponse ar = new MonzoAccountResponse(
-                    "acc_001", "uk_retail", null, "GBP", false, null);
-            String raw = "{\"id\":\"acc_001\"}";
-
-            BankAccount account = MonzoMapper.toBankAccount(ar, raw);
-
-            assertThat(account.rawJson()).isEqualTo(raw);
-        }
     }
 
     @Nested
@@ -131,7 +120,7 @@ class MonzoMapperTest {
         void settledNull() {
             MonzoTransactionResponse tx = tx("tx_001", null, null);
 
-            BankTransaction result = MonzoMapper.toBankTransaction(tx, null);
+            BankTransaction result = MonzoMapper.toBankTransaction(tx);
 
             assertThat(result.settledAt()).isNull();
         }
@@ -141,7 +130,7 @@ class MonzoMapperTest {
         void settledBlank() {
             MonzoTransactionResponse tx = tx("tx_001", "", null);
 
-            BankTransaction result = MonzoMapper.toBankTransaction(tx, null);
+            BankTransaction result = MonzoMapper.toBankTransaction(tx);
 
             assertThat(result.settledAt()).isNull();
         }
@@ -151,7 +140,7 @@ class MonzoMapperTest {
         void declineReasonPresent() {
             MonzoTransactionResponse tx = tx("tx_001", null, "insufficient_funds");
 
-            BankTransaction result = MonzoMapper.toBankTransaction(tx, null);
+            BankTransaction result = MonzoMapper.toBankTransaction(tx);
 
             assertThat(result.declined()).isTrue();
         }
@@ -161,7 +150,7 @@ class MonzoMapperTest {
         void declineReasonAbsent() {
             MonzoTransactionResponse tx = tx("tx_001", null, null);
 
-            BankTransaction result = MonzoMapper.toBankTransaction(tx, null);
+            BankTransaction result = MonzoMapper.toBankTransaction(tx);
 
             assertThat(result.declined()).isFalse();
         }
@@ -171,7 +160,7 @@ class MonzoMapperTest {
         void declineReasonBlank() {
             MonzoTransactionResponse tx = tx("tx_001", null, "");
 
-            BankTransaction result = MonzoMapper.toBankTransaction(tx, null);
+            BankTransaction result = MonzoMapper.toBankTransaction(tx);
 
             assertThat(result.declined()).isFalse();
         }
@@ -181,7 +170,7 @@ class MonzoMapperTest {
         void merchantNull() {
             MonzoTransactionResponse tx = txNoMerchant("tx_001", null, null);
 
-            BankTransaction result = MonzoMapper.toBankTransaction(tx, null);
+            BankTransaction result = MonzoMapper.toBankTransaction(tx);
 
             assertThat(result.merchantName()).isNull();
             assertThat(result.merchantCategory()).isNull();
@@ -192,21 +181,11 @@ class MonzoMapperTest {
         void notesNull() {
             MonzoTransactionResponse tx = tx("tx_001", null, null);
 
-            BankTransaction result = MonzoMapper.toBankTransaction(tx, null);
+            BankTransaction result = MonzoMapper.toBankTransaction(tx);
 
             assertThat(result.notes()).isNull();
         }
 
-        @Test
-        @DisplayName("rawJson passthrough")
-        void rawJsonPassthrough() {
-            MonzoTransactionResponse tx = tx("tx_001", null, null);
-            String raw = "{\"id\":\"tx_001\"}";
-
-            BankTransaction result = MonzoMapper.toBankTransaction(tx, raw);
-
-            assertThat(result.rawJson()).isEqualTo(raw);
-        }
     }
 
     private static MonzoTransactionResponse tx(String id, String settled, String declineReason) {

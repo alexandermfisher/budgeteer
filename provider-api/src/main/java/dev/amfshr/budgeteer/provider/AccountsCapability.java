@@ -1,6 +1,7 @@
 package dev.amfshr.budgeteer.provider;
 
 import dev.amfshr.budgeteer.provider.model.BankAccount;
+import dev.amfshr.budgeteer.provider.model.Sourced;
 
 import java.util.List;
 
@@ -9,6 +10,6 @@ import java.util.List;
  */
 public interface AccountsCapability {
 
-    /** All accounts for the authenticated connection. */
-    List<BankAccount> getAccounts(String accessToken);
+    /** All accounts for the authenticated connection, each with its verbatim provider JSON. */
+    List<Sourced<BankAccount>> getAccounts(String accessToken);
 }

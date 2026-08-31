@@ -9,6 +9,8 @@ import dev.amfshr.budgeteer.provider.exception.ProviderException;
 import dev.amfshr.budgeteer.provider.exception.ProviderReauthRequiredException;
 import dev.amfshr.budgeteer.provider.model.BankTransaction;
 import dev.amfshr.budgeteer.provider.model.BankTransactionPage;
+import dev.amfshr.budgeteer.provider.model.Sourced;
+import dev.amfshr.budgeteer.provider.model.SyncPosition;
 import dev.amfshr.budgeteer.domain.monzo.MonzoAccount;
 import dev.amfshr.budgeteer.domain.monzo.MonzoConnection;
 import dev.amfshr.budgeteer.domain.user.User;
@@ -118,10 +120,11 @@ public class TransactionSyncService {
 
         String accessToken = connectionService.getDecryptedAccessToken(connectionId, userId);
 
-        List<BankAccount> accountResponses = accountsCapability.getAccounts(accessToken);
+        List<Sourced<BankAccount>> accountResponses = accountsCapability.getAccounts(accessToken);
         log.info("Found {} accounts [connectionId={}]", accountResponses.size(), connectionId);
 
-        for (BankAccount ar : accountResponses) {
+        for (Sourced<BankAccount> sourced : accountResponses) {
+            BankAccount ar = sourced.payload();
             MonzoAccount account = upsertAccount(ar, connection, connection.getUser());
 
             if (ar.closed()) {
@@ -155,7 +158,14 @@ public class TransactionSyncService {
 
         String accessToken = connectionService.getDecryptedAccessToken(connectionId, userId);
 
-        String latestTxId = paginateTransactions(accessToken, account, null, null, account.getLastTransactionId());
+        // Monzo supports id-based deltas natively; with no stored id yet, fall back to a
+        // full time-windowed fetch from the floor.
+        String lastTxId = account.getLastTransactionId();
+        SyncPosition start = lastTxId != null
+                ? new SyncPosition.AfterTransaction(lastTxId)
+                : new SyncPosition.FromTime(ABSOLUTE_BACKFILL_FLOOR);
+
+        String latestTxId = paginateDelta(accessToken, account, start, Instant.now());
         account.recordSyncComplete(latestTxId);
         accountRepository.save(account);
 
@@ -240,7 +250,7 @@ public class TransactionSyncService {
                 final boolean isFreshStart = freshStart;
 
                 String latestInWindow = txTemplate.execute(status -> {
-                    String latest = paginateWindow(accessToken, account, wStart.toString(), wEnd.toString(), cursor);
+                    String latest = paginateWindow(accessToken, account, wStart, wEnd, cursor);
 
                     if (isFirstWindow && latest != null && isFreshStart) {
                         account.recordSyncComplete(latest);
@@ -306,31 +316,28 @@ public class TransactionSyncService {
     private String paginateWindow(
             String accessToken,
             MonzoAccount account,
-            String since,
-            String before,
+            Instant from,
+            Instant to,
             @Nullable String resumeCursor
     ) {
-        String cursor = resumeCursor;
+        SyncPosition position = resumeCursor != null
+                ? new SyncPosition.NextPage(resumeCursor)
+                : new SyncPosition.FromTime(from);
         String latestTxId = null;
         int total = 0;
 
-        Instant from = Instant.parse(since);
-        Instant to = Instant.parse(before);
-
         while (true) {
             BankTransactionPage page = transactionsCapability.getTransactions(
-                    accessToken, account.getId(), from, to, cursor
+                    accessToken, account.getId(), position, to
             );
 
-            log.info("→ Monzo returned {} transactions [account={}, window={} → {}, cursor={}]",
+            log.info("→ Monzo returned {} transactions [account={}, window={} → {}]",
                     page.transactions().size(), label(account),
-                    since.substring(0, 10), before.substring(0, 10),
-                    cursor != null && cursor.length() > 8
-                            ? cursor.substring(cursor.length() - 8) : "start");
+                    from.toString().substring(0, 10), to.toString().substring(0, 10));
 
-            for (BankTransaction tx : page.transactions()) {
-                upsertTransaction(tx, account);
-                latestTxId = tx.externalId();
+            for (Sourced<BankTransaction> sourced : page.transactions()) {
+                upsertTransaction(sourced.payload(), account);
+                latestTxId = sourced.payload().externalId();
             }
 
             total += page.transactions().size();
@@ -340,41 +347,37 @@ public class TransactionSyncService {
                 break;
             }
 
-            cursor = nextCursor;
-            account.setBackfillProgressCursor(cursor);
+            position = new SyncPosition.NextPage(nextCursor);
+            account.setBackfillProgressCursor(nextCursor);
             accountRepository.save(account);
         }
 
         if (total > 0) {
             log.info("← Saved {} transactions to DB [window={} → {}, account={}]",
-                    total, since.substring(0, 10), before.substring(0, 10), label(account));
+                    total, from.toString().substring(0, 10), to.toString().substring(0, 10), label(account));
         }
         return latestTxId;
     }
 
     @Nullable
-    private String paginateTransactions(
+    private String paginateDelta(
             String accessToken,
             MonzoAccount account,
-            @Nullable String since,
-            @Nullable String before,
-            @Nullable String sinceId
+            SyncPosition start,
+            Instant to
     ) {
-        String cursor = sinceId;
+        SyncPosition position = start;
         String latestTxId = null;
         int total = 0;
 
-        Instant from = since != null ? Instant.parse(since) : Instant.parse("2015-01-01T00:00:00Z");
-        Instant to = before != null ? Instant.parse(before) : Instant.now();
-
         while (true) {
             BankTransactionPage page = transactionsCapability.getTransactions(
-                    accessToken, account.getId(), from, to, cursor
+                    accessToken, account.getId(), position, to
             );
 
-            for (BankTransaction tx : page.transactions()) {
-                upsertTransaction(tx, account);
-                latestTxId = tx.externalId();
+            for (Sourced<BankTransaction> sourced : page.transactions()) {
+                upsertTransaction(sourced.payload(), account);
+                latestTxId = sourced.payload().externalId();
             }
 
             total += page.transactions().size();
@@ -383,7 +386,7 @@ public class TransactionSyncService {
             if (nextCursor == null) {
                 break;
             }
-            cursor = nextCursor;
+            position = new SyncPosition.NextPage(nextCursor);
         }
 
         log.info("Delta sync: saved {} transactions [account={}]", total, label(account));
