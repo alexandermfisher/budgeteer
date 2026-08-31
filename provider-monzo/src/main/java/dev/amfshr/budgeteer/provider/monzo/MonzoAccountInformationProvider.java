@@ -16,9 +16,10 @@ import dev.amfshr.budgeteer.provider.exception.ProviderReauthRequiredException;
 import dev.amfshr.budgeteer.provider.model.BankTokens;
 import dev.amfshr.budgeteer.provider.model.BankTransaction;
 import dev.amfshr.budgeteer.provider.model.BankTransactionPage;
+import dev.amfshr.budgeteer.provider.model.Sourced;
+import dev.amfshr.budgeteer.provider.model.SyncPosition;
 import dev.amfshr.budgeteer.provider.monzo.dto.MonzoBalanceResponse;
 import dev.amfshr.budgeteer.provider.monzo.dto.MonzoWhoAmIResponse;
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatusCode;
@@ -34,7 +35,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiFunction;
+import java.util.function.Function;
 
 /**
  * Monzo API HTTP client — implements the full set of provider-neutral capability contracts
@@ -167,7 +168,7 @@ public class MonzoAccountInformationProvider
     }
 
     @Override
-    public List<BankAccount> getAccounts(String accessToken) {
+    public List<Sourced<BankAccount>> getAccounts(String accessToken) {
         log.debug("Fetching Monzo accounts");
 
         try {
@@ -181,7 +182,7 @@ public class MonzoAccountInformationProvider
                 throw new ProviderException("Empty response from Monzo accounts endpoint");
             }
 
-            List<BankAccount> accounts = mapArray(root.get("accounts"),
+            List<Sourced<BankAccount>> accounts = mapArray(root.get("accounts"),
                     dev.amfshr.budgeteer.provider.monzo.dto.MonzoAccountResponse.class,
                     MonzoMapper::toBankAccount);
             log.debug("Fetched {} Monzo accounts", accounts.size());
@@ -216,12 +217,14 @@ public class MonzoAccountInformationProvider
     }
 
     /**
-     * One page of transactions for an account in the half-open window [from, to).
+     * One page of transactions for an account, from {@code position} up to {@code to}.
      *
-     * <p>The opaque {@code pageCursor} is mapped to Monzo's {@code since} query parameter:
-     * on the first page (cursor=null), {@code since} = {@code from} (RFC3339 timestamp);
-     * on subsequent pages, {@code since} = cursor (last-seen transaction id as the cursor).
-     * {@code before} is always pinned to {@code to} so each page stays bounded.
+     * <p>Monzo's {@code since} query parameter natively accepts either an RFC3339 timestamp or
+     * a transaction id, so every {@link SyncPosition} kind maps directly onto it:
+     * {@link SyncPosition.FromTime} → the timestamp, {@link SyncPosition.AfterTransaction} →
+     * the delta transaction id, {@link SyncPosition.NextPage} → the cursor (itself the
+     * last-seen transaction id). {@code before} is always pinned to {@code to} so each page
+     * stays bounded.
      *
      * <p>{@code nextCursor} is the last transaction id in the page, or {@code null} when
      * the page is shorter than {@link #PAGE_SIZE} (window exhausted).
@@ -230,15 +233,18 @@ public class MonzoAccountInformationProvider
     public BankTransactionPage getTransactions(
             String accessToken,
             String accountId,
-            Instant from,
-            Instant to,
-            @Nullable String pageCursor
+            SyncPosition position,
+            Instant to
     ) {
-        String since = pageCursor != null ? pageCursor : from.toString();
+        String since = switch (position) {
+            case SyncPosition.FromTime(Instant from) -> from.toString();
+            case SyncPosition.AfterTransaction(String transactionId) -> transactionId;
+            case SyncPosition.NextPage(String cursor) -> cursor;
+        };
         String before = to.toString();
 
-        log.debug("Fetching Monzo transactions [accountId={}, since={}, before={}, cursor={}]",
-                accountId, since, before, pageCursor);
+        log.debug("Fetching Monzo transactions [accountId={}, since={}, before={}]",
+                accountId, since, before);
 
         try {
             UriComponentsBuilder uri = UriComponentsBuilder.fromPath("/transactions")
@@ -259,12 +265,12 @@ public class MonzoAccountInformationProvider
             }
 
             JsonNode array = root.get("transactions");
-            List<BankTransaction> mapped = mapArray(array,
+            List<Sourced<BankTransaction>> mapped = mapArray(array,
                     dev.amfshr.budgeteer.provider.monzo.dto.MonzoTransactionResponse.class,
                     MonzoMapper::toBankTransaction);
 
             String nextCursor = array.size() >= PAGE_SIZE
-                    ? mapped.getLast().externalId()
+                    ? mapped.getLast().payload().externalId()
                     : null;
 
             String cursorLabel = nextCursor != null && nextCursor.length() > 8
@@ -311,13 +317,13 @@ public class MonzoAccountInformationProvider
     }
 
     /** Map each element of a JSON array via its DTO, capturing the element's verbatim JSON. */
-    private <D, B> List<B> mapArray(JsonNode array, Class<D> dtoType,
-                                    BiFunction<D, String, B> mapper) {
-        List<B> result = new ArrayList<>(array.size());
+    private <D, B> List<Sourced<B>> mapArray(JsonNode array, Class<D> dtoType,
+                                             Function<D, B> mapper) {
+        List<Sourced<B>> result = new ArrayList<>(array.size());
         for (JsonNode node : array) {
             try {
                 D dto = objectMapper.treeToValue(node, dtoType);
-                result.add(mapper.apply(dto, node.toString()));
+                result.add(new Sourced<>(mapper.apply(dto), node.toString()));
             } catch (JacksonException e) {
                 throw new ProviderException("Failed to parse Monzo response element", e);
             }

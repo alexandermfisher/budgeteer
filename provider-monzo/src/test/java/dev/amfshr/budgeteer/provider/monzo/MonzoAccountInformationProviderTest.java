@@ -10,6 +10,8 @@ import dev.amfshr.budgeteer.provider.exception.ProviderReauthRequiredException;
 import dev.amfshr.budgeteer.provider.model.BankTokens;
 import dev.amfshr.budgeteer.provider.model.BankTransaction;
 import dev.amfshr.budgeteer.provider.model.BankTransactionPage;
+import dev.amfshr.budgeteer.provider.model.Sourced;
+import dev.amfshr.budgeteer.provider.model.SyncPosition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -272,15 +274,15 @@ class MonzoAccountInformationProviderTest {
                             }
                             """)));
 
-            List<BankAccount> result = client.getAccounts(ACCESS_TOKEN);
+            List<Sourced<BankAccount>> result = client.getAccounts(ACCESS_TOKEN);
 
             assertThat(result).hasSize(2);
-            assertThat(result.get(0).externalId()).isEqualTo("acc_001");
-            assertThat(result.get(0).type()).isEqualTo("uk_retail");
-            assertThat(result.get(0).currency()).isEqualTo("GBP");
-            assertThat(result.get(0).closed()).isFalse();
-            assertThat(result.get(1).externalId()).isEqualTo("acc_002");
-            assertThat(result.get(1).closed()).isTrue();
+            assertThat(result.get(0).payload().externalId()).isEqualTo("acc_001");
+            assertThat(result.get(0).payload().type()).isEqualTo("uk_retail");
+            assertThat(result.get(0).payload().currency()).isEqualTo("GBP");
+            assertThat(result.get(0).payload().closed()).isFalse();
+            assertThat(result.get(1).payload().externalId()).isEqualTo("acc_002");
+            assertThat(result.get(1).payload().closed()).isTrue();
         }
 
         @Test
@@ -319,7 +321,7 @@ class MonzoAccountInformationProviderTest {
             wm.stubFor(get(urlPathEqualTo("/accounts"))
                     .willReturn(okJson("{\"accounts\":[]}")));
 
-            List<BankAccount> result = client.getAccounts(ACCESS_TOKEN);
+            List<Sourced<BankAccount>> result = client.getAccounts(ACCESS_TOKEN);
 
             assertThat(result).isEmpty();
         }
@@ -332,7 +334,7 @@ class MonzoAccountInformationProviderTest {
                             {"accounts":[{"id":"acc_001","type":"uk_retail","description":"Current","currency":"GBP","closed":false}]}
                             """)));
 
-            List<BankAccount> result = client.getAccounts(ACCESS_TOKEN);
+            List<Sourced<BankAccount>> result = client.getAccounts(ACCESS_TOKEN);
 
             assertThat(result).hasSize(1);
             assertThat(result.get(0).rawJson()).isNotNull();
@@ -345,7 +347,7 @@ class MonzoAccountInformationProviderTest {
             wm.stubFor(get(urlPathEqualTo("/accounts"))
                     .willReturn(okJson(fixture("accounts/accounts-unknown-fields.json"))));
 
-            List<BankAccount> result = client.getAccounts(ACCESS_TOKEN);
+            List<Sourced<BankAccount>> result = client.getAccounts(ACCESS_TOKEN);
 
             assertThat(result).hasSize(1);
             assertThat(result.get(0).rawJson()).contains("\"sort_code\":\"040004\"");
@@ -435,11 +437,11 @@ class MonzoAccountInformationProviderTest {
                             }
                             """)));
 
-            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null);
+            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", new SyncPosition.FromTime(FROM), TO);
 
             assertThat(page.nextCursor()).isNull(); // short page → end
             assertThat(page.transactions()).hasSize(1);
-            BankTransaction tx = page.transactions().get(0);
+            BankTransaction tx = page.transactions().get(0).payload();
             assertThat(tx.externalId()).isEqualTo("tx_001");
             assertThat(tx.amountMinorUnits()).isEqualTo(-500);
             assertThat(tx.currency()).isEqualTo("GBP");
@@ -471,14 +473,14 @@ class MonzoAccountInformationProviderTest {
                     .withQueryParam("limit", equalTo("100"))
                     .willReturn(okJson(sb.toString())));
 
-            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null);
+            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", new SyncPosition.FromTime(FROM), TO);
 
             assertThat(page.transactions()).hasSize(100);
             assertThat(page.nextCursor()).isEqualTo("tx_100");
         }
 
         @Test
-        @DisplayName("with pageCursor — sends cursor as `since`, passes `from` as the timestamp window bound")
+        @DisplayName("NextPage position — sends the cursor as `since`, keeps `before` pinned")
         void withCursor() {
             wm.stubFor(get(urlPathEqualTo("/transactions"))
                     .withQueryParam("account_id", equalTo("acc_001"))
@@ -494,13 +496,36 @@ class MonzoAccountInformationProviderTest {
                             ]}
                             """)));
 
-            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, "tx_100");
+            BankTransactionPage page = client.getTransactions(
+                    ACCESS_TOKEN, "acc_001", new SyncPosition.NextPage("tx_100"), TO);
 
             assertThat(page.transactions()).hasSize(1);
-            assertThat(page.transactions().get(0).externalId()).isEqualTo("tx_101");
-            assertThat(page.transactions().get(0).merchantName()).isNull();
-            assertThat(page.transactions().get(0).settledAt()).isNull();
+            assertThat(page.transactions().get(0).payload().externalId()).isEqualTo("tx_101");
+            assertThat(page.transactions().get(0).payload().merchantName()).isNull();
+            assertThat(page.transactions().get(0).payload().settledAt()).isNull();
             assertThat(page.nextCursor()).isNull(); // short page
+        }
+
+        @Test
+        @DisplayName("AfterTransaction position — sends the delta transaction id as `since`")
+        void afterTransactionSendsIdAsSince() {
+            wm.stubFor(get(urlPathEqualTo("/transactions"))
+                    .withQueryParam("account_id", equalTo("acc_001"))
+                    .withQueryParam("since", equalTo("tx_last_synced"))
+                    .withQueryParam("before", equalTo("2024-12-16T00:00:00Z"))
+                    .willReturn(okJson("""
+                            {"transactions":[
+                              {"id":"tx_102","amount":-300,"currency":"GBP","description":"Lunch","merchant":null,
+                               "notes":null,"decline_reason":null,
+                               "created":"2024-01-04T12:00:00Z","settled":null}
+                            ]}
+                            """)));
+
+            BankTransactionPage page = client.getTransactions(
+                    ACCESS_TOKEN, "acc_001", new SyncPosition.AfterTransaction("tx_last_synced"), TO);
+
+            assertThat(page.transactions()).hasSize(1);
+            assertThat(page.transactions().get(0).payload().externalId()).isEqualTo("tx_102");
         }
 
         @Test
@@ -509,7 +534,7 @@ class MonzoAccountInformationProviderTest {
             wm.stubFor(get(urlPathEqualTo("/transactions"))
                     .willReturn(unauthorized()));
 
-            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null))
+            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", new SyncPosition.FromTime(FROM), TO))
                     .isInstanceOf(ProviderConnectionRevokedException.class);
         }
 
@@ -522,7 +547,7 @@ class MonzoAccountInformationProviderTest {
                             .withHeader("Content-Type", "application/json")
                             .withBody("{\"code\":\"forbidden.verification_required\",\"message\":\"Re-authenticate\"}")));
 
-            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null))
+            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", new SyncPosition.FromTime(FROM), TO))
                     .isInstanceOf(ProviderReauthRequiredException.class);
         }
 
@@ -535,7 +560,7 @@ class MonzoAccountInformationProviderTest {
                             .withHeader("Content-Type", "application/json")
                             .withBody("{\"code\":\"forbidden\",\"message\":\"Access denied\"}")));
 
-            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null))
+            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", new SyncPosition.FromTime(FROM), TO))
                     .isInstanceOf(ProviderException.class);
         }
 
@@ -553,11 +578,11 @@ class MonzoAccountInformationProviderTest {
                             ]}
                             """)));
 
-            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null);
+            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", new SyncPosition.FromTime(FROM), TO);
 
             assertThat(page.transactions()).hasSize(1);
-            assertThat(page.transactions().get(0).declined()).isTrue();
-            assertThat(page.transactions().get(0).amountMinorUnits()).isEqualTo(0);
+            assertThat(page.transactions().get(0).payload().declined()).isTrue();
+            assertThat(page.transactions().get(0).payload().amountMinorUnits()).isEqualTo(0);
         }
 
         @Test
@@ -566,7 +591,7 @@ class MonzoAccountInformationProviderTest {
             wm.stubFor(get(urlPathEqualTo("/transactions"))
                     .willReturn(aResponse().withStatus(429)));
 
-            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null))
+            assertThatThrownBy(() -> client.getTransactions(ACCESS_TOKEN, "acc_001", new SyncPosition.FromTime(FROM), TO))
                     .isInstanceOf(ProviderException.class);
         }
 
@@ -577,7 +602,7 @@ class MonzoAccountInformationProviderTest {
                     .withQueryParam("since", equalTo("2024-01-01T00:00:00Z"))
                     .willReturn(okJson(fixture("transactions/transactions-unknown-fields.json"))));
 
-            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null);
+            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", new SyncPosition.FromTime(FROM), TO);
 
             assertThat(page.transactions()).hasSize(1);
             String raw = page.transactions().get(0).rawJson();
@@ -598,7 +623,7 @@ class MonzoAccountInformationProviderTest {
                             ]}
                             """)));
 
-            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", FROM, TO, null);
+            BankTransactionPage page = client.getTransactions(ACCESS_TOKEN, "acc_001", new SyncPosition.FromTime(FROM), TO);
 
             assertThat(page.nextCursor()).isNull();
         }

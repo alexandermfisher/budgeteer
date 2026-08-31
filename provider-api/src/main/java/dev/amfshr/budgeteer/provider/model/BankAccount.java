@@ -5,7 +5,8 @@ import org.jspecify.annotations.Nullable;
 import java.time.Instant;
 
 /**
- * Provider-neutral bank account.
+ * Provider-neutral bank account. Provenance (verbatim provider JSON) travels alongside via
+ * {@link Sourced}.
  */
 public record BankAccount(
         String externalId,
@@ -13,14 +14,5 @@ public record BankAccount(
         @Nullable String description,
         String currency,
         boolean closed,
-        @Nullable Instant createdAt,
-        @Nullable String rawJson     // verbatim provider JSON for this element; null if unavailable
-) {
-    @Override
-    public String toString() {
-        return ("BankAccount[externalId=%s, type=%s, description=%s, currency=%s, "
-                + "closed=%s, createdAt=%s, rawJson=%s]")
-                .formatted(externalId, type, description, currency, closed, createdAt,
-                        rawJson == null ? "null" : "<redacted>");
-    }
-}
+        @Nullable Instant createdAt
+) {}

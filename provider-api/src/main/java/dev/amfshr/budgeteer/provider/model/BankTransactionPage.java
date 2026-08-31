@@ -5,9 +5,10 @@ import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
- * One page of transactions plus an opaque cursor for the next page (null = last page).
+ * One page of transactions (each with its verbatim provider JSON) plus an opaque cursor for
+ * the next page (null = last page). Replay the cursor as {@link SyncPosition.NextPage}.
  */
 public record BankTransactionPage(
-        List<BankTransaction> transactions,
+        List<Sourced<BankTransaction>> transactions,
         @Nullable String nextCursor
 ) {}
