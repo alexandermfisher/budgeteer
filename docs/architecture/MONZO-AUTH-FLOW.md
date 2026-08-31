@@ -500,7 +500,7 @@ public class TokenService {
 
 ## References
 
-- [Monzo API Documentation](../api/monzo-api.pdf)
+- [Monzo API Documentation](../api/monzo/monzo-api.pdf)
 - [OAuth 2.0 RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749)
 - [AES-GCM Encryption](https://en.wikipedia.org/wiki/Galois/Counter_Mode)
 

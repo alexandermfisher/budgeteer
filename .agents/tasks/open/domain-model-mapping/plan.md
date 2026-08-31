@@ -5,7 +5,7 @@
 ## Goal
 
 Build the provider-agnostic domain layer above the raw `monzo_*` tables: unified
-`user_accounts` / `transactions` fed by an idempotent raw→domain ingest pipeline chained onto the
+`bank_accounts` / `transactions` fed by an idempotent raw→domain ingest pipeline chained onto the
 existing hourly sync, balance snapshots via `BalanceCapability.getBalance`, encrypted raw-payload capture,
 and the first three product-facing read endpoints. This unblocks every budgeting feature
 (categories, budgets, virtual pots, reports) and gives a frontend real data to render.
@@ -17,19 +17,19 @@ any.
 
 ## Acceptance Criteria
 
-- [ ] After OAuth + backfill + one ingest run, `GET /api/v1/accounts`, `GET /api/v1/accounts/{id}/summary`
+- [x] After OAuth + backfill + one ingest run, `GET /api/v1/accounts`, `GET /api/v1/accounts/{id}/summary`
       and `GET /api/v1/transactions` return real synced data, user-scoped
-- [ ] Re-running the ingest creates zero duplicates, flips `PENDING → SETTLED` when raw learns of
+- [x] Re-running the ingest creates zero duplicates, flips `PENDING → SETTLED` when raw learns of
       settlement, and never overwrites `notes` or `excluded_from_analytics` on existing domain rows
-- [ ] Declined raw transactions are never mapped
-- [ ] `raw_payload_encrypted` is populated (AES-256-GCM) on both raw tables during sync; NULL when
+- [x] Declined raw transactions are never mapped
+- [x] `raw_payload_encrypted` is populated (AES-256-GCM) on both raw tables during sync; NULL when
       the provider gave no `rawJson`; never logged
-- [ ] Balance snapshots land on `user_accounts` with `balance_as_of` stamped, refreshed hourly and
+- [x] Balance snapshots land on `bank_accounts` with `balance_as_of` stamped, refreshed hourly and
       after backfill
-- [ ] Closed raw accounts / disconnected connections surface as `archived_at` set; reopened
+- [x] Closed raw accounts / disconnected connections surface as `archived_at` set; reopened
       accounts un-archive
-- [ ] User A cannot read user B's accounts or transactions (asserted by an IT)
-- [ ] `/check` green (checkstyle + unit + integration)
+- [x] User A cannot read user B's accounts or transactions (asserted by an IT)
+- [x] `/check` green (checkstyle + unit + integration)
 
 ## Out of Scope
 
@@ -111,7 +111,7 @@ Grilled 2026-08-22:
 | # | Decision | Rationale | Rejected alternative |
 |---|----------|-----------|----------------------|
 | 1 | Slice-1 API = three reads only (`GET /accounts`, `GET /accounts/{id}/summary`, `GET /transactions`) | Smallest slice proving the pipeline end-to-end | PATCH + balance-refresh POST — additive later, no schema impact |
-| 2 | Mapping cursor = `raw_synced_through` on `user_accounts`, tracking max raw `updated_at` mapped; query `updated_at > cursor` | Raw upsert bumps `updated_at` on every re-touch, so the cursor catches settlement flips and late-arriving backfill windows | `monzo_created_at` cursor (misses flips); full remap per run (wasteful, grows forever) |
+| 2 | Mapping cursor = `raw_synced_through` on `bank_accounts`, tracking max raw `updated_at` mapped; query `updated_at > cursor` | Raw upsert bumps `updated_at` on every re-touch, so the cursor catches settlement flips and late-arriving backfill windows | `monzo_created_at` cursor (misses flips); full remap per run (wasteful, grows forever) |
 | 3 | `notes` seeded on insert only — ON CONFLICT update set never includes it | Cheapest honest implementation of L2; future PATCH owns it | Dual provider/user columns; edited-flag |
 | 4 | `AccountType` enum gains `OTHER` fallback; unknown raw types map to OTHER + WARN | Never lies to the UI, never blocks mapping | Default-to-CURRENT (mislabels); skip account (vanishes) |
 | 5 | Pagination = explicit `page`/`size` params + owned `PageResponse<T>` record inside `ApiResponse` | Stable JSON we own; totals for the UI; house pattern for all future lists | Spring `PagedModel` (inherits Spring's wire format); keyset (YAGNI at this volume) |
@@ -144,12 +144,17 @@ alter table monzo_transactions
 create index idx_monzo_txn_account_updated on monzo_transactions(account_id, updated_at);
 ```
 
-### V12 — `user_accounts`
+### V12 — `bank_accounts`
 
-`V12__create_user_accounts.sql`
+> Renamed from `user_accounts` during implementation (Alexander, 2026-08-31): too easily
+> mistaken for `users`. `bank_accounts` says what each row is — a bank account at an
+> institution, delivered by a provider. Java entity stays `Account` (a `BankAccount` entity
+> would collide with provider-api's `BankAccount` record in imports).
+
+`V12__create_bank_accounts.sql`
 
 ```sql
-create table user_accounts (
+create table bank_accounts (
     id                       uuid primary key,
     user_id                  uuid not null references users(id) on delete cascade,
     provider                 varchar(32)  not null,
@@ -166,11 +171,11 @@ create table user_accounts (
     raw_synced_through       timestamp with time zone,
     created_at               timestamp with time zone not null default now(),
     updated_at               timestamp with time zone not null default now(),
-    constraint uq_user_accounts_provider_account unique (provider, provider_account_id)
+    constraint uq_bank_accounts_provider_account unique (provider, provider_account_id)
 );
 
-create index idx_user_accounts_user        on user_accounts(user_id);
-create index idx_user_accounts_user_active on user_accounts(user_id) where archived_at is null;
+create index idx_bank_accounts_user        on bank_accounts(user_id);
+create index idx_bank_accounts_user_active on bank_accounts(user_id) where archived_at is null;
 ```
 
 Notes: id is app-generated (`GenerationType.UUID`, matching `User`). Balance columns nullable —
@@ -185,7 +190,7 @@ Deliberately **no FK to `monzo_connections`** (L-locked).
 create table transactions (
     id                      uuid primary key,
     user_id                 uuid not null references users(id)         on delete cascade,
-    account_id              uuid not null references user_accounts(id) on delete cascade,
+    account_id              uuid not null references bank_accounts(id) on delete cascade,
     provider                varchar(32)  not null,
     provider_transaction_id varchar(255) not null,
     amount_minor_units      bigint       not null,
@@ -273,7 +278,7 @@ their `name()` strings. Summary sums include PENDING transactions (they're real 
 
 `domain/transaction/TransactionStatus.java` — `enum TransactionStatus { PENDING, SETTLED }`.
 
-`domain/account/Account.java` — JPA entity for `user_accounts`, modelled on `MonzoAccount`
+`domain/account/Account.java` — JPA entity for `bank_accounts`, modelled on `MonzoAccount`
 (same timestamp handling), `@GeneratedValue(strategy = GenerationType.UUID)`, `@ManyToOne User`,
 `@Enumerated(EnumType.STRING)` for `provider`/`accountType`. Helper methods:
 
@@ -669,7 +674,7 @@ or profile differences.
 | Path (under `budgeteer-server/src/` unless noted) | Purpose |
 |---|---|
 | `main/resources/db/migration/V11__add_raw_payload_and_mapping_index.sql` | Raw capture columns + cursor index |
-| `main/resources/db/migration/V12__create_user_accounts.sql` | Domain accounts table |
+| `main/resources/db/migration/V12__create_bank_accounts.sql` | Domain accounts table |
 | `main/resources/db/migration/V13__create_transactions.sql` | Domain transactions table |
 | `main/java/.../domain/account/Account.java` | Domain account entity |
 | `main/java/.../domain/account/AccountType.java` | CURRENT/SAVINGS/CREDIT_CARD/OTHER |

@@ -36,8 +36,8 @@ public class GlobalExceptionHandler {
      */
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ApiError> handleApiException(ApiException ex, HttpServletRequest request) {
-        log.warn("API exception [code={}, uri={}, message={}]", 
-                ex.getErrorCode(), request.getRequestURI(), ex.getMessage());
+        log.warn("API exception [code={}, uri={}, message={}]",
+                ex.getErrorCode(), LogSanitizer.sanitize(request.getRequestURI()), LogSanitizer.sanitize(ex.getMessage()));
 
         ApiError error = ex.hasDetails()
                 ? ApiError.of(ex.getErrorCode(), ex.getMessage(), request.getRequestURI(), ex.getDetails())
@@ -63,7 +63,7 @@ public class GlobalExceptionHandler {
         }
 
         log.warn("Provider exception [code={}, uri={}, message={}]",
-                code, request.getRequestURI(), ex.getMessage());
+                code, LogSanitizer.sanitize(request.getRequestURI()), LogSanitizer.sanitize(ex.getMessage()));
 
         ApiError error = ApiError.of(code, ex.getMessage(), request.getRequestURI());
 

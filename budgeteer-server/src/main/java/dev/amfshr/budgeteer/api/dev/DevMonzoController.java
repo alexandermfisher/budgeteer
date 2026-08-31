@@ -8,6 +8,8 @@ import dev.amfshr.budgeteer.repository.MonzoAccountRepository;
 import dev.amfshr.budgeteer.repository.MonzoConnectionRepository;
 import dev.amfshr.budgeteer.repository.MonzoTransactionRepository;
 import dev.amfshr.budgeteer.security.CurrentUserId;
+import dev.amfshr.budgeteer.service.ingest.BalanceRefreshService;
+import dev.amfshr.budgeteer.service.ingest.IngestService;
 import dev.amfshr.budgeteer.service.monzo.TransactionSyncService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,15 +40,21 @@ public class DevMonzoController {
     private final MonzoConnectionRepository connectionRepository;
     private final MonzoAccountRepository accountRepository;
     private final MonzoTransactionRepository transactionRepository;
+    private final IngestService ingestService;
+    private final BalanceRefreshService balanceRefreshService;
 
     public DevMonzoController(TransactionSyncService transactionSyncService,
                               MonzoConnectionRepository connectionRepository,
                               MonzoAccountRepository accountRepository,
-                              MonzoTransactionRepository transactionRepository) {
+                              MonzoTransactionRepository transactionRepository,
+                              IngestService ingestService,
+                              BalanceRefreshService balanceRefreshService) {
         this.transactionSyncService = transactionSyncService;
         this.connectionRepository = connectionRepository;
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
+        this.ingestService = ingestService;
+        this.balanceRefreshService = balanceRefreshService;
     }
 
     /**
@@ -67,6 +75,22 @@ public class DevMonzoController {
                         "No active Monzo connection found for user " + userId));
 
         transactionSyncService.backfill(connection.getId());
+
+        return ResponseEntity.ok(ApiResponse.of(null));
+    }
+
+    /**
+     * Triggers a raw → domain ingest pass plus a balance refresh, without re-syncing from Monzo.
+     * Useful during development to re-map after schema or mapping changes.
+     *
+     * <p>POST /api/dev/monzo/ingest
+     */
+    @PostMapping("/ingest")
+    public ResponseEntity<ApiResponse<Void>> triggerIngest(@CurrentUserId UUID userId) {
+        log.warn("DEV: Triggering manual ingest + balance refresh for user {}", userId);
+
+        ingestService.ingestAll();
+        balanceRefreshService.refreshAll();
 
         return ResponseEntity.ok(ApiResponse.of(null));
     }

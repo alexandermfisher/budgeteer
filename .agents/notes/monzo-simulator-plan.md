@@ -621,7 +621,7 @@ Key differences from real Monzo API to keep in mind:
 | Account types | Multiple | Simplified to uk_retail |
 | Pagination | Cursor-based | Simplified offset/limit |
 
-See `docs/api/monzo-api.pdf` for full Monzo API reference.
+See `docs/api/monzo/monzo-api.pdf` for full Monzo API reference.
 
 ---
 
@@ -642,7 +642,7 @@ See `docs/api/monzo-api.pdf` for full Monzo API reference.
 
 ## 🔗 Related Documents
 
-- `docs/api/monzo-api.pdf` - Monzo API reference
+- `docs/api/monzo/monzo-api.pdf` - Monzo API reference
 - `docs/MONZO-AUTH-FLOW.md` - OAuth flow documentation
 - `docs/features/MONZO-TOKEN-PERSISTENCE.md` - Token storage design
 - `.cline/tasks.md` - Task board

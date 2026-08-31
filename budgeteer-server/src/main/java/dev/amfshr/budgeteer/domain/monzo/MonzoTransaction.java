@@ -62,6 +62,11 @@ public class MonzoTransaction {
     @Column(name = "monzo_settled_at")
     private Instant monzoSettledAt;
 
+    // Encrypted verbatim provider JSON (AES-256-GCM). Never log — plaintext carries bank identifiers.
+    @Nullable
+    @Column(name = "raw_payload_encrypted", columnDefinition = "TEXT")
+    private String rawPayloadEncrypted;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -138,6 +143,13 @@ public class MonzoTransaction {
 
     @Nullable
     public Instant getMonzoSettledAt() { return monzoSettledAt; }
+
+    @Nullable
+    public String getRawPayloadEncrypted() { return rawPayloadEncrypted; }
+
+    public void setRawPayloadEncrypted(@Nullable String rawPayloadEncrypted) {
+        this.rawPayloadEncrypted = rawPayloadEncrypted;
+    }
 
     public Instant getCreatedAt() { return createdAt; }
 

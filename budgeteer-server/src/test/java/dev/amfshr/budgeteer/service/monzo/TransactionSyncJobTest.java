@@ -2,9 +2,12 @@ package dev.amfshr.budgeteer.service.monzo;
 
 import dev.amfshr.budgeteer.domain.monzo.MonzoAccount;
 import dev.amfshr.budgeteer.repository.MonzoAccountRepository;
+import dev.amfshr.budgeteer.service.ingest.BalanceRefreshService;
+import dev.amfshr.budgeteer.service.ingest.IngestService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -19,6 +22,8 @@ class TransactionSyncJobTest {
 
     @Mock private TransactionSyncService syncService;
     @Mock private MonzoAccountRepository accountRepository;
+    @Mock private IngestService ingestService;
+    @Mock private BalanceRefreshService balanceRefreshService;
 
     @InjectMocks
     private TransactionSyncJob job;
@@ -61,7 +66,33 @@ class TransactionSyncJobTest {
 
         job.syncAllAccounts();
 
-        verifyNoInteractions(syncService);
+        verifyNoInteractions(syncService, ingestService, balanceRefreshService);
+    }
+
+    @Test
+    @DisplayName("chains ingest then balances after the sync loop")
+    void chainsIngestThenBalancesAfterSync() {
+        MonzoAccount account = mockAccount("acc_001");
+        when(accountRepository.findAllSyncable()).thenReturn(List.of(account));
+
+        job.syncAllAccounts();
+
+        InOrder inOrder = inOrder(syncService, ingestService, balanceRefreshService);
+        inOrder.verify(syncService).deltaSync("acc_001");
+        inOrder.verify(ingestService).ingestAll();
+        inOrder.verify(balanceRefreshService).refreshAll();
+    }
+
+    @Test
+    @DisplayName("ingest failure does not block the balance refresh")
+    void ingestFailureDoesNotBlockBalances() {
+        MonzoAccount account = mockAccount("acc_001");
+        when(accountRepository.findAllSyncable()).thenReturn(List.of(account));
+        doThrow(new RuntimeException("ingest failed")).when(ingestService).ingestAll();
+
+        job.syncAllAccounts();
+
+        verify(balanceRefreshService).refreshAll();
     }
 
     private MonzoAccount mockAccount(String id) {

@@ -16,6 +16,9 @@ import dev.amfshr.budgeteer.exception.ApiException;
 import dev.amfshr.budgeteer.repository.MonzoAccountRepository;
 import dev.amfshr.budgeteer.repository.MonzoConnectionRepository;
 import dev.amfshr.budgeteer.repository.MonzoTransactionRepository;
+import dev.amfshr.budgeteer.service.common.EncryptionService;
+import dev.amfshr.budgeteer.service.ingest.BalanceRefreshService;
+import dev.amfshr.budgeteer.service.ingest.IngestService;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -50,6 +53,9 @@ class TransactionSyncServiceTest {
     @Mock private MonzoConnectionRepository connectionRepository;
     @Mock private MonzoAccountRepository accountRepository;
     @Mock private MonzoTransactionRepository transactionRepository;
+    @Mock private EncryptionService encryptionService;
+    @Mock private IngestService ingestService;
+    @Mock private BalanceRefreshService balanceRefreshService;
     @Mock private PlatformTransactionManager txManager;
 
     @InjectMocks
@@ -115,7 +121,7 @@ class TransactionSyncServiceTest {
                     .getTransactions(eq(ACCESS_TOKEN), eq("acc_open"), any(SyncPosition.FromTime.class), any(Instant.class));
             verify(transactionsCapability, never())
                     .getTransactions(any(), eq("acc_closed"), any(SyncPosition.class), any(Instant.class));
-            verify(transactionRepository, times(1)).upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+            verify(transactionRepository, times(1)).upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any(), any());
         }
 
         @Test
@@ -155,7 +161,7 @@ class TransactionSyncServiceTest {
 
             // All 105 transactions upserted, cursor follow-up happened exactly once.
             verify(transactionRepository, times(105))
-                    .upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+                    .upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any(), any());
             verify(transactionsCapability, times(1))
                     .getTransactions(eq(ACCESS_TOKEN), eq("acc_001"), eq(new SyncPosition.NextPage("tx_page1_099")), any(Instant.class));
         }
@@ -182,7 +188,7 @@ class TransactionSyncServiceTest {
 
             verify(transactionsCapability).getTransactions(eq(ACCESS_TOKEN), eq("acc_001"),
                     eq(new SyncPosition.AfterTransaction("tx_last_synced")), any(Instant.class));
-            verify(transactionRepository, times(1)).upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+            verify(transactionRepository, times(1)).upsert(any(), any(), any(), anyInt(), any(), any(), any(), any(), any(), anyBoolean(), any(), any(), any());
         }
 
         @Test
@@ -201,6 +207,82 @@ class TransactionSyncServiceTest {
 
             verify(transactionsCapability).getTransactions(eq(ACCESS_TOKEN), eq("acc_001"),
                     any(SyncPosition.FromTime.class), any(Instant.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("backfill — post-run chaining")
+    class BackfillChaining {
+
+        @Test
+        @DisplayName("runs ingest then balance refresh after the backfill finishes")
+        void backfillChainsIngestAndBalances() {
+            when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+            when(connectionService.getDecryptedAccessToken(connectionId, userId)).thenReturn(ACCESS_TOKEN);
+            when(accountsCapability.getAccounts(ACCESS_TOKEN)).thenReturn(List.of());
+
+            service.backfill(connectionId);
+
+            var inOrder = inOrder(ingestService, balanceRefreshService);
+            inOrder.verify(ingestService).ingestAll();
+            inOrder.verify(balanceRefreshService).refreshAll();
+        }
+
+        @Test
+        @DisplayName("ingest failure after backfill does not block the balance refresh")
+        void ingestFailureDoesNotBlockBalances() {
+            when(connectionRepository.findById(connectionId)).thenReturn(Optional.of(connection));
+            when(connectionService.getDecryptedAccessToken(connectionId, userId)).thenReturn(ACCESS_TOKEN);
+            when(accountsCapability.getAccounts(ACCESS_TOKEN)).thenReturn(List.of());
+            doThrow(new RuntimeException("ingest failed")).when(ingestService).ingestAll();
+
+            service.backfill(connectionId);
+
+            verify(balanceRefreshService).refreshAll();
+        }
+    }
+
+    @Nested
+    @DisplayName("raw capture")
+    class RawCapture {
+
+        @Test
+        @DisplayName("persists the encrypted raw payload on transaction upsert")
+        void persistsEncryptedRawPayload() {
+            MonzoAccount account = mockAccount("acc_001");
+            when(account.getLastTransactionId()).thenReturn("tx_last");
+            when(accountRepository.findById("acc_001")).thenReturn(Optional.of(account));
+            when(connectionService.getDecryptedAccessToken(any(), any())).thenReturn(ACCESS_TOKEN);
+
+            String rawJson = "{\"id\":\"tx_new\",\"account_number\":\"12345678\"}";
+            Sourced<BankTransaction> tx = makeTx("tx_new", rawJson);
+            when(transactionsCapability.getTransactions(any(), any(), any(SyncPosition.class), any(Instant.class)))
+                    .thenReturn(new BankTransactionPage(List.of(tx), null));
+            when(encryptionService.encrypt(rawJson)).thenReturn("ciphertext");
+
+            service.deltaSync("acc_001");
+
+            verify(encryptionService).encrypt(rawJson);
+            verify(transactionRepository).upsert(eq("tx_new"), any(), any(), anyInt(), any(), any(),
+                    any(), any(), any(), anyBoolean(), any(), any(), eq("ciphertext"));
+        }
+
+        @Test
+        @DisplayName("null rawJson stores NULL and never calls encrypt")
+        void nullRawJson_storesNull_noEncryptCall() {
+            MonzoAccount account = mockAccount("acc_001");
+            when(account.getLastTransactionId()).thenReturn("tx_last");
+            when(accountRepository.findById("acc_001")).thenReturn(Optional.of(account));
+            when(connectionService.getDecryptedAccessToken(any(), any())).thenReturn(ACCESS_TOKEN);
+
+            when(transactionsCapability.getTransactions(any(), any(), any(SyncPosition.class), any(Instant.class)))
+                    .thenReturn(new BankTransactionPage(List.of(makeTx("tx_new")), null));
+
+            service.deltaSync("acc_001");
+
+            verify(encryptionService, never()).encrypt(any());
+            verify(transactionRepository).upsert(eq("tx_new"), any(), any(), anyInt(), any(), any(),
+                    any(), any(), any(), anyBoolean(), any(), any(), isNull());
         }
     }
 
@@ -336,11 +418,15 @@ class TransactionSyncServiceTest {
     }
 
     private Sourced<BankTransaction> makeTx(String id) {
+        return makeTx(id, null);
+    }
+
+    private Sourced<BankTransaction> makeTx(String id, @org.jspecify.annotations.Nullable String rawJson) {
         return new Sourced<>(new BankTransaction(
                 id, -500, "GBP", "Test", null, null, null, false,
                 Instant.parse("2024-01-01T10:00:00Z"),
                 Instant.parse("2024-01-02T00:00:00Z")
-        ), null);
+        ), rawJson);
     }
 
     private List<Sourced<BankTransaction>> makeNTransactions(int n, String prefix) {

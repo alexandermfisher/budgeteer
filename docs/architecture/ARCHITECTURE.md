@@ -630,7 +630,7 @@ docker-compose logs -f spring
 
 ## References
 
-- [Monzo API Docs](../api/monzo-api.pdf)
+- [Monzo API Docs](../api/monzo/monzo-api.pdf)
 - [Spring Boot Reference](https://docs.spring.io/spring-boot/reference/)
 - [Cloudflare Tunnel Docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/)
 - [PostgreSQL Best Practices](https://www.postgresql.org/docs/current/performance-tips.html)

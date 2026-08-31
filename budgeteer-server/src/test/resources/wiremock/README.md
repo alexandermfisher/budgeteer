@@ -109,7 +109,7 @@ Lower priority number = higher precedence. Use priorities to layer stubs:
 
 ## Monzo API Reference
 
-See `docs/api/monzo-api.pdf` for the full Monzo API documentation.
+See `docs/api/monzo/monzo-api.pdf` for the full Monzo API documentation.
 
 ### Common Endpoints
 
