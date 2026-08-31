@@ -19,6 +19,8 @@ import dev.amfshr.budgeteer.repository.MonzoAccountRepository;
 import dev.amfshr.budgeteer.repository.MonzoConnectionRepository;
 import dev.amfshr.budgeteer.repository.MonzoTransactionRepository;
 import dev.amfshr.budgeteer.service.common.EncryptionService;
+import dev.amfshr.budgeteer.service.ingest.BalanceRefreshService;
+import dev.amfshr.budgeteer.service.ingest.IngestService;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +52,8 @@ public class TransactionSyncService {
     private final MonzoAccountRepository accountRepository;
     private final MonzoTransactionRepository transactionRepository;
     private final EncryptionService encryptionService;
+    private final IngestService ingestService;
+    private final BalanceRefreshService balanceRefreshService;
     private final TransactionTemplate txTemplate;
 
     public TransactionSyncService(
@@ -60,6 +64,8 @@ public class TransactionSyncService {
             MonzoAccountRepository accountRepository,
             MonzoTransactionRepository transactionRepository,
             EncryptionService encryptionService,
+            IngestService ingestService,
+            BalanceRefreshService balanceRefreshService,
             PlatformTransactionManager txManager
     ) {
         this.accountsCapability = accountsCapability;
@@ -69,6 +75,8 @@ public class TransactionSyncService {
         this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.encryptionService = encryptionService;
+        this.ingestService = ingestService;
+        this.balanceRefreshService = balanceRefreshService;
         this.txTemplate = new TransactionTemplate(txManager);
     }
 
@@ -149,6 +157,21 @@ public class TransactionSyncService {
         }
 
         log.info("Backfill finished [connectionId={}, accounts={}]", connectionId, accountResponses.size());
+
+        // One-shot ingest + balance stamp so first-connect data surfaces without waiting for the
+        // hourly job (decision 7). Hooked here — not in backfillAsync — so every backfill entry
+        // point (OAuth event listener, manual endpoint, dev trigger) gets it, including the
+        // NEEDS_REAUTH pause path where partial data should still surface.
+        try {
+            ingestService.ingestAll();
+        } catch (Exception e) {
+            log.error("Ingest failed after backfill [connectionId={}]", connectionId, e);
+        }
+        try {
+            balanceRefreshService.refreshAll();
+        } catch (Exception e) {
+            log.error("Balance refresh failed after backfill [connectionId={}]", connectionId, e);
+        }
     }
 
     @Transactional

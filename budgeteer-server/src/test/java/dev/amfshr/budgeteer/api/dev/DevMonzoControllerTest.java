@@ -15,6 +15,8 @@ import dev.amfshr.budgeteer.security.JweAuthenticationFilter.JweAuthentication;
 import dev.amfshr.budgeteer.service.auth.AuthService;
 import dev.amfshr.budgeteer.service.auth.JweTokenService;
 import dev.amfshr.budgeteer.service.common.CookieService;
+import dev.amfshr.budgeteer.service.ingest.BalanceRefreshService;
+import dev.amfshr.budgeteer.service.ingest.IngestService;
 import dev.amfshr.budgeteer.service.monzo.TransactionSyncService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -59,6 +61,12 @@ class DevMonzoControllerTest {
 
     @MockitoBean
     private MonzoTransactionRepository transactionRepository;
+
+    @MockitoBean
+    private IngestService ingestService;
+
+    @MockitoBean
+    private BalanceRefreshService balanceRefreshService;
 
     // Required by SecurityConfig → JweAuthenticationFilter and CurrentUserArgumentResolver
     @MockitoBean

@@ -24,6 +24,12 @@ public interface MonzoTransactionRepository extends JpaRepository<MonzoTransacti
     @Query("SELECT COUNT(t) FROM MonzoTransaction t WHERE t.account.id = :accountId")
     long countByAccountId(@Param("accountId") String accountId);
 
+    /** Ingest cursor query: raw rows re-touched since the last mapping run (insert OR re-upsert). */
+    @Query("SELECT t FROM MonzoTransaction t WHERE t.account.id = :accountId AND t.updatedAt > :after "
+            + "ORDER BY t.updatedAt ASC")
+    List<MonzoTransaction> findByAccountIdUpdatedAfter(@Param("accountId") String accountId,
+            @Param("after") Instant after);
+
     @Modifying
     @Query("DELETE FROM MonzoTransaction t WHERE t.account.id = :accountId")
     void deleteByAccountId(@Param("accountId") String accountId);

@@ -1,0 +1,24 @@
+{
+  "name": "Monzo Balance - Success",
+  "request": {
+    "method": "GET",
+    "urlPath": "/balance",
+    "queryParameters": {
+      "account_id": {
+        "matches": ".+"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "balance": 12345,
+      "total_balance": 12345,
+      "currency": "GBP",
+      "spend_today": 0
+    }
+  }
+}
