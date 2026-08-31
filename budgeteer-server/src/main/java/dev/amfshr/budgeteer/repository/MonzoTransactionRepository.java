@@ -37,17 +37,18 @@ public interface MonzoTransactionRepository extends JpaRepository<MonzoTransacti
             INSERT INTO monzo_transactions
                 (id, account_id, user_id, amount, currency, description,
                  merchant_name, merchant_category, notes, is_declined,
-                 monzo_created_at, monzo_settled_at, created_at, updated_at)
+                 monzo_created_at, monzo_settled_at, raw_payload_encrypted, created_at, updated_at)
             VALUES
                 (:id, :accountId, :userId, :amount, :currency, :description,
                  :merchantName, :merchantCategory, :notes, :isDeclined,
-                 :monzoCreatedAt, :monzoSettledAt, now(), now())
+                 :monzoCreatedAt, :monzoSettledAt, :rawPayloadEncrypted, now(), now())
             ON CONFLICT (id) DO UPDATE SET
-                amount             = EXCLUDED.amount,
-                monzo_settled_at   = EXCLUDED.monzo_settled_at,
-                notes              = EXCLUDED.notes,
-                is_declined        = EXCLUDED.is_declined,
-                updated_at         = now()
+                amount                = EXCLUDED.amount,
+                monzo_settled_at      = EXCLUDED.monzo_settled_at,
+                notes                 = EXCLUDED.notes,
+                is_declined           = EXCLUDED.is_declined,
+                raw_payload_encrypted = EXCLUDED.raw_payload_encrypted,
+                updated_at            = now()
             """)
     void upsert(
             @Param("id") String id,
@@ -61,6 +62,7 @@ public interface MonzoTransactionRepository extends JpaRepository<MonzoTransacti
             @Nullable @Param("notes") String notes,
             @Param("isDeclined") boolean isDeclined,
             @Param("monzoCreatedAt") Instant monzoCreatedAt,
-            @Nullable @Param("monzoSettledAt") Instant monzoSettledAt
+            @Nullable @Param("monzoSettledAt") Instant monzoSettledAt,
+            @Nullable @Param("rawPayloadEncrypted") String rawPayloadEncrypted
     );
 }

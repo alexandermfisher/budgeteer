@@ -71,6 +71,11 @@ public class MonzoAccount {
     @Column(name = "backfill_progress_cursor", length = 255)
     private String backfillProgressCursor;
 
+    // Encrypted verbatim provider JSON (AES-256-GCM). Never log — plaintext carries bank identifiers.
+    @Nullable
+    @Column(name = "raw_payload_encrypted", columnDefinition = "TEXT")
+    private String rawPayloadEncrypted;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -136,6 +141,13 @@ public class MonzoAccount {
 
     @Nullable
     public String getLastTransactionId() { return lastTransactionId; }
+
+    @Nullable
+    public String getRawPayloadEncrypted() { return rawPayloadEncrypted; }
+
+    public void setRawPayloadEncrypted(@Nullable String rawPayloadEncrypted) {
+        this.rawPayloadEncrypted = rawPayloadEncrypted;
+    }
 
     public boolean isClosed() { return closed; }
 
